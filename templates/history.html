@@ -1,5 +1,5 @@
 <!-- templates/history.html -->
-<!-- 版本: 1.0.4 - 添加统计区域和统计范围筛选 -->
+<!-- 版本: 1.0.9 - 修正 Jinja2 模板中 C 风格注释导致的语法错误 -->
 {% extends "base.html" %}
 
 {% from "components/lottery_balls.html" import display_balls %}
@@ -50,7 +50,7 @@
             <input type="hidden" name="lottery_type" value="{{ lottery_type }}">
         </form>
         <hr>
-        <h5>统计数据概览 <small class="text-muted">(基于当前筛选条件和最近 {{ total_stats_draws }} 期数据)</small></h5>
+        <h5>统计数据概览 <small class="text-muted">(基于当前筛选条件和最近 {{ aggregated_stats.total_draws }} 期数据)</small></h5>
         <div class="row">
             <div class="col-md-6">
                 <h6>红球统计</h6>
@@ -73,7 +73,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for stat in red_stats %}
+                                {% for stat in aggregated_stats.red_stats %}
                                 <tr {% if stat.current_omission > 0 and stat.current_omission >= (red_ball_range / 2) %}class="table-danger"{% elif stat.frequency_percentage > (100 / red_ball_range * 1.5) %}class="table-success"{% endif %}>
                                     <td>{{ stat.ball }}</td>
                                     <td>{{ stat.frequency_count }}</td>
@@ -86,6 +86,138 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- 新增红球统计维度 -->
+                {% with
+                    title='红球大小比分布',
+                    chart_id='redSizeRatioChart',
+                    table_id='redSizeRatioDetails',
+                    stats_data=aggregated_stats.red_size_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(255, 193, 7, 0.7)',
+                    table_headers=['大小比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球质合比分布',
+                    chart_id='redPrimeCompositeRatioChart',
+                    table_id='redPrimeCompositeRatioDetails',
+                    stats_data=aggregated_stats.red_prime_composite_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(23, 162, 184, 0.7)',
+                    table_headers=['质合比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球012路比分布',
+                    chart_id='red012WayRatioChart',
+                    table_id='red012WayRatioDetails',
+                    stats_data=aggregated_stats.red_012_way_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(108, 117, 125, 0.7)',
+                    table_headers=['012路比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球连号组数分布',
+                    chart_id='redConsecutiveGroupsChart',
+                    table_id='redConsecutiveGroupsDetails',
+                    stats_data=aggregated_stats.red_consecutive_groups_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(40, 167, 69, 0.7)',
+                    table_headers=['连号组数', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球最长连号长度分布',
+                    chart_id='redMaxConsecutiveLengthChart',
+                    table_id='redMaxConsecutiveLengthDetails',
+                    stats_data=aggregated_stats.red_max_consecutive_length_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(255, 193, 7, 0.7)',
+                    table_headers=['最长连号', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球重号数量分布',
+                    chart_id='redRepeatedCountsChart',
+                    table_id='redRepeatedCountsDetails',
+                    stats_data=aggregated_stats.red_repeated_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(220, 53, 69, 0.7)',
+                    table_headers=['重号数量', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球跨度分布',
+                    chart_id='redSpanCountsChart',
+                    table_id='redSpanCountsDetails',
+                    stats_data=aggregated_stats.red_span_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(13, 110, 253, 0.7)',
+                    table_headers=['跨度', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球龙头分布',
+                    chart_id='redHeadCountsChart',
+                    table_id='redHeadCountsDetails',
+                    stats_data=aggregated_stats.red_head_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(23, 162, 184, 0.7)',
+                    table_headers=['龙头号码', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球凤尾分布',
+                    chart_id='redTailCountsChart',
+                    table_id='redTailCountsDetails',
+                    stats_data=aggregated_stats.red_tail_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(40, 167, 69, 0.7)',
+                    table_headers=['凤尾号码', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='红球AC值分布',
+                    chart_id='redAcValueCountsChart',
+                    table_id='redAcValueCountsDetails',
+                    stats_data=aggregated_stats.red_ac_value_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(108, 117, 125, 0.7)',
+                    table_headers=['AC值', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
             </div>
             <div class="col-md-6">
                 <h6>蓝球统计</h6>
@@ -108,7 +240,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for stat in blue_stats %}
+                                {% for stat in aggregated_stats.blue_stats %}
                                 <tr {% if stat.current_omission > 0 and stat.current_omission >= (blue_ball_range / 2) %}class="table-danger"{% elif stat.frequency_percentage > (100 / blue_ball_range * 1.5) %}class="table-success"{% endif %}>
                                     <td>{{ stat.ball }}</td>
                                     <td>{{ stat.frequency_count }}</td>
@@ -121,6 +253,86 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- 新增蓝球统计维度 -->
+                {% with
+                    title='蓝球大小比分布',
+                    chart_id='blueSizeRatioChart',
+                    table_id='blueSizeRatioDetails',
+                    stats_data=aggregated_stats.blue_size_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(255, 193, 7, 0.7)',
+                    table_headers=['大小比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='蓝球质合比分布',
+                    chart_id='bluePrimeCompositeRatioChart',
+                    table_id='bluePrimeCompositeRatioDetails',
+                    stats_data=aggregated_stats.blue_prime_composite_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(23, 162, 184, 0.7)',
+                    table_headers=['质合比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='蓝球012路比分布',
+                    chart_id='blue012WayRatioChart',
+                    table_id='blue012WayRatioDetails',
+                    stats_data=aggregated_stats.blue_012_way_ratio_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(108, 117, 125, 0.7)',
+                    table_headers=['012路比', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='蓝球重号数量分布',
+                    chart_id='blueRepeatedCountsChart',
+                    table_id='blueRepeatedCountsDetails',
+                    stats_data=aggregated_stats.blue_repeated_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(220, 53, 69, 0.7)',
+                    table_headers=['重号数量', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='蓝球龙头分布',
+                    chart_id='blueHeadCountsChart',
+                    table_id='blueHeadCountsDetails',
+                    stats_data=aggregated_stats.blue_head_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(23, 162, 184, 0.7)',
+                    table_headers=['龙头号码', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
+                {% with
+                    title='蓝球凤尾分布',
+                    chart_id='blueTailCountsChart',
+                    table_id='blueTailCountsDetails',
+                    stats_data=aggregated_stats.blue_tail_counts,
+                    total_draws=aggregated_stats.total_draws,
+                    chart_type='bar',
+                    chart_color='rgba(40, 167, 69, 0.7)',
+                    table_headers=['凤尾号码', '出现次数', '频率 (%)']
+                %}
+                    {% include 'components/stats_chart_and_table.html' %}
+                {% endwith %}
+
             </div>
         </div>
     </div>
@@ -255,188 +467,121 @@
         });
 
         // --- 统计图表渲染逻辑 ---
-        const redStats = {{ red_stats | tojson }};
-        const blueStats = {{ blue_stats | tojson }};
+        const aggregatedStats = {{ aggregated_stats | tojson }};
         const redBallRange = {{ red_ball_range }};
         const blueBallRange = {{ blue_ball_range }};
+        const totalDraws = aggregatedStats.total_draws;
+
+        // 辅助函数：渲染柱状图
+        function renderBarChart(chartId, title, labels, data, backgroundColor, borderColor) {
+            const ctx = document.getElementById(chartId);
+            if (!ctx) return; // 防止元素不存在报错
+
+            // 如果 Chart 实例已存在，先销毁
+            if (ctx.chart) {
+                ctx.chart.destroy();
+            }
+
+            ctx.chart = new Chart(ctx, { // 将 Chart 实例存储在 canvas 元素上
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: title,
+                        data: data,
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: title
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '类别'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '出现次数'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
 
         // 红球图表数据准备
         const redLabels = Array.from({length: redBallRange}, (_, i) => i + 1);
-        const redFrequencyData = redStats.map(s => s.frequency_count);
-        const redOmissionData = redStats.map(s => s.current_omission);
+        const redFrequencyData = aggregatedStats.red_stats.map(s => s.frequency_count);
+        const redOmissionData = aggregatedStats.red_stats.map(s => s.current_omission);
+
+        // 渲染红球出现频率图
+        renderBarChart('redBallFrequencyChart', '红球出现频率', redLabels, redFrequencyData, 'rgba(220, 53, 69, 0.7)', 'rgba(220, 53, 69, 1)');
+        // 渲染红球遗漏期数图
+        renderBarChart('redBallOmissionChart', '红球当前遗漏期数', redLabels, redOmissionData, 'rgba(13, 110, 253, 0.7)', 'rgba(13, 110, 253, 1)');
 
         // 蓝球图表数据准备
         const blueLabels = Array.from({length: blueBallRange}, (_, i) => i + 1);
-        const blueFrequencyData = blueStats.map(s => s.frequency_count);
-        const blueOmissionData = blueStats.map(s => s.current_omission);
-
-        // 渲染红球出现频率图
-        new Chart(document.getElementById('redBallFrequencyChart'), {
-            type: 'bar',
-            data: {
-                labels: redLabels,
-                datasets: [{
-                    label: '红球出现次数',
-                    data: redFrequencyData,
-                    backgroundColor: 'rgba(220, 53, 69, 0.7)', // Bootstrap danger color
-                    borderColor: 'rgba(220, 53, 69, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '红球出现频率'
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '红球号码'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '出现次数'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // 渲染红球遗漏期数图
-        new Chart(document.getElementById('redBallOmissionChart'), {
-            type: 'bar',
-            data: {
-                labels: redLabels,
-                datasets: [{
-                    label: '红球当前遗漏期数',
-                    data: redOmissionData,
-                    backgroundColor: 'rgba(13, 110, 253, 0.7)', // Bootstrap primary color
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '红球当前遗漏期数'
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '红球号码'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '遗漏期数'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
+        const blueFrequencyData = aggregatedStats.blue_stats.map(s => s.frequency_count);
+        const blueOmissionData = aggregatedStats.blue_stats.map(s => s.current_omission);
 
         // 渲染蓝球出现频率图
-        new Chart(document.getElementById('blueBallFrequencyChart'), {
-            type: 'bar',
-            data: {
-                labels: blueLabels,
-                datasets: [{
-                    label: '蓝球出现次数',
-                    data: blueFrequencyData,
-                    backgroundColor: 'rgba(0, 123, 255, 0.7)', // Blue
-                    borderColor: 'rgba(0, 123, 255, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '蓝球出现频率'
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '蓝球号码'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '出现次数'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
+        renderBarChart('blueBallFrequencyChart', '蓝球出现频率', blueLabels, blueFrequencyData, 'rgba(0, 123, 255, 0.7)', 'rgba(0, 123, 255, 1)');
         // 渲染蓝球遗漏期数图
-        new Chart(document.getElementById('blueBallOmissionChart'), {
-            type: 'bar',
-            data: {
-                labels: blueLabels,
-                datasets: [{
-                    label: '蓝球当前遗漏期数',
-                    data: blueOmissionData,
-                    backgroundColor: 'rgba(108, 117, 125, 0.7)', // Grey
-                    borderColor: 'rgba(108, 117, 125, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '蓝球当前遗漏期数'
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: '蓝球号码'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: '遗漏期数'
-                        },
-                        beginAtZero: true
-                    }
+        renderBarChart('blueBallOmissionChart', '蓝球当前遗漏期数', blueLabels, blueOmissionData, 'rgba(108, 117, 125, 0.7)', 'rgba(108, 117, 125, 1)');
+
+        // --- 动态渲染其他统计图表 ---
+        // 辅助函数：处理并渲染聚合统计数据
+        function renderAggregatedStats(chartId, title, statsData, totalDraws, chartColor) {
+            if (!document.getElementById(chartId) || Object.keys(statsData).length === 0) return;
+
+            const labels = Object.keys(statsData).sort((a, b) => {
+                // 尝试将标签转换为数字进行排序，如果不是数字则按字符串排序
+                const numA = parseFloat(a);
+                const numB = parseFloat(b);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return numA - numB;
                 }
-            }
-        });
+                return a.localeCompare(b);
+            });
+            const data = labels.map(label => statsData[label]);
+
+            renderBarChart(chartId, title, labels, data, chartColor, chartColor.replace('0.7', '1'));
+        }
+
+        // 红球其他统计
+        renderAggregatedStats('redSizeRatioChart', '红球大小比分布', aggregatedStats.red_size_ratio_counts, totalDraws, 'rgba(255, 193, 7, 0.7)');
+        renderAggregatedStats('redPrimeCompositeRatioChart', '红球质合比分布', aggregatedStats.red_prime_composite_ratio_counts, totalDraws, 'rgba(23, 162, 184, 0.7)');
+        renderAggregatedStats('red012WayRatioChart', '红球012路比分布', aggregatedStats.red_012_way_ratio_counts, totalDraws, 'rgba(108, 117, 125, 0.7)');
+        renderAggregatedStats('redConsecutiveGroupsChart', '红球连号组数分布', aggregatedStats.red_consecutive_groups_counts, totalDraws, 'rgba(40, 167, 69, 0.7)');
+        renderAggregatedStats('redMaxConsecutiveLengthChart', '红球最长连号长度分布', aggregatedStats.red_max_consecutive_length_counts, totalDraws, 'rgba(255, 193, 7, 0.7)');
+        renderAggregatedStats('redRepeatedCountsChart', '红球重号数量分布', aggregatedStats.red_repeated_counts, totalDraws, 'rgba(220, 53, 69, 0.7)');
+        renderAggregatedStats('redSpanCountsChart', '红球跨度分布', aggregatedStats.red_span_counts, totalDraws, 'rgba(13, 110, 253, 0.7)');
+        renderAggregatedStats('redHeadCountsChart', '红球龙头分布', aggregatedStats.red_head_counts, totalDraws, 'rgba(23, 162, 184, 0.7)');
+        renderAggregatedStats('redTailCountsChart', '红球凤尾分布', aggregatedStats.red_tail_counts, totalDraws, 'rgba(40, 167, 69, 0.7)');
+        renderAggregatedStats('redAcValueCountsChart', '红球AC值分布', aggregatedStats.red_ac_value_counts, totalDraws, 'rgba(108, 117, 125, 0.7)');
+
+        // 蓝球其他统计
+        renderAggregatedStats('blueSizeRatioChart', '蓝球大小比分布', aggregatedStats.blue_size_ratio_counts, totalDraws, 'rgba(255, 193, 7, 0.7)');
+        renderAggregatedStats('bluePrimeCompositeRatioChart', '蓝球质合比分布', aggregatedStats.blue_prime_composite_ratio_counts, totalDraws, 'rgba(23, 162, 184, 0.7)');
+        renderAggregatedStats('blue012WayRatioChart', '蓝球012路比分布', aggregatedStats.blue_012_way_ratio_counts, totalDraws, 'rgba(108, 117, 125, 0.7)');
+        renderAggregatedStats('blueRepeatedCountsChart', '蓝球重号数量分布', aggregatedStats.blue_repeated_counts, totalDraws, 'rgba(220, 53, 69, 0.7)');
+        renderAggregatedStats('blueHeadCountsChart', '蓝球龙头分布', aggregatedStats.blue_head_counts, totalDraws, 'rgba(23, 162, 184, 0.7)');
+        renderAggregatedStats('blueTailCountsChart', '蓝球凤尾分布', aggregatedStats.blue_tail_counts, totalDraws, 'rgba(40, 167, 69, 0.7)');
     });
 </script>
 {% endblock %}

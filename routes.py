@@ -2,9 +2,12 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News
-from data_manager import get_latest_draws # 确保导入
+from data_manager import get_latest_draws
 from config import CURRENT_SETTINGS
-from utils import format_lottery_numbers, calculate_odd_even_sum, calculate_frequency_and_omissions # 导入新的统计函数
+from utils import (
+    format_lottery_numbers, calculate_odd_even_sum, 
+    get_aggregated_stats, calculate_frequency_and_omissions_for_balls # 导入新的统计函数
+)
 from prediction_engine import check_lottery_rules
 
 bp = Blueprint('routes', __name__)
@@ -78,8 +81,8 @@ def history():
     else: # stats_range == 0, 表示所有历史数据
         all_draws_for_stats = stats_query.order_by(model_class.issue.desc()).all()
 
-    red_stats_list, total_stats_draws = calculate_frequency_and_omissions(all_draws_for_stats, red_ball_range, 'red')
-    blue_stats_list, _ = calculate_frequency_and_omissions(all_draws_for_stats, blue_ball_range, 'blue')
+    # 调用新的聚合统计函数
+    aggregated_stats = get_aggregated_stats(all_draws_for_stats, lottery_type, CURRENT_SETTINGS)
 
     return render_template('history.html',
                            draws_pagination=draws_pagination,
@@ -87,13 +90,12 @@ def history():
                            per_page=per_page,
                            start_date=start_date_str,
                            end_date=end_date_str,
-                           stats_range=stats_range, # 传递回模板以保留表单值
-                           stats_range_options=CURRENT_SETTINGS['history_stats_range_options'], # 传递选项
-                           red_stats=red_stats_list,
-                           blue_stats=blue_stats_list,
-                           total_stats_draws=total_stats_draws,
-                           red_ball_range=red_ball_range, # 传递球的范围给模板
-                           blue_ball_range=blue_ball_range
+                           stats_range=stats_range,
+                           stats_range_options=CURRENT_SETTINGS['history_stats_range_options'],
+                           red_ball_range=red_ball_range,
+                           blue_ball_range=blue_ball_range,
+                           # 传递聚合后的统计数据
+                           aggregated_stats=aggregated_stats
                            )
 
 @bp.route('/prediction')
@@ -120,7 +122,6 @@ def news_detail(news_id):
 
     return render_template('news_detail.html', news_item=news_item, prev_news=prev_news, next_news=next_news)
 
-# --- 新增 API 路由用于规则检查 ---
 @bp.route('/api/check_rules', methods=['GET'])
 def api_check_rules():
     lottery_type = request.args.get('lottery_type')

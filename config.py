@@ -84,6 +84,16 @@ DEFAULT_SETTINGS = {
     'history_stats_range_default': 100, # 默认统计最近100期
     'history_stats_range_options': [50, 100, 200, 500, 1000, 0], # 0 表示所有历史数据
 
+    # 历史数据统计范围设置
+    'history_stats_range_default': 100, # 默认统计最近100期
+    'history_stats_range_options': [50, 100, 200, 500, 1000, 0], # 0 表示所有历史数据
+
+    # 大小比划分界限
+    'ssq_red_size_midpoint': 17, # 双色球红球 1-16 小，17-33 大
+    'ssq_blue_size_midpoint': 9, # 双色球蓝球 1-8 小，9-16 大
+    'dlt_front_size_midpoint': 18, # 大乐透前区 1-17 小，18-35 大
+    'dlt_back_size_midpoint': 7, # 大乐透后区 1-6 小，7-12 大
+
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
