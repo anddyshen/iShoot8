@@ -1,0 +1,65 @@
+/* static/css/style.css */
+/* 版本: 1.0.0 */
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+/* 彩票号码球样式 */
+.lottery-ball {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 30px; /* 默认大小 */
+    height: 30px;
+    border-radius: 50%;
+    font-size: 0.85em; /* 比普通字体小 */
+    font-weight: bold;
+    color: white;
+    margin: 2px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    flex-shrink: 0; /* 防止在小屏幕上缩小 */
+}
+
+.ball-red {
+    background-color: #dc3545; /* Bootstrap danger red */
+}
+
+.ball-blue {
+    background-color: #0d6efd; /* Bootstrap primary blue */
+}
+
+/* 连续号码的特殊颜色 */
+.ball-consecutive {
+    background-color: #ffc107; /* Bootstrap warning yellow */
+    color: #343a40; /* 深色字体 */
+    border: 1px solid #e0a800;
+}
+
+/* 适配手机浏览器页面 */
+@media (max-width: 768px) {
+    .lottery-ball {
+        width: 25px;
+        height: 25px;
+        font-size: 0.75em;
+    }
+    .navbar-brand {
+        font-size: 1.2em;
+    }
+    .navbar-text {
+        font-size: 0.75em;
+    }
+}
+
+/* 首页新闻图片 */
+.news-card-img {
+    width: 100%;
+    height: 180px; /* 固定高度 */
+    object-fit: cover; /* 裁剪图片以适应 */
+}

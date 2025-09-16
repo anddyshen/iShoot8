@@ -1,0 +1,7 @@
+Flask==2.3.3
+SQLAlchemy==1.4.46  # 降级到1.4.x的最新稳定版
+Flask-SQLAlchemy==2.5.1 # 降级到2.x的最新稳定版，与SQLAlchemy 1.4.x兼容
+requests==2.31.0
+APScheduler==3.10.4
+python-dotenv==1.0.0
+Werkzeug==2.3.7

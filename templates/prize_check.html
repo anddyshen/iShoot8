@@ -1,0 +1,508 @@
+<!-- templates/prize_check.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+{% from "components/lottery_balls.html" import display_balls %}
+
+{% block title %}兑奖中心{% endblock %}
+
+{% block head %}
+<style>
+    .ball-selector-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+        gap: 5px;
+        margin-bottom: 15px;
+    }
+    .ball-selector-grid .ball {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        background-color: #f8f9fa;
+        transition: all 0.2s ease-in-out;
+    }
+    .ball-selector-grid .ball.selected-red {
+        background-color: #dc3545; /* Red */
+        color: white;
+        border-color: #dc3545;
+    }
+    .ball-selector-grid .ball.selected-blue {
+        background-color: #0d6efd; /* Blue */
+        color: white;
+        border-color: #0d6efd;
+    }
+    .ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue) {
+        background-color: #e9ecef;
+    }
+    .selected-balls-display {
+        min-height: 60px;
+        border: 1px dashed #ccc;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f0f0f0;
+        margin-bottom: 15px;
+    }
+    .candidate-entry {
+        border: 1px solid #eee;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background-color: #fff;
+    }
+    .candidate-entry .ball-container {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">兑奖中心</h1>
+
+<div class="alert alert-info text-center" role="alert">
+    输入您的彩票号码，核对历史中奖情况，或参与趣味游戏。
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">选择彩票类型</div>
+    <div class="card-body">
+        <div class="mb-3">
+            <a href="#" class="btn btn-danger active me-2" id="ssq_check_tab">双色球</a>
+            <a href="#" class="btn btn-primary" id="dlt_check_tab">大乐透</a>
+        </div>
+    </div>
+</div>
+
+<div id="ssq_check_section" class="lottery-check-section">
+    <h2 class="mb-3">双色球兑奖</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">输入您的号码</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">红球 (1-33, 选择 6 个)</label>
+                <div class="ball-selector-grid" id="ssq_red_selector">
+                    {% for i in range(1, 34) %}
+                    <div class="ball" data-ball-type="red" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">蓝球 (1-16, 选择 1 个)</label>
+                <div class="ball-selector-grid" id="ssq_blue_selector">
+                    {% for i in range(1, 17) %}
+                    <div class="ball" data-ball-type="blue" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">当前选择的号码:</label>
+                <div class="selected-balls-display" id="ssq_selected_display">
+                    <p class="text-muted">红球: <span id="ssq_selected_red"></span></p>
+                    <p class="text-muted">蓝球: <span id="ssq_selected_blue"></span></p>
+                </div>
+            </div>
+            <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到核对列表</button>
+            <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">待核对号码列表 (最多 {{ settings.prediction_generated_count }} 组)</div>
+        <div class="card-body">
+            <div id="ssq_candidate_list">
+                <p class="text-muted">请从上方选择号码并添加到列表。</p>
+            </div>
+            <hr>
+            <div class="mb-3 row align-items-center">
+                <label for="ssq_check_range" class="col-sm-4 col-form-label">核对历史期数往前 <span id="ssq_check_range_display">{{ settings.prize_check_range }}</span> 期:</label>
+                <div class="col-sm-4">
+                    <input type="range" class="form-range" id="ssq_check_range" min="1" max="100" value="{{ settings.prize_check_range }}">
+                </div>
+                <div class="col-sm-4">
+                    <button class="btn btn-primary w-100" id="ssq_check_prizes">核对中奖</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">兑奖结果</div>
+        <div class="card-body" id="ssq_prize_results">
+            <p class="text-muted">点击“核对中奖”按钮查看结果。</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">趣味游戏</div>
+        <div class="card-body">
+            <p>点击按钮，模拟虚拟开奖，看看您的号码多久能中一等奖！</p>
+            <button class="btn btn-info" id="ssq_fun_game_start">开始趣味游戏</button>
+            <div class="mt-3" id="ssq_fun_game_results">
+                <p class="text-muted">游戏结果将在此处显示。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="dlt_check_section" class="lottery-check-section" style="display: none;">
+    <h2 class="mb-3">大乐透兑奖</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">输入您的号码</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">红球 (1-35, 选择 5 个)</label>
+                <div class="ball-selector-grid" id="dlt_red_selector">
+                    {% for i in range(1, 36) %}
+                    <div class="ball" data-ball-type="red" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">蓝球 (1-12, 选择 2 个)</label>
+                <div class="ball-selector-grid" id="dlt_blue_selector">
+                    {% for i in range(1, 13) %}
+                    <div class="ball" data-ball-type="blue" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">当前选择的号码:</label>
+                <div class="selected-balls-display" id="dlt_selected_display">
+                    <p class="text-muted">红球: <span id="dlt_selected_red"></span></p>
+                    <p class="text-muted">蓝球: <span id="dlt_selected_blue"></span></p>
+                </div>
+            </div>
+            <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到核对列表</button>
+            <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">待核对号码列表 (最多 {{ settings.prediction_generated_count }} 组)</div>
+        <div class="card-body">
+            <div id="dlt_candidate_list">
+                <p class="text-muted">请从上方选择号码并添加到列表。</p>
+            </div>
+            <hr>
+            <div class="mb-3 row align-items-center">
+                <label for="dlt_check_range" class="col-sm-4 col-form-label">核对历史期数往前 <span id="dlt_check_range_display">{{ settings.prize_check_range }}</span> 期:</label>
+                <div class="col-sm-4">
+                    <input type="range" class="form-range" id="dlt_check_range" min="1" max="100" value="{{ settings.prize_check_range }}">
+                </div>
+                <div class="col-sm-4">
+                    <button class="btn btn-primary w-100" id="dlt_check_prizes">核对中奖</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">兑奖结果</div>
+        <div class="card-body" id="dlt_prize_results">
+            <p class="text-muted">点击“核对中奖”按钮查看结果。</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">趣味游戏</div>
+        <div class="card-body">
+            <p>点击按钮，模拟虚拟开奖，看看您的号码多久能中一等奖！</p>
+            <button class="btn btn-info" id="dlt_fun_game_start">开始趣味游戏</button>
+            <div class="mt-3" id="dlt_fun_game_results">
+                <p class="text-muted">游戏结果将在此处显示。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // JavaScript for tab switching
+    document.getElementById('ssq_check_tab').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('ssq_check_section').style.display = 'block';
+        document.getElementById('dlt_check_section').style.display = 'none';
+        this.classList.add('active');
+        document.getElementById('dlt_check_tab').classList.remove('active');
+    });
+
+    document.getElementById('dlt_check_tab').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('dlt_check_section').style.display = 'block';
+        document.getElementById('ssq_check_section').style.display = 'none';
+        this.classList.add('active');
+        document.getElementById('ssq_check_tab').classList.remove('active');
+    });
+
+    // Function to render lottery balls (replicated from Jinja macro for JS use)
+    function renderBalls(balls, ballType) {
+        let html = '';
+        const sortedBalls = [...balls].sort((a, b) => a - b);
+        for (const ball of sortedBalls) {
+            html += `<span class="lottery-ball ball-${ballType}">${String(ball).padStart(2, '0')}</span>`;
+        }
+        return html;
+    }
+
+    // Generic ball selector logic
+    function setupBallSelector(lotteryType, redCount, blueCount, redRange, blueRange) {
+        let selectedRedBalls = new Set();
+        let selectedBlueBalls = new Set();
+        const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+        const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+        const selectedDisplay = document.getElementById(`${lotteryType}_selected_display`);
+        const selectedRedSpan = document.getElementById(`${lotteryType}_selected_red`);
+        const selectedBlueSpan = document.getElementById(`${lotteryType}_selected_blue`);
+        const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
+        const addToCandidatesBtn = document.getElementById(`${lotteryType}_add_to_candidates`);
+        const clearSelectionBtn = document.getElementById(`${lotteryType}_clear_selection`);
+
+        function updateDisplay() {
+            selectedRedSpan.innerHTML = renderBalls(Array.from(selectedRedBalls), 'red');
+            selectedBlueSpan.innerHTML = renderBalls(Array.from(selectedBlueBalls), 'blue');
+        }
+
+        function toggleBall(ballElement, ballType, selectedSet, maxCount) {
+            const value = parseInt(ballElement.dataset.ballValue);
+            const className = `selected-${ballType}`;
+
+            if (ballElement.classList.contains(className)) {
+                ballElement.classList.remove(className);
+                selectedSet.delete(value);
+            } else {
+                if (selectedSet.size < maxCount) {
+                    ballElement.classList.add(className);
+                    selectedSet.add(value);
+                } else {
+                    alert(`您最多只能选择 ${maxCount} 个${ballType === 'red' ? '红' : '蓝'}球。`);
+                }
+            }
+            updateDisplay();
+        }
+
+        redSelector.addEventListener('click', function(e) {
+            if (e.target.classList.contains('ball')) {
+                toggleBall(e.target, 'red', selectedRedBalls, redCount);
+            }
+        });
+
+        blueSelector.addEventListener('click', function(e) {
+            if (e.target.classList.contains('ball')) {
+                toggleBall(e.target, 'blue', selectedBlueBalls, blueCount);
+            }
+        });
+
+        clearSelectionBtn.addEventListener('click', function() {
+            selectedRedBalls.clear();
+            selectedBlueBalls.clear();
+            redSelector.querySelectorAll('.ball').forEach(b => b.classList.remove('selected-red'));
+            blueSelector.querySelectorAll('.ball').forEach(b => b.classList.remove('selected-blue'));
+            updateDisplay();
+        });
+
+        addToCandidatesBtn.addEventListener('click', function() {
+            if (selectedRedBalls.size !== redCount || selectedBlueBalls.size !== blueCount) {
+                alert(`请选择 ${redCount} 个红球和 ${blueCount} 个蓝球。`);
+                return;
+            }
+
+            const currentCandidates = candidateList.querySelectorAll('.candidate-entry').length;
+            if (currentCandidates >= {{ settings.prediction_generated_count }}) { // Use prediction_generated_count as max candidates
+                alert(`最多只能添加 {{ settings.prediction_generated_count }} 组号码。`);
+                return;
+            }
+
+            const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+            const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+
+            const newEntry = document.createElement('div');
+            newEntry.classList.add('candidate-entry');
+            newEntry.innerHTML = `
+                <p>红球: ${renderBalls(redArr, 'red')}</p>
+                <p>蓝球: ${renderBalls(blueArr, 'blue')}</p>
+                <input type="hidden" name="candidate_red_balls" value="${redArr.join(',')}">
+                <input type="hidden" name="candidate_blue_balls" value="${blueArr.join(',')}">
+                <button type="button" class="btn btn-sm btn-danger remove-candidate-btn">移除</button>
+            `;
+            candidateList.appendChild(newEntry);
+
+            // Clear selection after adding
+            clearSelectionBtn.click();
+            if (candidateList.querySelector('p.text-muted')) {
+                candidateList.querySelector('p.text-muted').remove();
+            }
+        });
+
+        candidateList.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-candidate-btn')) {
+                e.target.closest('.candidate-entry').remove();
+                if (candidateList.children.length === 0) {
+                    candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
+                }
+            }
+        });
+
+        updateDisplay(); // Initial display
+    }
+
+    // Setup for SSQ
+    setupBallSelector('ssq', 6, 1, 33, 16);
+    // Setup for DLT
+    setupBallSelector('dlt', 5, 2, 35, 12);
+
+
+    // Range slider for check range
+    document.getElementById('ssq_check_range').addEventListener('input', function() {
+        document.getElementById('ssq_check_range_display').textContent = this.value;
+    });
+    document.getElementById('dlt_check_range').addEventListener('input', function() {
+        document.getElementById('dlt_check_range_display').textContent = this.value;
+    });
+
+    // Prize check logic
+    async function checkPrizes(lotteryType) {
+        const candidateEntries = document.querySelectorAll(`#${lotteryType}_candidate_list .candidate-entry`);
+        if (candidateEntries.length === 0) {
+            alert('请先添加要核对的号码。');
+            return;
+        }
+
+        const checkRange = document.getElementById(`${lotteryType}_check_range`).value;
+        const prizeResultsDiv = document.getElementById(`${lotteryType}_prize_results`);
+        prizeResultsDiv.innerHTML = '<p class="text-muted">核对中...</p>';
+
+        const combinations = [];
+        candidateEntries.forEach(entry => {
+            const redBalls = entry.querySelector('input[name="candidate_red_balls"]').value;
+            const blueBalls = entry.querySelector('input[name="candidate_blue_balls"]').value;
+            combinations.push({ red_balls: redBalls, blue_balls: blueBalls });
+        });
+
+        try {
+            const response = await fetch('/api/check_prizes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lottery_type: lotteryType,
+                    combinations: combinations,
+                    check_range: checkRange
+                })
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                prizeResultsDiv.innerHTML = `<p class="text-danger">核对失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '';
+            data.results.forEach((result, index) => {
+                html += `<h5>号码组合 ${index + 1}:</h5>`;
+                html += `<p>红球: ${renderBalls(result.input_red_balls.split(',').map(Number), 'red')}</p>`;
+                html += `<p>蓝球: ${renderBalls(result.input_blue_balls.split(',').map(Number), 'blue')}</p>`;
+                if (result.matches.length > 0) {
+                    html += '<p><strong>中奖记录:</strong></p><ul>';
+                    result.matches.forEach(match => {
+                        html += `<li>第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 奖金: ${match.prize_amount} 元</li>`;
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<p>在指定期数范围内未中奖。</p>';
+                }
+                html += '<hr>';
+            });
+            prizeResultsDiv.innerHTML = html;
+
+        } catch (error) {
+            console.error('Error during prize check:', error);
+            prizeResultsDiv.innerHTML = '<p class="text-danger">核对中奖失败。</p>';
+        }
+    }
+
+    document.getElementById('ssq_check_prizes').addEventListener('click', () => checkPrizes('ssq'));
+    document.getElementById('dlt_check_prizes').addEventListener('click', () => checkPrizes('dlt'));
+
+
+    // Fun game logic
+    async function startFunGame(lotteryType) {
+        const candidateEntries = document.querySelectorAll(`#${lotteryType}_candidate_list .candidate-entry`);
+        if (candidateEntries.length === 0) {
+            alert('请先添加要参与游戏的号码。');
+            return;
+        }
+
+        const funGameResultsDiv = document.getElementById(`${lotteryType}_fun_game_results`);
+        funGameResultsDiv.innerHTML = '<p class="text-muted">游戏模拟中，请稍候...</p>';
+
+        const combinations = [];
+        candidateEntries.forEach(entry => {
+            const redBalls = entry.querySelector('input[name="candidate_red_balls"]').value;
+            const blueBalls = entry.querySelector('input[name="candidate_blue_balls"]').value;
+            combinations.push({ red_balls: redBalls, blue_balls: blueBalls });
+        });
+
+        try {
+            const response = await fetch('/api/fun_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lottery_type: lotteryType,
+                    combinations: combinations
+                })
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                funGameResultsDiv.innerHTML = `<p class="text-danger">游戏模拟失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '';
+            data.results.forEach((result, index) => {
+                html += `<h5>号码组合 ${index + 1}:</h5>`;
+                html += `<p>红球: ${renderBalls(result.input_red_balls.split(',').map(Number), 'red')}</p>`;
+                html += `<p>蓝球: ${renderBalls(result.input_blue_balls.split(',').map(Number), 'blue')}</p>`;
+                if (result.first_prize_info) {
+                    html += `<p>恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count}</strong> 次开奖时中得一等奖！</p>`;
+                    html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
+                    html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
+                } else {
+                    html += '<p>在模拟的有限次数内未中得一等奖。</p>';
+                }
+                html += `<p>总共中奖情况:</p><ul>`;
+                for (const prizeLevel in result.total_prizes) {
+                    html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel]} 次</li>`;
+                }
+                html += `</ul>`;
+                html += '<hr>';
+            });
+            funGameResultsDiv.innerHTML = html;
+
+        } catch (error) {
+            console.error('Error during fun game:', error);
+            funGameResultsDiv.innerHTML = '<p class="text-danger">趣味游戏模拟失败。</p>';
+        }
+    }
+
+    document.getElementById('ssq_fun_game_start').addEventListener('click', () => startFunGame('ssq'));
+    document.getElementById('dlt_fun_game_start').addEventListener('click', () => startFunGame('dlt'));
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ensure the correct tab is active on load
+        document.getElementById('ssq_check_tab').click();
+    });
+</script>
+{% endblock %}

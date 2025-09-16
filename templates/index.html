@@ -1,0 +1,93 @@
+<!-- templates/index.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+{% from "components/lottery_balls.html" import display_balls %}
+
+{% block title %}首页{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">欢迎来到 {{ site_name }}</h1>
+
+<div class="alert alert-warning text-center" role="alert">
+    <strong>风险提示：彩票有风险，投注需谨慎。本网站仅供娱乐。</strong>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                最新双色球开奖 (SSQ)
+            </div>
+            <div class="card-body">
+                {% if latest_ssq %}
+                    <h5 class="card-title">第 {{ latest_ssq.issue }} 期 - {{ latest_ssq.draw_date.strftime('%Y-%m-%d') }}</h5>
+                    <p class="card-text">
+                        红球: {{ display_balls(latest_ssq.get_red_balls_list(), 'red') }}
+                        蓝球: {{ display_balls(latest_ssq.get_blue_balls_list(), 'blue') }}
+                    </p>
+                    <p class="card-text small">
+                        销售额: {{ "{:,.0f}".format(latest_ssq.sales_amount) }} 元 | 奖池: {{ "{:,.0f}".format(latest_ssq.prize_pool) }} 元
+                    </p>
+                    <p class="card-text small">
+                        一等奖: {{ latest_ssq.first_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_ssq.first_prize_amount) }} 元
+                        <!-- TODO: 显示更多奖项信息 -->
+                    </p>
+                {% else %}
+                    <p class="card-text">暂无双色球开奖数据。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                最新大乐透开奖 (DLT)
+            </div>
+            <div class="card-body">
+                {% if latest_dlt %}
+                    <h5 class="card-title">第 {{ latest_dlt.issue }} 期 - {{ latest_dlt.draw_date.strftime('%Y-%m-%d') }}</h5>
+                    <p class="card-text">
+                        红球: {{ display_balls(latest_dlt.get_red_balls_list(), 'red') }}
+                        蓝球: {{ display_balls(latest_dlt.get_blue_balls_list(), 'blue') }}
+                    </p>
+                    <p class="card-text small">
+                        销售额: {{ "{:,.0f}".format(latest_dlt.sales_amount) }} 元 | 奖池: {{ "{:,.0f}".format(latest_dlt.prize_pool) }} 元
+                    </p>
+                    <p class="card-text small">
+                        一等奖: {{ latest_dlt.first_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.first_prize_amount) }} 元
+                        <!-- TODO: 显示更多奖项信息 -->
+                    </p>
+                {% else %}
+                    <p class="card-text">暂无大乐透开奖数据。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="mb-3">最新资讯</h2>
+<div class="row">
+    {% if homepage_news %}
+        {% for news in homepage_news %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                {% if news.image_url %}
+                <img src="{{ news.image_url }}" class="card-img-top news-card-img" alt="{{ news.title }}">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ news.title }}</h5>
+                    <p class="card-text small text-muted">{{ news.created_at.strftime('%Y-%m-%d') }}</p>
+                    <p class="card-text">{{ news.summary | truncate(100) }}</p>
+                    <a href="{{ url_for('routes.news_detail', news_id=news.id) }}" class="btn btn-sm btn-outline-primary">阅读详情</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <p>暂无最新资讯。</p>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

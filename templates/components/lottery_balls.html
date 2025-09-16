@@ -1,0 +1,17 @@
+<!-- templates/components/lottery_balls.html -->
+<!-- 版本: 1.0.0 -->
+{% macro display_balls(balls, ball_type) %}
+    {% set sorted_balls = balls | map('int') | sort | list %}
+    {% for i in range(sorted_balls | length) %}
+        {% set ball = sorted_balls[i] %}
+        {% set is_consecutive = false %}
+        {% if i > 0 and sorted_balls[i-1] == ball - 1 %}
+            {% set is_consecutive = true %}
+        {% elif i < sorted_balls | length - 1 and sorted_balls[i+1] == ball + 1 %}
+            {% set is_consecutive = true %}
+        {% endif %}
+        <span class="lottery-ball ball-{{ ball_type }} {% if is_consecutive %}ball-consecutive{% endif %}">
+            {{ '%02d' | format(ball) }}
+        </span>
+    {% endfor %}
+{% endmacro %}

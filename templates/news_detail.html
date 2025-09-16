@@ -1,0 +1,51 @@
+<!-- templates/news_detail.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+
+{% block title %}{{ news_item.title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <article class="card mb-4">
+            <div class="card-body">
+                <h1 class="card-title text-center mb-4">{{ news_item.title }}</h1>
+                <p class="text-muted text-center small mb-4">发布日期: {{ news_item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+
+                {% if news_item.image_url %}
+                <div class="text-center mb-4">
+                    <img src="{{ news_item.image_url }}" class="img-fluid rounded" alt="{{ news_item.title }}" style="max-height: 400px; object-fit: cover;">
+                </div>
+                {% endif %}
+
+                <div class="news-content mb-4">
+                    {{ news_item.content | safe }} {# 使用 safe 过滤器以渲染HTML内容 #}
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <div>
+                        {% if prev_news %}
+                        <a href="{{ url_for('routes.news_detail', news_id=prev_news.id) }}" class="btn btn-outline-secondary">
+                            &larr; 上一篇
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" disabled>没有更多文章</button>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if next_news %}
+                        <a href="{{ url_for('routes.news_detail', news_id=next_news.id) }}" class="btn btn-outline-secondary">
+                            下一篇 &rarr;
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" disabled>没有更多文章</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </article>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+<!-- templates/admin/data_update.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+
+{% block title %}数据更新{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">数据更新与管理</h1>
+
+<div class="card mb-4">
+    <div class="card-header">手动更新开奖数据</div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="manual_update">
+            <p>点击按钮从官方源更新最新的双色球和大乐透开奖数据。</p>
+            <button type="submit" class="btn btn-primary">立即更新</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">手动添加开奖数据</div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="manual_add">
+            <div class="mb-3">
+                <label for="lottery_type" class="form-label">彩票类型</label>
+                <select class="form-select" id="lottery_type" name="lottery_type" required>
+                    <option value="ssq">双色球</option>
+                    <option value="dlt">大乐透</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="data_string" class="form-label">开奖数据 (按指定格式输入)</label>
+                <textarea class="form-control" id="data_string" name="data_string" rows="3" placeholder="例如：2025105 2025-09-11 04 07 18 24 26 28 08 ..."></textarea>
+                <small class="form-text text-muted">请严格按照 `data_manager.py` 中定义的格式输入，否则将无法解析。</small>
+            </div>
+            <button type="submit" class="btn btn-success">添加数据</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">定时更新设置 (TODO)</div>
+    <div class="card-body">
+        <p>目前定时更新功能已在 `app.py` 中注释，如需启用，请取消注释并配置。</p>
+        <p>未来可在此处添加界面控制定时任务的开启/关闭和频率。</p>
+        <!-- TODO: 定时任务控制界面 -->
+    </div>
+</div>
+{% endblock %}

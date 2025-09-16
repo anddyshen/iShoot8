@@ -1,0 +1,40 @@
+<!-- templates/admin/dashboard.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+
+{% block title %}后台仪表盘{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">后台管理仪表盘</h1>
+
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">网站设置</h5>
+                <p class="card-text">管理网站的各项参数和默认值。</p>
+                <a href="{{ url_for('admin_routes.admin_settings') }}" class="btn btn-primary">进入</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">数据更新</h5>
+                <p class="card-text">手动或定时更新彩票开奖数据，并可手动录入。</p>
+                <a href="{{ url_for('admin_routes.admin_data_update') }}" class="btn btn-primary">进入</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">新闻管理</h5>
+                <p class="card-text">发布、编辑、删除网站新闻和文章。</p>
+                <a href="{{ url_for('admin_routes.admin_news_manage') }}" class="btn btn-primary">进入</a>
+            </div>
+        </div>
+    </div>
+    <!-- TODO: 更多管理模块 -->
+</div>
+{% endblock %}

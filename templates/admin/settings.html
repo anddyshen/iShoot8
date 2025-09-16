@@ -1,0 +1,39 @@
+<!-- templates/admin/settings.html -->
+<!-- 版本: 1.0.0 -->
+{% extends "base.html" %}
+
+{% block title %}网站设置{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">网站设置</h1>
+
+<form method="POST">
+    <div class="row">
+        {% for key, value in settings.items() %}
+        <div class="col-md-6 mb-3">
+            <label for="{{ key }}" class="form-label">{{ key | replace('_', ' ') | title }}</label>
+            {% if key == 'annual_holidays' %}
+                <textarea class="form-control" id="{{ key }}" name="{{ key }}" rows="3">{{ value | tojson }}</textarea>
+                <small class="form-text text-muted">JSON格式，例如: [{"start": "01-28", "duration_weeks": 1}]</small>
+            {% elif key.endswith('_days') %}
+                <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value | join(',') }}">
+                <small class="form-text text-muted">逗号分隔的数字，例如: 1,2,3</small>
+            {% elif value is number %}
+                <input type="number" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}" step="{% if value is float %}0.01{% else %}1{% endif %}">
+            {% elif value is boolean %}
+                <select class="form-select" id="{{ key }}" name="{{ key }}">
+                    <option value="true" {% if value %}selected{% endif %}>True</option>
+                    <option value="false" {% if not value %}selected{% endif %}>False</option>
+                </select>
+            {% else %}
+                <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+            {% endif %}
+            <small class="form-text text-muted">默认值: {{ default_settings[key] }}</small>
+        </div>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">保存设置</button>
+    <a href="{{ url_for('admin_routes.download_settings') }}" class="btn btn-secondary mt-3 ms-2">下载设置备份</a>
+    <a href="{{ url_for('admin_routes.restore_default_settings') }}" class="btn btn-warning mt-3 ms-2" onclick="return confirm('确定要恢复所有设置为默认值吗？这将覆盖当前设置！');">恢复默认设置</a>
+</form>
+{% endblock %}
