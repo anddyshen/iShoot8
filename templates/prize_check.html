@@ -1,5 +1,5 @@
 <!-- templates/prize_check.html -->
-<!-- 版本: 1.1.6 - 优化趣味游戏进度条和日期显示 -->
+<!-- 版本: 1.2.1 - 对奖结果显示回报率 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -276,6 +276,41 @@
 
 {% block scripts %}
 <script>
+    // Function to calculate combination cost (replicated from Python for frontend display)
+    function combinations(n, k) {
+        if (k < 0 || k > n) {
+            return 0;
+        }
+        if (k === 0 || k === n) {
+            return 1;
+        }
+        if (k > n / 2) {
+            k = n - k;
+        }
+        let res = 1;
+        for (let i = 0; i < k; i++) {
+            res = res * (n - i) / (i + 1);
+        }
+        return res;
+    }
+
+    function calculateCombinationCost(userRedBallsCount, userBlueBallsCount, lotteryType) {
+        let redBets, blueBets;
+        if (lotteryType === 'ssq') {
+            redBets = combinations(userRedBallsCount, 6);
+            blueBets = combinations(userBlueBallsCount, 1);
+        } else if (lotteryType === 'dlt') {
+            redBets = combinations(userRedBallsCount, 5);
+            blueBets = combinations(userBlueBallsCount, 2);
+        } else {
+            return { total_bets: 0, total_cost: 0 };
+        }
+        const totalBets = redBets * blueBets;
+        const totalCost = totalBets * {{ per_bet_price }}; // 使用从后端传递的每注价格
+        return { total_bets: totalBets, total_cost: totalCost };
+    }
+
+
     // JavaScript for tab switching
     document.getElementById('ssq_check_tab').addEventListener('click', function(e) {
         e.preventDefault();
@@ -483,10 +518,23 @@
                 html += `<h5>号码组合 ${index + 1}:</h5>`;
                 html += `<p>红球: ${renderBalls(result.input_red_balls.split(',').map(Number), 'red')}</p>`;
                 html += `<p>蓝球: ${renderBalls(result.input_blue_balls.split(',').map(Number), 'blue')}</p>`;
+                html += `<p><strong>单次投注花费:</strong> ${result.cost_per_draw.toLocaleString()} 元 (共 ${result.total_bets_per_draw.toLocaleString()} 注)</p>`;
+                
+                // 显示总中奖注数和总中奖金额
+                if (result.total_winning_bets > 0) {
+                    html += `<p class="text-success"><strong>总中奖:</strong> 共中 ${result.total_winning_bets.toLocaleString()} 注, 总奖金 ${result.total_winning_amount.toLocaleString()} 元</p>`;
+                } else {
+                    html += `<p class="text-danger"><strong>总中奖:</strong> 未中奖</p>`;
+                }
+
+                // 显示统计范围、总花费和回报率
+                const returnRateClass = result.return_rate >= 100 ? 'text-success' : (result.return_rate > 0 ? 'text-warning' : 'text-danger');
+                html += `<p><strong>统计范围:</strong> 实际核对 ${result.actual_checked_draws_count.toLocaleString()} 期, <strong>总花费:</strong> ${result.total_cost_for_range.toLocaleString()} 元, <strong>回报率:</strong> <span class="${returnRateClass}">${result.return_rate}%</span></p>`;
+
                 if (result.matches.length > 0) {
                     html += '<p><strong>中奖记录:</strong></p><ul>';
                     result.matches.forEach(match => {
-                        html += `<li>第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 奖金: ${match.prize_amount} 元</li>`;
+                        html += `<li>第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元</li>`;
                     });
                     html += '</ul>';
                 } else {
@@ -559,7 +607,7 @@
                 progressBar.style.width = `${progressPercentage}%`;
                 progressBar.setAttribute('aria-valuenow', progressPercentage);
                 progressBar.textContent = `${Math.floor(progressPercentage)}%`;
-                statusText.textContent = `正在模拟第 ${currentSimulatedCount} 期...`;
+                statusText.textContent = `正在模拟第 ${currentSimulatedCount.toLocaleString()} 期...`; // 格式化数字
 
                 if (currentSimulatedCount >= totalSimulations) {
                     clearInterval(simulationInterval);
@@ -591,20 +639,24 @@
 
             let html = '';
             const result = data.results[0]; // 只处理第一个结果
+            const costDetails = calculateCombinationCost(result.input_red_balls.length, result.input_blue_balls.length, lotteryType);
+            
             html += `<h5>号码组合 1:</h5>`;
             html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
             html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
+            html += `<p><strong>单次投注花费:</strong> ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)</p>`; // 显示单次投注花费
+            
             if (result.first_prize_info) {
-                html += `<p>恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count}</strong> 次开奖时中得一等奖！</p>`;
+                html += `<p class="text-success">恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count.toLocaleString()}</strong> 次开奖时中得一等奖！</p>`; // 格式化数字
                 html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
                 html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
             } else {
-                html += `<p>在模拟的 {{ settings.get('fun_game_max_simulations', 1000000) }} 次内未中得一等奖。</p>`;
+                html += `<p class="text-danger">在模拟的 ${totalSimulations.toLocaleString()} 次内未中得一等奖。</p>`; // 修正这里，直接使用 totalSimulations 变量
             }
             html += `<p>总共中奖情况:</p><ul>`;
             // 遍历并显示按降序排列的奖项
             for (const prizeLevel in result.total_prizes) {
-                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel]} 次</li>`;
+                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel].toLocaleString()} 次</li>`; // 格式化数字
             }
             html += `</ul>`;
             html += '<hr>';
@@ -629,10 +681,15 @@
         const firstCandidateEntry = candidateList.querySelector('.candidate-entry');
 
         if (firstCandidateEntry) {
+            const redBalls = firstCandidateEntry.querySelector('input[name="candidate_red_balls"]').value.split(',').map(Number);
+            const blueBalls = firstCandidateEntry.querySelector('input[name="candidate_blue_balls"]').value.split(',').map(Number);
+            const costDetails = calculateCombinationCost(redBalls.length, blueBalls.length, lotteryType);
+
             funGameTipElement.innerHTML = `
                 此号码可用于趣味游戏：<br>
-                红球: ${renderBalls(firstCandidateEntry.querySelector('input[name="candidate_red_balls"]').value.split(',').map(Number), 'red')}<br>
-                蓝球: ${renderBalls(firstCandidateEntry.querySelector('input[name="candidate_blue_balls"]').value.split(',').map(Number), 'blue')}
+                红球: ${renderBalls(redBalls, 'red')}<br>
+                蓝球: ${renderBalls(blueBalls, 'blue')}<br>
+                单次投注花费: ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)
                 <br>看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
             `;
         } else {

@@ -92,5 +92,5 @@ with app.app_context():
 #     return render_template('index.html', latest_ssq=latest_ssq, latest_dlt=latest_dlt, homepage_news=homepage_news)
 
 if __name__ == '__main__':
-    app.run(debug=True) # 生产环境请关闭 debug
+    app.run(debug=True, host='0.0.0.0', port=5000) # 生产环境请关闭 debug
 

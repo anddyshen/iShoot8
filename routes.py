@@ -1,13 +1,13 @@
 # routes.py
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify
 from datetime import datetime, date
-from models import SSQDraw, DLTDraw, News, db # 导入 db
+from models import SSQDraw, DLTDraw, News, db
 from data_manager import get_latest_draws
-from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
-    check_prize_for_combination, simulate_fun_game
+    calculate_combination_cost, calculate_prize_details, simulate_fun_game
 )
 from prediction_engine import check_lottery_rules
 
@@ -168,8 +168,9 @@ def prize_check():
                            dlt_latest_info=dlt_latest_info,
                            prize_check_range=CURRENT_SETTINGS.get('prize_check_range', 10),
                            prediction_generated_count=CURRENT_SETTINGS.get('prediction_generated_count', 10),
-                           ssq_total_draws=ssq_total_draws, # <-- 传递总期数
-                           dlt_total_draws=dlt_total_draws  # <-- 传递总期数
+                           ssq_total_draws=ssq_total_draws,
+                           dlt_total_draws=dlt_total_draws,
+                           per_bet_price=PER_BET_PRICE
                            )
 
 @bp.route('/api/check_prizes', methods=['POST'])
@@ -195,6 +196,9 @@ def api_check_prizes():
     else:
         recent_draws = model_class.query.order_by(model_class.issue.desc()).limit(check_range).all()
     
+    # 实际检查的期数
+    actual_checked_draws_count = len(recent_draws)
+
     if not recent_draws:
         return jsonify({'error': '未找到历史开奖数据'}), 404
 
@@ -206,41 +210,81 @@ def api_check_prizes():
         user_red_balls = format_lottery_numbers(user_red_balls_str)
         user_blue_balls = format_lottery_numbers(user_blue_balls_str)
 
+        # 计算该组合的投注花费
+        cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type)
+
         matches = []
+        total_winning_bets_for_combo = 0
+        total_winning_amount_for_combo = 0.0 # 使用浮点数进行金额计算
+
         for draw in recent_draws:
             draw_red_balls = draw.get_red_balls_list()
             draw_blue_balls = draw.get_blue_balls_list()
 
-            prize_result = check_prize_for_combination(
+            # 使用新的 calculate_prize_details 获取所有奖项的中奖注数
+            prize_details_for_draw = calculate_prize_details(
                 user_red_balls, user_blue_balls,
                 draw_red_balls, draw_blue_balls,
                 lottery_type
             )
-            if prize_result:
-                # 对于浮动奖金，显示开奖时的实际奖金
-                prize_amount = prize_result['prize_amount']
-                if prize_amount == '浮动':
-                    if prize_result['prize_level'] == '一等奖':
-                        prize_amount = f"{draw.first_prize_amount:,.0f}"
-                    elif prize_result['prize_level'] == '二等奖':
-                        prize_amount = f"{draw.second_prize_amount:,.0f}"
-                    # 大乐透的浮动奖金也需要类似处理
-                    elif lottery_type == 'dlt':
-                        if prize_result['prize_level'] == '一等奖':
-                            prize_amount = f"{draw.first_prize_amount:,.0f}"
-                        elif prize_result['prize_level'] == '二等奖':
-                            prize_amount = f"{draw.second_prize_amount:,.0f}"
-                
-                matches.append({
-                    'issue': draw.issue,
-                    'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
-                    'prize_level': prize_result['prize_level'],
-                    'prize_amount': prize_amount
-                })
+            
+            if prize_details_for_draw: # 如果有任何奖项中奖
+                # 遍历所有中奖的奖项和注数
+                for prize_level, prize_count in prize_details_for_draw.items():
+                    if prize_count > 0:
+                        # 从 PRIZE_RULES 中获取该奖项的固定金额
+                        prize_rule = next((p for p in PRIZE_RULES[lottery_type]['prizes'] if p['level'] == prize_level), None)
+                        if prize_rule:
+                            current_prize_amount_numeric = 0 # 用于计算总金额的数字
+                            prize_amount_display = "" # 用于前端显示的字符串
+
+                            if prize_rule['amount'] == '浮动':
+                                # 根据实际开奖数据获取浮动奖金
+                                if prize_level == '一等奖':
+                                    current_prize_amount_numeric = draw.first_prize_amount
+                                elif prize_level == '二等奖':
+                                    current_prize_amount_numeric = draw.second_prize_amount
+                                # 大乐透的浮动奖金也需要类似处理
+                                elif lottery_type == 'dlt':
+                                    if prize_level == '一等奖':
+                                        current_prize_amount_numeric = draw.first_prize_amount
+                                    elif prize_level == '二等奖':
+                                        current_prize_amount_numeric = draw.second_prize_amount
+                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" # 格式化为字符串
+                            else:
+                                current_prize_amount_numeric = prize_rule['amount']
+                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" # 固定奖金也格式化
+
+                            # 累加总中奖注数和总中奖金额
+                            total_winning_bets_for_combo += prize_count
+                            total_winning_amount_for_combo += prize_count * current_prize_amount_numeric
+                            
+                            matches.append({
+                                'issue': draw.issue,
+                                'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
+                                'prize_level': prize_level,
+                                'prize_count': prize_count, # 中奖注数
+                                'prize_amount': prize_amount_display # 用于显示的格式化字符串
+                            })
+        
+        # 计算总花费 (单次投注花费 * 实际检查的期数)
+        total_cost_for_range = cost_details['total_cost'] * actual_checked_draws_count
+        
+        # 计算回报率
+        return_rate = 0.0
+        if total_cost_for_range > 0:
+            return_rate = (total_winning_amount_for_combo / total_cost_for_range) * 100
         
         all_results.append({
             'input_red_balls': user_red_balls_str,
             'input_blue_balls': user_blue_balls_str,
+            'total_bets_per_draw': cost_details['total_bets'], # 单次投注总注数
+            'cost_per_draw': cost_details['total_cost'], # 单次投注花费
+            'total_winning_bets': total_winning_bets_for_combo, # 总中奖注数
+            'total_winning_amount': total_winning_amount_for_combo, # 总中奖金额
+            'actual_checked_draws_count': actual_checked_draws_count, # 实际检查的期数
+            'total_cost_for_range': total_cost_for_range, # 在此范围内的总花费
+            'return_rate': round(return_rate, 1), # 新增：回报率，保留1位小数
             'matches': matches
         })
     
