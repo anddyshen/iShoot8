@@ -161,14 +161,20 @@ SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并�
     'news_data_source_url': "新闻数据源URL",
     'history_page_size': "历史数据每页显示数量",
     'history_stats_range_default': "统计数据默认范围",
+    
+    # 大小号分界点
     'ssq_red_size_midpoint': "双色球红球大小号分界点",
     'ssq_blue_size_midpoint': "双色球蓝球大小号分界点",
     'dlt_front_size_midpoint': "大乐透前区大小号分界点",
     'dlt_back_size_midpoint': "大乐透后区大小号分界点",
+
+    # 预测相关设置
     'prediction_latest_draws': "预测分析期数",
     'prediction_omitted_red_balls': "预测红球遗漏期数",
     'prediction_omitted_blue_balls': "预测蓝球遗漏期数",
     'prediction_generated_count': "预测生成号码组数",
+
+    # 双色球预测规则权重/概率
     'ssq_blue_omit_latest_draws': "双色球蓝球遗漏分析期数",
     'ssq_blue_consecutive_3_prob': "双色球蓝球连号3期概率",
     'ssq_blue_consecutive_5_prob': "双色球蓝球连号5期概率",
@@ -186,6 +192,8 @@ SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并�
     'ssq_red_omit_12_prob': "双色球红球遗漏12期概率",
     'ssq_red_omit_13_prob': "双色球红球遗漏13期概率",
     'ssq_red_omit_14_prob': "双色球红球遗漏14期概率",
+    
+    # 大乐透预测规则权重/概率
     'dlt_blue_repeat_prob': "大乐透蓝球重复概率",
     'dlt_blue_consecutive_5_prob': "大乐透蓝球连号5期概率",
     'dlt_red_omit_1_weight': "大乐透红球遗漏1期权重",
@@ -200,10 +208,16 @@ SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并�
     'dlt_red_omit_12_prob': "大乐透红球遗漏12期概率",
     'dlt_red_omit_13_prob': "大乐透红球遗漏13期概率",
     'dlt_red_omit_14_prob': "大乐透红球遗漏14期概率",
+
+    # 兑奖中心设置
     'prize_check_range': "兑奖中心检查范围",
+
+    # 开奖日期设置
     'ssq_draw_days': "双色球开奖日 (周几)",
     'dlt_draw_days': "大乐透开奖日 (周几)",
     'annual_holidays': "年度节假日 (不更新数据)",
+
+    # 蓝球近期出现频率规则
     'ssq_blue_recent_occurrence_draws': "双色球蓝球近期出现分析期数",
     'ssq_blue_recent_occurrence_threshold': "双色球蓝球近期出现频率阈值",
     'ssq_blue_recent_occurrence_weight': "双色球蓝球近期出现频率权重",

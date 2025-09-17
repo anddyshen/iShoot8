@@ -1,16 +1,24 @@
 <!-- templates/admin/news_manage.html -->
-<!-- 版本: 1.0.0 -->
-{% extends "base.html" %}
+<!-- 版本: 1.1.0 - 继承 admin/base.html 并使用 Bootstrap Modal 进行编辑 -->
+{% extends "admin/base.html" %} {# <-- 修改这里 #}
 
-{% block title %}新闻管理{% endblock %}
+{% block admin_title %}新闻管理{% endblock %} {# <-- 修改这里 #}
 
-{% block content %}
+{% block admin_content %} {# <-- 修改这里 #}
 <h1 class="mb-4">新闻管理</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
 
 <div class="card mb-4">
     <div class="card-header">添加新文章</div>
     <div class="card-body">
-        <form method="POST">
+        <form method="POST" action="{{ url_for('admin_routes.admin_news_manage') }}"> {# <-- 确保 action 正确 #}
             <input type="hidden" name="action" value="add">
             <div class="mb-3">
                 <label for="title" class="form-label">标题</label>
@@ -54,7 +62,7 @@
                 <th>标题</th>
                 <th>摘要</th>
                 <th>首页展示</th>
-                <th>公共展示</th>
+                <th>公开展示</th>
                 <th>创建日期</th>
                 <th>操作</th>
             </tr>
@@ -72,10 +80,11 @@
                     <button type="button" class="btn btn-sm btn-warning me-1" data-bs-toggle="modal" data-bs-target="#editNewsModal"
                             data-id="{{ news.id }}" data-title="{{ news.title }}" data-image-url="{{ news.image_url }}"
                             data-summary="{{ news.summary }}" data-content="{{ news.content }}"
-                            data-is-homepage-display="{{ news.is_homepage_display }}" data-is-public="{{ news.is_public }}">
+                            data-is-homepage-display="{{ 'true' if news.is_homepage_display else 'false' }}" {# 注意这里要输出字符串 'true'/'false' #}
+                            data-is-public="{{ 'true' if news.is_public else 'false' }}"> {# 注意这里要输出字符串 'true'/'false' #}
                         编辑
                     </button>
-                    <form action="{{ url_for('admin_routes.admin_news_manage') }}" method="POST" class="d-inline">
+                    <form action="{{ url_for('admin_routes.admin_news_manage') }}" method="POST" class="d-inline"> {# <-- 确保 action 正确 #}
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="news_id" value="{{ news.id }}">
                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除这篇新闻吗？');">删除</button>
@@ -91,7 +100,7 @@
 <div class="modal fade" id="editNewsModal" tabindex="-1" aria-labelledby="editNewsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form method="POST">
+            <form method="POST" action="{{ url_for('admin_routes.admin_news_manage') }}"> {# <-- 确保 action 正确 #}
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="news_id" id="edit_news_id">
                 <div class="modal-header">
@@ -137,7 +146,7 @@
     </div>
 </div>
 
-{% endblock %}
+{% endblock %} {# <-- 修改这里 #}
 
 {% block scripts %}
 <script>
@@ -150,8 +159,9 @@
             var imageUrl = button.getAttribute('data-image-url');
             var summary = button.getAttribute('data-summary');
             var content = button.getAttribute('data-content');
-            var isHomepageDisplay = button.getAttribute('data-is-homepage-display') === 'True';
-            var isPublic = button.getAttribute('data-is-public') === 'True';
+            // 注意：从 data-* 属性获取布尔值时，它们会作为字符串 'true' 或 'false' 传递
+            var isHomepageDisplay = button.getAttribute('data-is-homepage-display') === 'true'; // 修正这里
+            var isPublic = button.getAttribute('data-is-public') === 'true'; // 修正这里
 
             var modalTitle = editNewsModal.querySelector('.modal-title');
             var modalBodyInputId = editNewsModal.querySelector('#edit_news_id');
@@ -173,4 +183,5 @@
         });
     });
 </script>
+{{ super() }} {# 确保继承父模板的脚本 #}
 {% endblock %}

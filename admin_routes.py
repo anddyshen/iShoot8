@@ -8,7 +8,7 @@ import io
 import random
 import string
 
-from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__
+from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE 
 from models import db, SSQDraw, DLTDraw, News
 from data_manager import update_latest_draws, add_manual_draw, validate_ssq_format, validate_dlt_format
 
@@ -59,25 +59,49 @@ def admin_settings():
         # 更新设置
         for key, value in request.form.items():
             if key in CURRENT_SETTINGS:
+                # 特殊处理 admin_password：如果输入框为空，则不更新密码
+                if key == 'admin_password':
+                    if value: # 只有当用户输入了新密码时才更新
+                        CURRENT_SETTINGS[key] = value # 假设这里存储的是明文密码
+                    continue # 跳过当前设置项，处理下一个
+                
                 # 尝试转换类型
                 if isinstance(DEFAULT_SETTINGS.get(key), int):
-                    CURRENT_SETTINGS[key] = int(value)
+                    try:
+                        CURRENT_SETTINGS[key] = int(value)
+                    except (ValueError, TypeError):
+                        # 使用中文标题显示错误信息
+                        flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是整数。", 'danger')
+                        return redirect(url_for('admin_routes.admin_settings'))
                 elif isinstance(DEFAULT_SETTINGS.get(key), float):
-                    CURRENT_SETTINGS[key] = float(value)
+                    try:
+                        CURRENT_SETTINGS[key] = float(value)
+                    except (ValueError, TypeError):
+                        # 使用中文标题显示错误信息
+                        flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是浮点数。", 'danger')
+                        return redirect(url_for('admin_routes.admin_settings'))
                 elif isinstance(DEFAULT_SETTINGS.get(key), bool):
                     CURRENT_SETTINGS[key] = (value.lower() == 'true')
                 elif isinstance(DEFAULT_SETTINGS.get(key), list): # 假设列表是逗号分隔的数字
                     try:
                         CURRENT_SETTINGS[key] = [int(x.strip()) for x in value.split(',') if x.strip()]
                     except ValueError:
-                        flash(f"设置 '{key}' 的值 '{value}' 格式不正确，应为逗号分隔的数字。", 'danger')
+                        # 使用中文标题显示错误信息
+                        flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值 '{value}' 格式不正确，应为逗号分隔的数字。", 'danger')
                         return redirect(url_for('admin_routes.admin_settings'))
                 else:
                     CURRENT_SETTINGS[key] = value
-        save_settings(CURRENT_SETTINGS)
+        
+        save_settings(CURRENT_SETTINGS) # 保存更新后的设置到文件
         flash('网站设置已更新！', 'success')
         return redirect(url_for('admin_routes.admin_settings'))
-    return render_template('admin/settings.html', settings=CURRENT_SETTINGS, default_settings=DEFAULT_SETTINGS)
+    
+    # GET 请求时，渲染设置页面并传递中文标题映射
+    return render_template('admin/settings.html', 
+                           settings=CURRENT_SETTINGS, 
+                           default_settings=DEFAULT_SETTINGS,
+                           setting_labels=SETTING_LABELS_CHINESE # <-- 确保这里传递了 setting_labels
+                           )
 
 @bp.route('/settings/download')
 @admin_required
