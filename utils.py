@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta
 import math
 from collections import Counter
-
+import random
+from config import PRIZE_RULES, CURRENT_SETTINGS # 导入中奖规则和当前设置
 
 # 版本号，每次生成文件时更新
 __version__ = "1.0.0"
@@ -10,7 +11,7 @@ __version__ = "1.0.0"
 def format_lottery_numbers(numbers_str):
     """将逗号分隔的数字字符串转换为整数列表并排序"""
     try:
-        return sorted([int(x) for x in numbers_str.split(',')])
+        return sorted([int(x) for x in numbers_str.split(',') if x.strip()]) # 确保处理空字符串
     except (ValueError, AttributeError):
         return []
 
@@ -101,18 +102,10 @@ def calculate_frequency(all_draws, ball_range, ball_type='red'):
             if ball in frequency:
                 frequency[ball] += 1
     return frequency
-'''
-def calculate_odd_even_sum(draw):
-    """计算一期开奖的奇偶比和红球和值"""
-    red_balls = draw.get_red_balls_list()
-    odd_count = sum(1 for x in red_balls if x % 2 != 0)
-    even_count = len(red_balls) - odd_count
-    red_sum = sum(red_balls)
-    return odd_count, even_count, red_sum
-'''
-def calculate_odd_even_sum(draw):
-    """计算数字字符串的奇偶比和总和"""
-    numbers = format_lottery_numbers(draw) # 使用 format_lottery_numbers 确保是列表
+
+def calculate_odd_even_sum(draw_balls_list): # 接收的是列表，不是draw对象
+    """计算数字列表的奇偶比和总和"""
+    numbers = sorted([int(x) for x in draw_balls_list if x is not None]) # 确保是数字列表
     if not numbers:
         return 0, 0, 0 # 默认值
 
@@ -121,7 +114,7 @@ def calculate_odd_even_sum(draw):
     total_sum = sum(numbers)
     return odd_count, even_count, total_sum # 返回一个元组
 
-def calculate_frequency_and_omissions(draws_list, ball_range, ball_type):
+def calculate_frequency_and_omissions_for_balls(draws_list, ball_range, ball_type):
     """
     计算指定球类型（红球或蓝球）的出现频率、当前遗漏和最大遗漏。
     draws_list: 降序排列的开奖数据列表 (最新在前面)
@@ -137,19 +130,22 @@ def calculate_frequency_and_omissions(draws_list, ball_range, ball_type):
     for draw_index, draw in enumerate(draws_list):
         balls = draw.get_red_balls_list() if ball_type == 'red' else draw.get_blue_balls_list()
         
+        # 更新当前期出现的球的最后出现位置
         for ball in balls:
             if 1 <= ball <= ball_range:
                 stats[ball]['frequency_count'] += 1
-                
-                # 更新最大遗漏 (如果当前球出现，则重置其遗漏计数器)
-                for b_num in range(1, ball_range + 1):
-                    if b_num != ball and stats[b_num]['last_seen_index'] != -1: # 如果这个球不是当前出现的球，且之前出现过
-                        current_omission_for_b = draw_index - stats[b_num]['last_seen_index'] -1 # 从上次出现到当前期之间的期数
-                        if current_omission_for_b > stats[b_num]['max_omission']:
-                            stats[b_num]['max_omission'] = current_omission_for_b
-                stats[ball]['last_seen_index'] = draw_index # 更新当前球的最后出现位置
+                stats[ball]['last_seen_index'] = draw_index # 更新最后出现位置
 
-    # 第二次遍历：计算当前遗漏 (从最新一期开始算)
+        # 对于本期未出现的球，更新其遗漏计数
+        for b_num in range(1, ball_range + 1):
+            if b_num not in balls:
+                if stats[b_num]['last_seen_index'] != -1: # 如果之前出现过
+                    current_omission_since_last_seen = draw_index - stats[b_num]['last_seen_index']
+                    if current_omission_since_last_seen > stats[b_num]['max_omission']:
+                        stats[b_num]['max_omission'] = current_omission_since_last_seen
+                # 如果从未出现过，max_omission 保持 0，current_omission 会在第二次遍历中处理
+
+    # 第二次遍历：计算当前遗漏
     for ball_num in range(1, ball_range + 1):
         found_in_recent = False
         for draw_index, draw in enumerate(draws_list):
@@ -257,7 +253,7 @@ def calculate_ac_value_per_draw(balls):
     
     return len(diffs) - (len(balls) - 1)
 
-# --- 聚合统计函数 (用于 history 页面) ---
+# --- 聚合统计函数 (用于 statistics 页面) ---
 
 def get_aggregated_stats(draws_list, lottery_type, config_settings):
     """
@@ -395,76 +391,113 @@ def get_aggregated_stats(draws_list, lottery_type, config_settings):
         'blue_tail_counts': dict(blue_tail_counts),
     }
 
-# 重命名并调整原有的 calculate_frequency_and_omissions，使其只关注单个号码的统计
-def calculate_frequency_and_omissions_for_balls(draws_list, ball_range, ball_type):
+# --- 对奖逻辑辅助函数 ---
+def check_prize_for_combination(user_red_balls, user_blue_balls, draw_red_balls, draw_blue_balls, lottery_type):
     """
-    计算指定球类型（红球或蓝球）的出现频率、当前遗漏和最大遗漏。
-    draws_list: 降序排列的开奖数据列表 (最新在前面)
-    ball_range: 球的最大值 (例如，双色球红球33，蓝球16)
-    ball_type: 'red' 或 'blue'
+    检查用户号码与一期开奖号码的中奖情况。
+    user_red_balls: 用户选择的红球列表 (已排序)
+    user_blue_balls: 用户选择的蓝球列表 (已排序)
+    draw_red_balls: 开奖红球列表 (已排序)
+    draw_blue_balls: 开奖蓝球列表 (已排序)
+    lottery_type: 'ssq' 或 'dlt'
+    返回: {'prize_level': '一等奖', 'prize_amount': 10000000} 或 None
     """
-    stats = {i: {'frequency_count': 0, 'current_omission': 0, 'max_omission': 0, 'last_seen_index': -1} 
-             for i in range(1, ball_range + 1)}
-    
-    total_draws_in_range = len(draws_list)
+    rules = PRIZE_RULES.get(lottery_type)
+    if not rules:
+        return None
 
-    # 第一次遍历：计算出现频率和最大遗漏
-    for draw_index, draw in enumerate(draws_list):
-        balls = draw.get_red_balls_list() if ball_type == 'red' else draw.get_blue_balls_list()
+    # 计算匹配的红球和蓝球数量
+    matched_red = len(set(user_red_balls).intersection(set(draw_red_balls)))
+    matched_blue = len(set(user_blue_balls).intersection(set(draw_blue_balls)))
+
+    # 遍历中奖规则，从高到低匹配
+    for prize in rules['prizes']:
+        # 对于复式投注，需要计算实际中奖注数
+        # 简化处理：这里只判断是否符合中奖条件，不计算复式中奖注数
+        # 实际复式中奖计算非常复杂，需要组合数学
         
-        # 更新当前期出现的球的最后出现位置
-        for ball in balls:
-            if 1 <= ball <= ball_range:
-                stats[ball]['frequency_count'] += 1
-                stats[ball]['last_seen_index'] = draw_index # 更新最后出现位置
+        # 检查红球匹配条件
+        red_match_condition = False
+        if isinstance(prize['match_red'], int): # 固定红球数量
+            red_match_condition = (matched_red == prize['match_red'])
+        elif isinstance(prize['match_red'], list): # 红球数量范围
+            red_match_condition = (prize['match_red'][0] <= matched_red <= prize['match_red'][1])
+        
+        # 检查蓝球匹配条件
+        blue_match_condition = False
+        if isinstance(prize['match_blue'], int): # 固定蓝球数量
+            blue_match_condition = (matched_blue == prize['match_blue'])
+        elif isinstance(prize['match_blue'], list): # 蓝球数量范围
+            blue_match_condition = (prize['match_blue'][0] <= matched_blue <= prize['match_blue'][1])
 
-        # 对于本期未出现的球，更新其遗漏计数
-        for b_num in range(1, ball_range + 1):
-            if b_num not in balls:
-                if stats[b_num]['last_seen_index'] != -1: # 如果之前出现过
-                    current_omission_since_last_seen = draw_index - stats[b_num]['last_seen_index']
-                    if current_omission_since_last_seen > stats[b_num]['max_omission']:
-                        stats[b_num]['max_omission'] = current_omission_since_last_seen
-                # 如果从未出现过，max_omission 保持 0，current_omission 会在第二次遍历中处理
-
-    # 第二次遍历：计算当前遗漏
-    for ball_num in range(1, ball_range + 1):
-        found_in_recent = False
-        for draw_index, draw in enumerate(draws_list):
-            balls = draw.get_red_balls_list() if ball_type == 'red' else draw.get_blue_balls_list()
-            if ball_num in balls:
-                stats[ball_num]['current_omission'] = draw_index # 遗漏期数是它在列表中的索引 (0表示最新一期出现)
-                found_in_recent = True
-                break
-        if not found_in_recent:
-            stats[ball_num]['current_omission'] = total_draws_in_range # 如果在范围内从未出现，遗漏期数就是总期数
-
-        # 确保 max_omission 至少是 current_omission
-        if stats[ball_num]['current_omission'] > stats[ball_num]['max_omission']:
-            stats[ball_num]['max_omission'] = stats[ball_num]['current_omission']
-
-    # 计算频率百分比
-    for ball_num in range(1, ball_range + 1):
-        if total_draws_in_range > 0:
-            stats[ball_num]['frequency_percentage'] = (stats[ball_num]['frequency_count'] / total_draws_in_range) * 100
-        else:
-            stats[ball_num]['frequency_percentage'] = 0
-
-    # 将字典转换为列表，方便模板遍历和排序
-    stats_list = []
-    for ball_num in range(1, ball_range + 1):
-        stats_list.append({
-            'ball': ball_num,
-            'frequency_count': stats[ball_num]['frequency_count'],
-            'frequency_percentage': round(stats[ball_num]['frequency_percentage'], 2),
-            'current_omission': stats[ball_num]['current_omission'],
-            'max_omission': stats[ball_num]['max_omission']
-        })
+        if red_match_condition and blue_match_condition:
+            return {'prize_level': prize['level'], 'prize_amount': prize['amount']}
     
-    return stats_list, total_draws_in_range
+    return None
 
-# TODO: 更多统计函数，如热号/冷号图表数据准备c
-# TODO: 兑奖逻辑辅助函数
-# TODO: 趣味游戏日期计算辅助函数 (考虑节假日)
+# --- 趣味游戏模拟函数 ---
+def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations=1000000):
+    """
+    模拟虚拟开奖，直到用户号码中得一等奖，或达到最大模拟次数。
+    返回模拟结果，包括中奖次数、预计时间等。
+    """
+    rules = PRIZE_RULES.get(lottery_type)
+    if not rules:
+        return {'error': 'Invalid lottery type'}
 
+    red_range = 33 if lottery_type == 'ssq' else 35
+    blue_range = 16 if lottery_type == 'ssq' else 12
+    num_red_balls = 6 if lottery_type == 'ssq' else 5
+    num_blue_balls = 1 if lottery_type == 'ssq' else 2
+
+    first_prize_found = False
+    draw_count = 0
+    total_prizes = Counter() # 统计各奖项中奖次数
+
+    while not first_prize_found and draw_count < max_simulations:
+        draw_count += 1
+        
+        # 模拟开奖号码
+        simulated_red_balls = sorted(random.sample(range(1, red_range + 1), num_red_balls))
+        simulated_blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue_balls))
+
+        # 检查中奖情况
+        match_result = check_prize_for_combination(
+            user_red_balls, user_blue_balls,
+            simulated_red_balls, simulated_blue_balls,
+            lottery_type
+        )
+
+        if match_result:
+            total_prizes[match_result['prize_level']] += 1
+            if match_result['prize_level'] == '一等奖':
+                first_prize_found = True
+                break
+    
+    result = {
+        'input_red_balls': user_red_balls,
+        'input_blue_balls': user_blue_balls,
+        'total_prizes': dict(total_prizes),
+        'first_prize_info': None
+    }
+
+    if first_prize_found:
+        # 估算中奖时间
+        draw_frequency_days = 0
+        if lottery_type == 'ssq':
+            draw_frequency_days = 3.5 # 大约每3.5天一期 (3期/周)
+        elif lottery_type == 'dlt':
+            draw_frequency_days = 3.5 # 大约每3.5天一期 (3期/周)
+        
+        estimated_days = draw_count * draw_frequency_days
+        estimated_date = (datetime.now() + timedelta(days=estimated_days)).strftime('%Y-%m-%d')
+        estimated_cost = draw_count * CURRENT_SETTINGS.get('per_bet_price', 2) # 假设每期买一注
+
+        result['first_prize_info'] = {
+            'draw_count': draw_count,
+            'estimated_date': estimated_date,
+            'estimated_cost': estimated_cost
+        }
+    
+    return result
 

@@ -63,9 +63,9 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_12_prob": 0.015,
     "dlt_red_omit_13_prob": 0.0,
     "dlt_red_omit_14_prob": 0.0,
-    "prize_check_range": 1, # 兑奖页面往前核对的期数范围
+    "prize_check_range": 10, # 兑奖页面往前核对的期数范围，默认改为10期
     "ssq_draw_days": [2, 4, 7], # 周二、周四、周日
-    "dlt_draw_days": [1, 3, 6], # 周一、周三、周六 (原需求是1,2,6，但双色球周二，大乐透周二会冲突，改为周三)
+    "dlt_draw_days": [1, 3, 6], # 周一、周三、周六
     "annual_holidays": [ # 默认春节和国庆后一周休息
         {"start": "01-28", "duration_weeks": 1}, # 假设1月28日春节开始
         {"start": "10-01", "duration_weeks": 1}  # 国庆
@@ -84,16 +84,14 @@ DEFAULT_SETTINGS = {
     'history_stats_range_default': 100, # 默认统计最近100期
     'history_stats_range_options': [50, 100, 200, 500, 1000, 0], # 0 表示所有历史数据
 
-    # 历史数据统计范围设置
-    'history_stats_range_default': 100, # 默认统计最近100期
-    'history_stats_range_options': [50, 100, 200, 500, 1000, 0], # 0 表示所有历史数据
-
     # 大小比划分界限
     'ssq_red_size_midpoint': 17, # 双色球红球 1-16 小，17-33 大
     'ssq_blue_size_midpoint': 9, # 双色球蓝球 1-8 小，9-16 大
     'dlt_front_size_midpoint': 18, # 大乐透前区 1-17 小，18-35 大
     'dlt_back_size_midpoint': 7, # 大乐透后区 1-6 小，7-12 大
 
+    # 趣味游戏最大模拟次数
+    'fun_game_max_simulations': 1000000, # 默认模拟100万次
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
@@ -122,11 +120,8 @@ CURRENT_SETTINGS = load_settings()
 # 确保 instance 目录存在
 os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
 
-# --- 当前网站设置 (从 settings.json 加载或使用 DEFAULT_SETTINGS) ---
-# ... (CURRENT_SETTINGS, save_settings, update_settings 函数)
-
 # --- 统计维度解释文本 ---
-STAT_EXPLANATIONS = { # <-- 确保这个字典是这样定义的，并且在文件顶层
+STAT_EXPLANATIONS = {
     'red_frequency': "统计每个红球号码在指定范围内的出现次数和频率百分比。",
     'red_omission': "统计每个红球号码当前的遗漏期数和历史最大遗漏期数。",
     'red_size_ratio': "将红球号码范围划分为“大”和“小”两个区域，统计开奖号码中大小号的比例。双色球红球通常以17为界（1-16小，17-33大），大乐透前区以18为界（1-17小，18-35大）。",
@@ -151,7 +146,7 @@ STAT_EXPLANATIONS = { # <-- 确保这个字典是这样定义的，并且在文�
 }
 
 # --- 后台设置项的中文标题映射 ---
-SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并且在文件顶层
+SETTING_LABELS_CHINESE = {
     'site_name': "网站名称",
     'site_description': "网站描述",
     'admin_username': "管理员用户名",
@@ -210,7 +205,8 @@ SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并�
     'dlt_red_omit_14_prob': "大乐透红球遗漏14期概率",
 
     # 兑奖中心设置
-    'prize_check_range': "兑奖中心检查范围",
+    'prize_check_range': "对奖中心检查范围", # 改为对奖
+    'fun_game_max_simulations': "趣味游戏最大模拟次数", # 新增
 
     # 开奖日期设置
     'ssq_draw_days': "双色球开奖日 (周几)",
@@ -226,3 +222,44 @@ SETTING_LABELS_CHINESE = { # <-- 确保这个字典也是这样定义的，并�
     'dlt_blue_recent_occurrence_weight': "大乐透蓝球近期出现频率权重",
 }
 
+# --- 中奖规则定义 ---
+PRIZE_RULES = {
+    'ssq': {
+        'red_count': 6,
+        'blue_count': 1,
+        'prizes': [
+            {'level': '一等奖', 'match_red': 6, 'match_blue': 1, 'amount': '浮动'},
+            {'level': '二等奖', 'match_red': 6, 'match_blue': 0, 'amount': '浮动'},
+            {'level': '三等奖', 'match_red': 5, 'match_blue': 1, 'amount': 3000},
+            {'level': '四等奖', 'match_red': 5, 'match_blue': 0, 'amount': 200},
+            {'level': '四等奖', 'match_red': 4, 'match_blue': 1, 'amount': 200},
+            {'level': '五等奖', 'match_red': 4, 'match_blue': 0, 'amount': 10},
+            {'level': '五等奖', 'match_red': 3, 'match_blue': 1, 'amount': 10},
+            {'level': '六等奖', 'match_red': 2, 'match_blue': 1, 'amount': 5},
+            {'level': '六等奖', 'match_red': 1, 'match_blue': 1, 'amount': 5},
+            {'level': '六等奖', 'match_red': 0, 'match_blue': 1, 'amount': 5},
+        ]
+    },
+    'dlt': {
+        'red_count': 5,
+        'blue_count': 2,
+        'prizes': [
+            {'level': '一等奖', 'match_red': 5, 'match_blue': 2, 'amount': '浮动'},
+            {'level': '二等奖', 'match_red': 5, 'match_blue': 1, 'amount': '浮动'},
+            {'level': '三等奖', 'match_red': 5, 'match_blue': 0, 'amount': 10000},
+            {'level': '四等奖', 'match_red': 4, 'match_blue': 2, 'amount': 3000},
+            {'level': '五等奖', 'match_red': 4, 'match_blue': 1, 'amount': 300},
+            {'level': '六等奖', 'match_red': 3, 'match_blue': 2, 'amount': 200},
+            {'level': '七等奖', 'match_red': 4, 'match_blue': 0, 'amount': 100},
+            {'level': '八等奖', 'match_red': 3, 'match_blue': 1, 'amount': 15},
+            {'level': '八等奖', 'match_red': 2, 'match_blue': 2, 'amount': 15},
+            {'level': '九等奖', 'match_red': 3, 'match_blue': 0, 'amount': 5},
+            {'level': '九等奖', 'match_red': 1, 'match_blue': 2, 'amount': 5},
+            {'level': '九等奖', 'match_red': 2, 'match_blue': 1, 'amount': 5},
+            {'level': '九等奖', 'match_red': 0, 'match_blue': 2, 'amount': 5},
+        ]
+    }
+}
+
+
+# ... (SETTINGS_FILE, load_settings, save_settings, CURRENT_SETTINGS, os.makedirs, STAT_EXPLANATIONS 等其他代码保持不变)

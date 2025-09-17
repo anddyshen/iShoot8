@@ -3,10 +3,11 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News
 from data_manager import get_latest_draws
-from config import CURRENT_SETTINGS, STAT_EXPLANATIONS # <-- 导入 STAT_EXPLANATIONS
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
-    get_aggregated_stats, calculate_frequency_and_omissions_for_balls # 导入统计函数
+    get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
+    check_prize_for_combination, simulate_fun_game
 )
 from prediction_engine import check_lottery_rules
 
@@ -129,7 +130,7 @@ def statistics():
                            red_ball_range=red_ball_range,
                            blue_ball_range=blue_ball_range,
                            aggregated_stats=aggregated_stats,
-                           stat_explanations=STAT_EXPLANATIONS # <-- 传递解释字典
+                           stat_explanations=STAT_EXPLANATIONS
                            )
 
 @bp.route('/prediction')
@@ -140,9 +141,129 @@ def prediction():
 
 @bp.route('/prize_check')
 def prize_check():
-    # 兑奖页面
-    # TODO: 实现号码输入、核对、趣味游戏
-    return render_template('prize_check.html')
+    # 获取最新一期开奖信息，用于页面显示
+    latest_ssq = get_latest_draws(SSQDraw, 1)
+    latest_dlt = get_latest_draws(DLTDraw, 1)
+
+    ssq_latest_info = None
+    if latest_ssq:
+        ssq_latest_info = {
+            'issue': latest_ssq[0].issue,
+            'draw_date': latest_ssq[0].draw_date.strftime('%Y-%m-%d')
+        }
+    
+    dlt_latest_info = None
+    if latest_dlt:
+        dlt_latest_info = {
+            'issue': latest_dlt[0].issue,
+            'draw_date': latest_dlt[0].draw_date.strftime('%Y-%m-%d')
+        }
+
+    return render_template('prize_check.html',
+                           ssq_latest_info=ssq_latest_info,
+                           dlt_latest_info=dlt_latest_info,
+                           prize_check_range=CURRENT_SETTINGS.get('prize_check_range', 10),
+                           prediction_generated_count=CURRENT_SETTINGS.get('prediction_generated_count', 10)
+                           )
+
+@bp.route('/api/check_prizes', methods=['POST'])
+def api_check_prizes():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
+    
+    # --- 修正这里：手动获取并转换类型 ---
+    check_range_val = data.get('check_range', CURRENT_SETTINGS.get('prize_check_range', 10))
+    try:
+        check_range = int(check_range_val)
+    except (ValueError, TypeError):
+        check_range = CURRENT_SETTINGS.get('prize_check_range', 10) # Fallback to default if conversion fails
+    # --- 修正结束 ---
+
+    if not lottery_type or not combinations:
+        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    
+    # 获取最近 N 期开奖数据
+    recent_draws = model_class.query.order_by(model_class.issue.desc()).limit(check_range).all()
+    
+    if not recent_draws:
+        return jsonify({'error': '未找到历史开奖数据'}), 404
+
+    all_results = []
+    for combo in combinations:
+        user_red_balls_str = combo.get('red_balls')
+        user_blue_balls_str = combo.get('blue_balls')
+
+        user_red_balls = format_lottery_numbers(user_red_balls_str)
+        user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+
+        matches = []
+        for draw in recent_draws:
+            draw_red_balls = draw.get_red_balls_list()
+            draw_blue_balls = draw.get_blue_balls_list()
+
+            prize_result = check_prize_for_combination(
+                user_red_balls, user_blue_balls,
+                draw_red_balls, draw_blue_balls,
+                lottery_type
+            )
+            if prize_result:
+                # 对于浮动奖金，显示开奖时的实际奖金
+                prize_amount = prize_result['prize_amount']
+                if prize_amount == '浮动':
+                    if prize_result['prize_level'] == '一等奖':
+                        prize_amount = f"{draw.first_prize_amount:,.0f}"
+                    elif prize_result['prize_level'] == '二等奖':
+                        prize_amount = f"{draw.second_prize_amount:,.0f}"
+                    # TODO: 大乐透的浮动奖金也需要类似处理
+                
+                matches.append({
+                    'issue': draw.issue,
+                    'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
+                    'prize_level': prize_result['prize_level'],
+                    'prize_amount': prize_amount
+                })
+        
+        all_results.append({
+            'input_red_balls': user_red_balls_str,
+            'input_blue_balls': user_blue_balls_str,
+            'matches': matches
+        })
+    
+    return jsonify({'results': all_results})
+
+@bp.route('/api/fun_game', methods=['POST'])
+def api_fun_game():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
+
+    if not lottery_type or not combinations:
+        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+
+    # --- 修正这里：手动获取并转换类型 ---
+    max_simulations_val = data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000))
+    try:
+        max_simulations = int(max_simulations_val)
+    except (ValueError, TypeError):
+        max_simulations = CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000) # Fallback to default
+    # --- 修正结束 ---
+
+    all_results = []
+    for combo in combinations:
+        user_red_balls_str = combo.get('red_balls')
+        user_blue_balls_str = combo.get('blue_balls')
+
+        user_red_balls = format_lottery_numbers(user_red_balls_str)
+        user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+
+        sim_result = simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations)
+        all_results.append(sim_result)
+    
+    return jsonify({'results': all_results})
+
 
 @bp.route('/news/<int:news_id>')
 def news_detail(news_id):

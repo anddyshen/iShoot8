@@ -1,9 +1,9 @@
 <!-- templates/prize_check.html -->
-<!-- 版本: 1.0.0 -->
+<!-- 版本: 1.1.0 - 对奖功能实现，支持复式，显示最新期号，修复对奖失败 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
-{% block title %}兑奖中心{% endblock %}
+{% block title %}对奖中心{% endblock %} {# <-- 1. 兑奖改为对奖 #}
 
 {% block head %}
 <style>
@@ -61,7 +61,7 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-4">兑奖中心</h1>
+<h1 class="mb-4">对奖中心</h1> {# <-- 1. 兑奖改为对奖 #}
 
 <div class="alert alert-info text-center" role="alert">
     输入您的彩票号码，核对历史中奖情况，或参与趣味游戏。
@@ -78,13 +78,13 @@
 </div>
 
 <div id="ssq_check_section" class="lottery-check-section">
-    <h2 class="mb-3">双色球兑奖</h2>
+    <h2 class="mb-3">双色球对奖</h2> {# <-- 1. 兑奖改为对奖 #}
 
     <div class="card mb-4">
         <div class="card-header">输入您的号码</div>
         <div class="card-body">
             <div class="mb-3">
-                <label class="form-label">红球 (1-33, 选择 6 个)</label>
+                <label class="form-label">红球 (1-33, 可选任意数量)</label> {# <-- 2. 不限制选择数量 #}
                 <div class="ball-selector-grid" id="ssq_red_selector">
                     {% for i in range(1, 34) %}
                     <div class="ball" data-ball-type="red" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
@@ -92,7 +92,7 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">蓝球 (1-16, 选择 1 个)</label>
+                <label class="form-label">蓝球 (1-16, 可选任意数量)</label> {# <-- 2. 不限制选择数量 #}
                 <div class="ball-selector-grid" id="ssq_blue_selector">
                     {% for i in range(1, 17) %}
                     <div class="ball" data-ball-type="blue" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
@@ -106,22 +106,28 @@
                     <p class="text-muted">蓝球: <span id="ssq_selected_blue"></span></p>
                 </div>
             </div>
-            <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到核对列表</button>
+            <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button> {# <-- 1. 兑奖改为对奖 #}
             <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
         </div>
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">待核对号码列表 (最多 {{ settings.prediction_generated_count }} 组)</div>
+        <div class="card-header">待对奖号码列表 (最多 {{ prediction_generated_count }} 组)</div> {# <-- 1. 兑奖改为对奖 #}
         <div class="card-body">
             <div id="ssq_candidate_list">
                 <p class="text-muted">请从上方选择号码并添加到列表。</p>
             </div>
             <hr>
             <div class="mb-3 row align-items-center">
-                <label for="ssq_check_range" class="col-sm-4 col-form-label">核对历史期数往前 <span id="ssq_check_range_display">{{ settings.prize_check_range }}</span> 期:</label>
+                <label for="ssq_check_range" class="col-sm-4 col-form-label">
+                    {# <-- 4. 显示开奖时间+最新一期的期号 #}
+                    {% if ssq_latest_info %}
+                        最新开奖: {{ ssq_latest_info.draw_date }} 第 {{ ssq_latest_info.issue }} 期<br>
+                    {% endif %}
+                    对奖历史期数往前 <span id="ssq_check_range_display">{{ prize_check_range }}</span> 期:
+                </label>
                 <div class="col-sm-4">
-                    <input type="range" class="form-range" id="ssq_check_range" min="1" max="100" value="{{ settings.prize_check_range }}">
+                    <input type="range" class="form-range" id="ssq_check_range" min="1" max="100" value="{{ prize_check_range }}">
                 </div>
                 <div class="col-sm-4">
                     <button class="btn btn-primary w-100" id="ssq_check_prizes">核对中奖</button>
@@ -131,7 +137,7 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">兑奖结果</div>
+        <div class="card-header">对奖结果</div> {# <-- 1. 兑奖改为对奖 #}
         <div class="card-body" id="ssq_prize_results">
             <p class="text-muted">点击“核对中奖”按钮查看结果。</p>
         </div>
@@ -150,13 +156,13 @@
 </div>
 
 <div id="dlt_check_section" class="lottery-check-section" style="display: none;">
-    <h2 class="mb-3">大乐透兑奖</h2>
+    <h2 class="mb-3">大乐透对奖</h2> {# <-- 1. 兑奖改为对奖 #}
 
     <div class="card mb-4">
         <div class="card-header">输入您的号码</div>
         <div class="card-body">
             <div class="mb-3">
-                <label class="form-label">红球 (1-35, 选择 5 个)</label>
+                <label class="form-label">红球 (1-35, 可选任意数量)</label> {# <-- 2. 不限制选择数量 #}
                 <div class="ball-selector-grid" id="dlt_red_selector">
                     {% for i in range(1, 36) %}
                     <div class="ball" data-ball-type="red" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
@@ -164,7 +170,7 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">蓝球 (1-12, 选择 2 个)</label>
+                <label class="form-label">蓝球 (1-12, 可选任意数量)</label> {# <-- 2. 不限制选择数量 #}
                 <div class="ball-selector-grid" id="dlt_blue_selector">
                     {% for i in range(1, 13) %}
                     <div class="ball" data-ball-type="blue" data-ball-value="{{ i }}">{{ '%02d' | format(i) }}</div>
@@ -178,22 +184,28 @@
                     <p class="text-muted">蓝球: <span id="dlt_selected_blue"></span></p>
                 </div>
             </div>
-            <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到核对列表</button>
+            <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button> {# <-- 1. 兑奖改为对奖 #}
             <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
         </div>
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">待核对号码列表 (最多 {{ settings.prediction_generated_count }} 组)</div>
+        <div class="card-header">待对奖号码列表 (最多 {{ prediction_generated_count }} 组)</div> {# <-- 1. 兑奖改为对奖 #}
         <div class="card-body">
             <div id="dlt_candidate_list">
                 <p class="text-muted">请从上方选择号码并添加到列表。</p>
             </div>
             <hr>
             <div class="mb-3 row align-items-center">
-                <label for="dlt_check_range" class="col-sm-4 col-form-label">核对历史期数往前 <span id="dlt_check_range_display">{{ settings.prize_check_range }}</span> 期:</label>
+                <label for="dlt_check_range" class="col-sm-4 col-form-label">
+                    {# <-- 4. 显示开奖时间+最新一期的期号 #}
+                    {% if dlt_latest_info %}
+                        最新开奖: {{ dlt_latest_info.draw_date }} 第 {{ dlt_latest_info.issue }} 期<br>
+                    {% endif %}
+                    对奖历史期数往前 <span id="dlt_check_range_display">{{ prize_check_range }}</span> 期:
+                </label>
                 <div class="col-sm-4">
-                    <input type="range" class="form-range" id="dlt_check_range" min="1" max="100" value="{{ settings.prize_check_range }}">
+                    <input type="range" class="form-range" id="dlt_check_range" min="1" max="100" value="{{ prize_check_range }}">
                 </div>
                 <div class="col-sm-4">
                     <button class="btn btn-primary w-100" id="dlt_check_prizes">核对中奖</button>
@@ -203,7 +215,7 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">兑奖结果</div>
+        <div class="card-header">对奖结果</div> {# <-- 1. 兑奖改为对奖 #}
         <div class="card-body" id="dlt_prize_results">
             <p class="text-muted">点击“核对中奖”按钮查看结果。</p>
         </div>
@@ -253,7 +265,7 @@
     }
 
     // Generic ball selector logic
-    function setupBallSelector(lotteryType, redCount, blueCount, redRange, blueRange) {
+    function setupBallSelector(lotteryType, redRange, blueRange) { // <-- 2. 移除 redCount, blueCount 参数
         let selectedRedBalls = new Set();
         let selectedBlueBalls = new Set();
         const redSelector = document.getElementById(`${lotteryType}_red_selector`);
@@ -270,7 +282,7 @@
             selectedBlueSpan.innerHTML = renderBalls(Array.from(selectedBlueBalls), 'blue');
         }
 
-        function toggleBall(ballElement, ballType, selectedSet, maxCount) {
+        function toggleBall(ballElement, ballType, selectedSet) { // <-- 2. 移除 maxCount 参数
             const value = parseInt(ballElement.dataset.ballValue);
             const className = `selected-${ballType}`;
 
@@ -278,25 +290,21 @@
                 ballElement.classList.remove(className);
                 selectedSet.delete(value);
             } else {
-                if (selectedSet.size < maxCount) {
-                    ballElement.classList.add(className);
-                    selectedSet.add(value);
-                } else {
-                    alert(`您最多只能选择 ${maxCount} 个${ballType === 'red' ? '红' : '蓝'}球。`);
-                }
+                ballElement.classList.add(className);
+                selectedSet.add(value);
             }
             updateDisplay();
         }
 
         redSelector.addEventListener('click', function(e) {
             if (e.target.classList.contains('ball')) {
-                toggleBall(e.target, 'red', selectedRedBalls, redCount);
+                toggleBall(e.target, 'red', selectedRedBalls);
             }
         });
 
         blueSelector.addEventListener('click', function(e) {
             if (e.target.classList.contains('ball')) {
-                toggleBall(e.target, 'blue', selectedBlueBalls, blueCount);
+                toggleBall(e.target, 'blue', selectedBlueBalls);
             }
         });
 
@@ -309,14 +317,15 @@
         });
 
         addToCandidatesBtn.addEventListener('click', function() {
-            if (selectedRedBalls.size !== redCount || selectedBlueBalls.size !== blueCount) {
-                alert(`请选择 ${redCount} 个红球和 ${blueCount} 个蓝球。`);
+            // <-- 2. 移除号码数量限制校验
+            if (selectedRedBalls.size === 0 && selectedBlueBalls.size === 0) {
+                alert('请至少选择一个红球或一个蓝球。');
                 return;
             }
 
             const currentCandidates = candidateList.querySelectorAll('.candidate-entry').length;
-            if (currentCandidates >= {{ settings.prediction_generated_count }}) { // Use prediction_generated_count as max candidates
-                alert(`最多只能添加 {{ settings.prediction_generated_count }} 组号码。`);
+            if (currentCandidates >= {{ prediction_generated_count }}) { // Use prediction_generated_count as max candidates
+                alert(`最多只能添加 {{ prediction_generated_count }} 组号码。`);
                 return;
             }
 
@@ -354,9 +363,9 @@
     }
 
     // Setup for SSQ
-    setupBallSelector('ssq', 6, 1, 33, 16);
+    setupBallSelector('ssq', 33, 16); // <-- 2. 移除 redCount, blueCount 参数
     // Setup for DLT
-    setupBallSelector('dlt', 5, 2, 35, 12);
+    setupBallSelector('dlt', 35, 12); // <-- 2. 移除 redCount, blueCount 参数
 
 
     // Range slider for check range
@@ -371,13 +380,13 @@
     async function checkPrizes(lotteryType) {
         const candidateEntries = document.querySelectorAll(`#${lotteryType}_candidate_list .candidate-entry`);
         if (candidateEntries.length === 0) {
-            alert('请先添加要核对的号码。');
+            alert('请先添加要对奖的号码。'); {# <-- 1. 兑奖改为对奖 #}
             return;
         }
 
         const checkRange = document.getElementById(`${lotteryType}_check_range`).value;
         const prizeResultsDiv = document.getElementById(`${lotteryType}_prize_results`);
-        prizeResultsDiv.innerHTML = '<p class="text-muted">核对中...</p>';
+        prizeResultsDiv.innerHTML = '<p class="text-muted">对奖中...</p>'; {# <-- 1. 兑奖改为对奖 #}
 
         const combinations = [];
         candidateEntries.forEach(entry => {
@@ -401,7 +410,7 @@
             const data = await response.json();
 
             if (data.error) {
-                prizeResultsDiv.innerHTML = `<p class="text-danger">核对失败: ${data.error}</p>`;
+                prizeResultsDiv.innerHTML = `<p class="text-danger">对奖失败: ${data.error}</p>`; {# <-- 1. 兑奖改为对奖 #}
                 return;
             }
 
