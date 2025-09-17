@@ -1,5 +1,5 @@
 <!-- templates/prize_check.html -->
-<!-- 版本: 1.1.2 - 修正 CURRENT_SETTINGS 变量引用 -->
+<!-- 版本: 1.1.3 - 对奖功能完善，增加清空记录，全部期数选项，修复趣味游戏，进度条 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -56,6 +56,10 @@
     }
     .candidate-entry .ball-container {
         margin-bottom: 5px;
+    }
+    .fun-game-progress {
+        margin-top: 15px;
+        display: none; /* 默认隐藏 */
     }
 </style>
 {% endblock %}
@@ -128,7 +132,7 @@
                     </label>
                 </div>
                 <div class="col-sm-6 d-flex align-items-center">
-                    <input type="range" class="form-range me-2" id="ssq_check_range" min="0" max="100" value="{{ prize_check_range }}">
+                    <input type="range" class="form-range me-2" id="ssq_check_range" min="1" max="{{ ssq_total_draws }}" value="{{ prize_check_range }}"> {# <-- 1. min=1, max=总期数 #}
                     <button class="btn btn-outline-secondary btn-sm" id="ssq_check_all_range">全部期数</button>
                 </div>
             </div>
@@ -151,10 +155,16 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">趣味游戏</div>
+        <div class="card-header">趣味游戏：大奖时光机</div> {# <-- 3. 修改标题 #}
         <div class="card-body">
-            <p>点击按钮，模拟虚拟开奖，看看您的号码多久能中一等奖！</p>
-            <button class="btn btn-info" id="ssq_fun_game_start">开始趣味游戏</button>
+            <p>看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！</p> {# <-- 4. 添加文字 #}
+            <button class="btn btn-info" id="ssq_fun_game_start">大奖时光机</button> {# <-- 3. 修改按钮文本 #}
+            <div class="fun-game-progress" id="ssq_fun_game_progress"> {# <-- 4. 进度条 #}
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <p class="mt-2 text-muted" id="ssq_fun_game_status">正在模拟第 0 期...</p>
+            </div>
             <div class="mt-3" id="ssq_fun_game_results">
                 <p class="text-muted">游戏结果将在此处显示。</p>
             </div>
@@ -213,7 +223,7 @@
                     </label>
                 </div>
                 <div class="col-sm-6 d-flex align-items-center">
-                    <input type="range" class="form-range me-2" id="dlt_check_range" min="0" max="100" value="{{ prize_check_range }}">
+                    <input type="range" class="form-range me-2" id="dlt_check_range" min="1" max="{{ dlt_total_draws }}" value="{{ prize_check_range }}"> {# <-- 1. min=1, max=总期数 #}
                     <button class="btn btn-outline-secondary btn-sm" id="dlt_check_all_range">全部期数</button>
                 </div>
             </div>
@@ -236,10 +246,16 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">趣味游戏</div>
+        <div class="card-header">趣味游戏：大奖时光机</div> {# <-- 3. 修改标题 #}
         <div class="card-body">
-            <p>点击按钮，模拟虚拟开奖，看看您的号码多久能中一等奖！</p>
-            <button class="btn btn-info" id="dlt_fun_game_start">开始趣味游戏</button>
+            <p>看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！</p> {# <-- 4. 添加文字 #}
+            <button class="btn btn-info" id="dlt_fun_game_start">大奖时光机</button> {# <-- 3. 修改按钮文本 #}
+            <div class="fun-game-progress" id="dlt_fun_game_progress"> {# <-- 4. 进度条 #}
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <p class="mt-2 text-muted" id="dlt_fun_game_status">正在模拟第 0 期...</p>
+            </div>
             <div class="mt-3" id="dlt_fun_game_results">
                 <p class="text-muted">游戏结果将在此处显示。</p>
             </div>
@@ -361,6 +377,8 @@
             if (candidateList.querySelector('p.text-muted')) {
                 candidateList.querySelector('p.text-muted').remove();
             }
+            // 更新趣味游戏提示
+            updateFunGameTip(lotteryType);
         });
 
         candidateList.addEventListener('click', function(e) {
@@ -370,6 +388,8 @@
                     candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
                 }
             }
+            // 更新趣味游戏提示
+            updateFunGameTip(lotteryType);
         });
 
         updateDisplay(); // Initial display
@@ -389,8 +409,16 @@
     const dltCheckRangeDisplay = document.getElementById('dlt_check_range_display');
     const dltCheckAllRangeBtn = document.getElementById('dlt_check_all_range');
 
+    // 设置滑块的最大值
+    const ssqTotalDraws = {{ ssq_total_draws | tojson }};
+    const dltTotalDraws = {{ dlt_total_draws | tojson }};
+
+    ssqCheckRange.max = ssqTotalDraws > 0 ? ssqTotalDraws : 100; // 如果没有数据，默认最大100
+    dltCheckRange.max = dltTotalDraws > 0 ? dltTotalDraws : 100;
+
     ssqCheckRange.addEventListener('input', function() {
         ssqCheckRangeDisplay.textContent = this.value;
+        if (this.value == 0) ssqCheckRangeDisplay.textContent = '全部';
     });
     ssqCheckAllRangeBtn.addEventListener('click', function() {
         ssqCheckRange.value = 0; // Use 0 to signify "all" to backend
@@ -399,6 +427,7 @@
 
     dltCheckRange.addEventListener('input', function() {
         dltCheckRangeDisplay.textContent = this.value;
+        if (this.value == 0) dltCheckRangeDisplay.textContent = '全部';
     });
     dltCheckAllRangeBtn.addEventListener('click', function() {
         dltCheckRange.value = 0; // Use 0 to signify "all" to backend
@@ -487,16 +516,22 @@
             alert('请先添加要参与游戏的号码。');
             return;
         }
+        // 趣味游戏只使用列表中的第一个号码
+        const firstCandidateEntry = candidateEntries[0];
+        const redBalls = firstCandidateEntry.querySelector('input[name="candidate_red_balls"]').value;
+        const blueBalls = firstCandidateEntry.querySelector('input[name="candidate_blue_balls"]').value;
 
         const funGameResultsDiv = document.getElementById(`${lotteryType}_fun_game_results`);
-        funGameResultsDiv.innerHTML = '<p class="text-muted">游戏模拟中，请稍候...</p>';
+        const funGameProgressDiv = document.getElementById(`${lotteryType}_fun_game_progress`);
+        const progressBar = funGameProgressDiv.querySelector('.progress-bar');
+        const statusText = funGameProgressDiv.querySelector(`#${lotteryType}_fun_game_status`);
 
-        const combinations = [];
-        candidateEntries.forEach(entry => {
-            const redBalls = entry.querySelector('input[name="candidate_red_balls"]').value;
-            const blueBalls = entry.querySelector('input[name="candidate_blue_balls"]').value;
-            combinations.push({ red_balls: redBalls, blue_balls: blueBalls });
-        });
+        funGameResultsDiv.innerHTML = ''; // 清空上次结果
+        funGameProgressDiv.style.display = 'block'; // 显示进度条
+        progressBar.style.width = '0%';
+        progressBar.setAttribute('aria-valuenow', '0');
+        progressBar.textContent = '0%';
+        statusText.textContent = '正在模拟第 0 期...';
 
         try {
             const response = await fetch('/api/fun_game', {
@@ -506,11 +541,13 @@
                 },
                 body: JSON.stringify({
                     lottery_type: lotteryType,
-                    combinations: combinations,
-                    max_simulations: {{ settings.get('fun_game_max_simulations', 1000000) }} // <-- 修正这里，使用 settings
+                    combinations: [{ red_balls: redBalls, blue_balls: blueBalls }], // 只传递第一个组合
+                    max_simulations: {{ settings.get('fun_game_max_simulations', 1000000) }}
                 })
             });
             const data = await response.json();
+
+            funGameProgressDiv.style.display = 'none'; // 隐藏进度条
 
             if (data.error) {
                 funGameResultsDiv.innerHTML = `<p class="text-danger">游戏模拟失败: ${data.error}</p>`;
@@ -518,28 +555,29 @@
             }
 
             let html = '';
-            data.results.forEach((result, index) => {
-                html += `<h5>号码组合 ${index + 1}:</h5>`;
-                html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
-                html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
-                if (result.first_prize_info) {
-                    html += `<p>恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count}</strong> 次开奖时中得一等奖！</p>`;
-                    html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
-                    html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
-                } else {
-                    html += `<p>在模拟的 {{ settings.get('fun_game_max_simulations', 1000000) }} 次内未中得一等奖。</p>`; // <-- 修正这里，使用 settings
-                }
-                html += `<p>总共中奖情况:</p><ul>`;
-                for (const prizeLevel in result.total_prizes) {
-                    html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel]} 次</li>`;
-                }
-                html += `</ul>`;
-                html += '<hr>';
-            });
+            const result = data.results[0]; // 只处理第一个结果
+            html += `<h5>号码组合 1:</h5>`;
+            html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
+            html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
+            if (result.first_prize_info) {
+                html += `<p>恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count}</strong> 次开奖时中得一等奖！</p>`;
+                html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
+                html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
+            } else {
+                html += `<p>在模拟的 {{ settings.get('fun_game_max_simulations', 1000000) }} 次内未中得一等奖。</p>`;
+            }
+            html += `<p>总共中奖情况:</p><ul>`;
+            // 遍历并显示按降序排列的奖项
+            for (const prizeLevel in result.total_prizes) {
+                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel]} 次</li>`;
+            }
+            html += `</ul>`;
+            html += '<hr>';
             funGameResultsDiv.innerHTML = html;
 
         } catch (error) {
             console.error('Error during fun game:', error);
+            funGameProgressDiv.style.display = 'none'; // 隐藏进度条
             funGameResultsDiv.innerHTML = '<p class="text-danger">趣味游戏模拟失败。</p>';
         }
     }
@@ -547,10 +585,34 @@
     document.getElementById('ssq_fun_game_start').addEventListener('click', () => startFunGame('ssq'));
     document.getElementById('dlt_fun_game_start').addEventListener('click', () => startFunGame('dlt'));
 
+    // 更新趣味游戏提示文本
+    function updateFunGameTip(lotteryType) {
+        const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
+        const funGameStartBtn = document.getElementById(`${lotteryType}_fun_game_start`);
+        const firstCandidateEntry = candidateList.querySelector('.candidate-entry');
+
+        if (firstCandidateEntry) {
+            funGameStartBtn.previousElementSibling.innerHTML = `
+                此号码可用于趣味游戏：<br>
+                红球: ${renderBalls(firstCandidateEntry.querySelector('input[name="candidate_red_balls"]').value.split(',').map(Number), 'red')}<br>
+                蓝球: ${renderBalls(firstCandidateEntry.querySelector('input[name="candidate_blue_balls"]').value.split(',').map(Number), 'blue')}
+                <br>看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+            `;
+        } else {
+            funGameStartBtn.previousElementSibling.innerHTML = `
+                点击按钮，模拟虚拟开奖，看看您的号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+            `;
+        }
+    }
+
+
     // Initial load
     document.addEventListener('DOMContentLoaded', function() {
         // Ensure the correct tab is active on load
         document.getElementById('ssq_check_tab').click();
+        // Update fun game tips on load
+        updateFunGameTip('ssq');
+        updateFunGameTip('dlt');
     });
 </script>
 {% endblock %}

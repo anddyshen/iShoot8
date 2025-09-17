@@ -1,7 +1,7 @@
 # routes.py
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify
 from datetime import datetime, date
-from models import SSQDraw, DLTDraw, News
+from models import SSQDraw, DLTDraw, News, db # 导入 db
 from data_manager import get_latest_draws
 from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES
 from utils import (
@@ -159,11 +159,17 @@ def prize_check():
             'draw_date': latest_dlt[0].draw_date.strftime('%Y-%m-%d')
         }
 
+    # 获取总期数，用于设置滑块的最大值
+    ssq_total_draws = db.session.query(SSQDraw).count()
+    dlt_total_draws = db.session.query(DLTDraw).count()
+
     return render_template('prize_check.html',
                            ssq_latest_info=ssq_latest_info,
                            dlt_latest_info=dlt_latest_info,
                            prize_check_range=CURRENT_SETTINGS.get('prize_check_range', 10),
-                           prediction_generated_count=CURRENT_SETTINGS.get('prediction_generated_count', 10)
+                           prediction_generated_count=CURRENT_SETTINGS.get('prediction_generated_count', 10),
+                           ssq_total_draws=ssq_total_draws, # <-- 传递总期数
+                           dlt_total_draws=dlt_total_draws  # <-- 传递总期数
                            )
 
 @bp.route('/api/check_prizes', methods=['POST'])
@@ -172,21 +178,22 @@ def api_check_prizes():
     lottery_type = data.get('lottery_type')
     combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
     
-    # --- 修正这里：手动获取并转换类型 ---
     check_range_val = data.get('check_range', CURRENT_SETTINGS.get('prize_check_range', 10))
     try:
         check_range = int(check_range_val)
     except (ValueError, TypeError):
         check_range = CURRENT_SETTINGS.get('prize_check_range', 10) # Fallback to default if conversion fails
-    # --- 修正结束 ---
 
     if not lottery_type or not combinations:
         return jsonify({'error': '缺少彩票类型或号码组合'}), 400
 
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
     
-    # 获取最近 N 期开奖数据
-    recent_draws = model_class.query.order_by(model_class.issue.desc()).limit(check_range).all()
+    # 获取最近 N 期开奖数据，如果 check_range 为 0，则获取所有
+    if check_range == 0: # 0 表示全部期数
+        recent_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    else:
+        recent_draws = model_class.query.order_by(model_class.issue.desc()).limit(check_range).all()
     
     if not recent_draws:
         return jsonify({'error': '未找到历史开奖数据'}), 404
@@ -217,7 +224,12 @@ def api_check_prizes():
                         prize_amount = f"{draw.first_prize_amount:,.0f}"
                     elif prize_result['prize_level'] == '二等奖':
                         prize_amount = f"{draw.second_prize_amount:,.0f}"
-                    # TODO: 大乐透的浮动奖金也需要类似处理
+                    # 大乐透的浮动奖金也需要类似处理
+                    elif lottery_type == 'dlt':
+                        if prize_result['prize_level'] == '一等奖':
+                            prize_amount = f"{draw.first_prize_amount:,.0f}"
+                        elif prize_result['prize_level'] == '二等奖':
+                            prize_amount = f"{draw.second_prize_amount:,.0f}"
                 
                 matches.append({
                     'issue': draw.issue,
@@ -243,26 +255,25 @@ def api_fun_game():
     if not lottery_type or not combinations:
         return jsonify({'error': '缺少彩票类型或号码组合'}), 400
 
-    # --- 修正这里：手动获取并转换类型 ---
+    # 趣味游戏只处理第一个号码组合
+    first_combo = combinations[0]
+    user_red_balls_str = first_combo.get('red_balls')
+    user_blue_balls_str = first_combo.get('blue_balls')
+
+    user_red_balls = format_lottery_numbers(user_red_balls_str)
+    user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+
     max_simulations_val = data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000))
     try:
         max_simulations = int(max_simulations_val)
     except (ValueError, TypeError):
         max_simulations = CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000) # Fallback to default
-    # --- 修正结束 ---
 
-    all_results = []
-    for combo in combinations:
-        user_red_balls_str = combo.get('red_balls')
-        user_blue_balls_str = combo.get('blue_balls')
-
-        user_red_balls = format_lottery_numbers(user_red_balls_str)
-        user_blue_balls = format_lottery_numbers(user_blue_balls_str)
-
-        sim_result = simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations)
-        all_results.append(sim_result)
+    # 调用 simulate_fun_game，只传递一个组合
+    sim_result = simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations)
     
-    return jsonify({'results': all_results})
+    # 返回结果，因为只模拟了一个组合，所以直接返回其结果
+    return jsonify({'results': [sim_result]})
 
 
 @bp.route('/news/<int:news_id>')

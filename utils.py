@@ -448,11 +448,18 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
     draw_count = 0
     total_prizes = Counter() # 统计各奖项中奖次数
 
+    # 确保用户选择的红球数量不大于可抽取的红球数量
+    if len(user_red_balls) > red_range or len(user_red_balls) > num_red_balls_to_draw:
+        return {'error': f"用户选择的红球数量 ({len(user_red_balls)}) 超过了最大范围 ({red_range}) 或开奖数量 ({num_red_balls_to_draw})。"}
+    # 确保用户选择的蓝球数量不大于可抽取的蓝球数量
+    if len(user_blue_balls) > blue_range or len(user_blue_balls) > num_blue_balls_to_draw:
+        return {'error': f"用户选择的蓝球数量 ({len(user_blue_balls)}) 超过了最大范围 ({blue_range}) 或开奖数量 ({num_blue_balls_to_draw})。"}
+
+
     while not first_prize_found and draw_count < max_simulations:
         draw_count += 1
         
         # 模拟开奖号码
-        # 确保随机抽取的数量不超过范围内的总数
         simulated_red_balls = sorted(random.sample(range(1, red_range + 1), num_red_balls_to_draw))
         simulated_blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue_balls_to_draw))
 
@@ -485,14 +492,18 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
             draw_frequency_days = 7 / len(CURRENT_SETTINGS.get('dlt_draw_days', [1])) # 每周开奖次数
         
         estimated_days = draw_count * draw_frequency_days
-        estimated_date = (datetime.now() + timedelta(days=estimated_days)).strftime('%Y-%m-%d')
+        estimated_date = (datetime.now() + timedelta(days=estimated_days)).strftime('%Y年%m月%d日') # 格式化为中文日期
         estimated_cost = draw_count * CURRENT_SETTINGS.get('per_bet_price', 2) # 假设每期买一注
 
         result['first_prize_info'] = {
             'draw_count': draw_count,
             'estimated_date': estimated_date,
-            'estimated_cost': estimated_cost
+            'estimated_cost': f"{estimated_cost:,.0f}" # 格式化金额
         }
     
+    # 按奖项级别降序排列 total_prizes
+    sorted_prizes = sorted(total_prizes.items(), key=lambda item: PRIZE_RULES[lottery_type]['prizes'].index(next(p for p in PRIZE_RULES[lottery_type]['prizes'] if p['level'] == item[0])))
+    result['total_prizes'] = {level: count for level, count in sorted_prizes}
+
     return result
 
