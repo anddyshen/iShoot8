@@ -1,5 +1,5 @@
 # utils.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import math
 from collections import Counter
 import random
@@ -49,7 +49,7 @@ def calculate_omissions(all_draws, ball_range, ball_type='red'):
     all_draws: 历史开奖数据列表 (例如 SSQDraw.query.order_by(SSQDraw.issue.desc()).all())
     ball_range: 号码范围 (例如双色球红球 1-33)
     ball_type: 'red' 或 'blue'
-    返回一个字典 {号码: 遗漏期数}
+    返回一个字典 {号码: 漏期数}
     """
     omissions = {i: 0 for i in range(1, ball_range + 1)}
     last_seen = {i: -1 for i in range(1, ball_range + 1)} # 记录上次出现是第几期 (从最新期开始倒数)
@@ -444,22 +444,28 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
     num_red_balls_to_draw = 6 if lottery_type == 'ssq' else 5
     num_blue_balls_to_draw = 1 if lottery_type == 'ssq' else 2
 
+    # 修正：这里只检查用户选择的号码是否在有效范围内，不限制数量
+    for ball in user_red_balls:
+        if not (1 <= ball <= red_range):
+            return {'error': f"用户选择的红球 {ball} 超出了有效范围 (1-{red_range})。"}
+    for ball in user_blue_balls:
+        if not (1 <= ball <= blue_range):
+            return {'error': f"用户选择的蓝球 {ball} 超出了有效范围 (1-{blue_range})。"}
+
     first_prize_found = False
     draw_count = 0
     total_prizes = Counter() # 统计各奖项中奖次数
 
-    # 确保用户选择的红球数量不大于可抽取的红球数量
-    if len(user_red_balls) > red_range or len(user_red_balls) > num_red_balls_to_draw:
-        return {'error': f"用户选择的红球数量 ({len(user_red_balls)}) 超过了最大范围 ({red_range}) 或开奖数量 ({num_red_balls_to_draw})。"}
-    # 确保用户选择的蓝球数量不大于可抽取的蓝球数量
-    if len(user_blue_balls) > blue_range or len(user_blue_balls) > num_blue_balls_to_draw:
-        return {'error': f"用户选择的蓝球数量 ({len(user_blue_balls)}) 超过了最大范围 ({blue_range}) 或开奖数量 ({num_blue_balls_to_draw})。"}
-
-
     while not first_prize_found and draw_count < max_simulations:
         draw_count += 1
         
-        # 模拟开奖号码
+        # 模拟开奖号码：从所有可能的球中随机抽取固定数量的球
+        # 确保抽取的数量 k 不超过 population 的大小
+        if num_red_balls_to_draw > red_range:
+            return {'error': f"模拟红球数量 ({num_red_balls_to_draw}) 超过了红球范围 ({red_range})。"}
+        if num_blue_balls_to_draw > blue_range:
+            return {'error': f"模拟蓝球数量 ({num_blue_balls_to_draw}) 超过了蓝球范围 ({blue_range})。"}
+
         simulated_red_balls = sorted(random.sample(range(1, red_range + 1), num_red_balls_to_draw))
         simulated_blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue_balls_to_draw))
 
@@ -474,7 +480,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
             total_prizes[match_result['prize_level']] += 1
             if match_result['prize_level'] == '一等奖':
                 first_prize_found = True
-                break
+                # break # 循环条件已经包含 first_prize_found，所以这里可以省略
     
     result = {
         'input_red_balls': user_red_balls,
@@ -487,12 +493,81 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
         # 估算中奖时间
         draw_frequency_days = 0
         if lottery_type == 'ssq':
-            draw_frequency_days = 7 / len(CURRENT_SETTINGS.get('ssq_draw_days', [1])) # 每周开奖次数
+            draw_days_count = len(CURRENT_SETTINGS.get('ssq_draw_days', [1]))
+            draw_frequency_days = 7 / draw_days_count if draw_days_count > 0 else 7
         elif lottery_type == 'dlt':
-            draw_frequency_days = 7 / len(CURRENT_SETTINGS.get('dlt_draw_days', [1])) # 每周开奖次数
+            draw_days_count = len(CURRENT_SETTINGS.get('dlt_draw_days', [1]))
+            draw_frequency_days = 7 / draw_days_count if draw_days_count > 0 else 7
         
         estimated_days = draw_count * draw_frequency_days
-        estimated_date = (datetime.now() + timedelta(days=estimated_days)).strftime('%Y年%m月%d日') # 格式化为中文日期
+        
+        # 考虑年度节假日
+        annual_holidays = CURRENT_SETTINGS.get('annual_holidays', [])
+        
+        current_date = datetime.now().date()
+        future_date = current_date
+        days_passed = 0
+        
+        while days_passed < estimated_days:
+            future_date += timedelta(days=1)
+            days_passed += 1
+            
+            # 检查是否是开奖日
+            is_draw_day = False
+            if lottery_type == 'ssq' and future_date.isoweekday() in CURRENT_SETTINGS.get('ssq_draw_days', []):
+                is_draw_day = True
+            elif lottery_type == 'dlt' and future_date.isoweekday() in CURRENT_SETTINGS.get('dlt_draw_days', []):
+                is_draw_day = True
+            
+            # 检查是否是节假日
+            is_holiday = False
+            for holiday in annual_holidays:
+                holiday_start_month_day = datetime.strptime(holiday['start'], '%m-%d').replace(year=future_date.year).date()
+                holiday_end_date = holiday_start_month_day + timedelta(weeks=holiday['duration_weeks'])
+                if holiday_start_month_day <= future_date <= holiday_end_date:
+                    is_holiday = True
+                    break
+            
+            # 如果是开奖日但不是节假日，则算作一次有效开奖
+            if is_draw_day and not is_holiday:
+                pass # 实际开奖日，不需要额外处理，因为我们是按天数累加
+            else:
+                # 如果不是开奖日或者遇到节假日，则不计入有效开奖，但时间依然流逝
+                # 这里的逻辑是：estimated_days 已经包含了所有开奖日和非开奖日的天数
+                # 如果要精确到“第X期”的日期，需要模拟每一天，并跳过非开奖日和节假日
+                pass # 保持原样，estimated_days 已经是一个总天数
+
+        # 修正日期计算逻辑，使其更精确地跳过非开奖日和节假日
+        actual_draw_count = 0
+        current_sim_date = datetime.now().date()
+        while actual_draw_count < draw_count:
+            current_sim_date += timedelta(days=1)
+            
+            is_draw_day = False
+            if lottery_type == 'ssq' and current_sim_date.isoweekday() in CURRENT_SETTINGS.get('ssq_draw_days', []):
+                is_draw_day = True
+            elif lottery_type == 'dlt' and current_sim_date.isoweekday() in CURRENT_SETTINGS.get('dlt_draw_days', []):
+                is_draw_day = True
+            
+            is_holiday = False
+            for holiday in annual_holidays:
+                # 替换年份以匹配当前模拟年份
+                holiday_start_str = holiday['start']
+                holiday_start_month = int(holiday_start_str.split('-')[0])
+                holiday_start_day = int(holiday_start_str.split('-')[1])
+                
+                # 构造节假日开始日期，年份与当前模拟日期相同
+                holiday_start_date_this_year = date(current_sim_date.year, holiday_start_month, holiday_start_day)
+                holiday_end_date_this_year = holiday_start_date_this_year + timedelta(weeks=holiday['duration_weeks'])
+                
+                if holiday_start_date_this_year <= current_sim_date <= holiday_end_date_this_year:
+                    is_holiday = True
+                    break
+            
+            if is_draw_day and not is_holiday:
+                actual_draw_count += 1
+        
+        estimated_date = current_sim_date.strftime('%Y年%m月%d日') # 格式化为中文日期
         estimated_cost = draw_count * CURRENT_SETTINGS.get('per_bet_price', 2) # 假设每期买一注
 
         result['first_prize_info'] = {
@@ -502,7 +577,12 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
         }
     
     # 按奖项级别降序排列 total_prizes
-    sorted_prizes = sorted(total_prizes.items(), key=lambda item: PRIZE_RULES[lottery_type]['prizes'].index(next(p for p in PRIZE_RULES[lottery_type]['prizes'] if p['level'] == item[0])))
+    # 获取奖项的固定顺序
+    prize_level_order = [p['level'] for p in rules['prizes']]
+    
+    # 根据固定顺序对 total_prizes 进行排序
+    # 确保所有奖项都在 prize_level_order 中，否则会报错
+    sorted_prizes = sorted(total_prizes.items(), key=lambda item: prize_level_order.index(item[0]) if item[0] in prize_level_order else len(prize_level_order))
     result['total_prizes'] = {level: count for level, count in sorted_prizes}
 
     return result

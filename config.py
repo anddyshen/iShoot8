@@ -64,13 +64,13 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_13_prob": 0.0,
     "dlt_red_omit_14_prob": 0.0,
     "prize_check_range": 10, # 对奖页面往前核对的期数范围，默认改为10期
-    "fun_game_max_simulations": 1000000, # 趣味游戏最大模拟次数
+    "fun_game_max_simulations": 20000000, # 趣味游戏最大模拟次数
     "ssq_draw_days": [2, 4, 7], # 周二、周四、周日
     "dlt_draw_days": [1, 3, 6], # 周一、周三、周六
-    "annual_holidays": [ # 默认春节和国庆后一周休息
-        {"start": "01-28", "duration_weeks": 1}, # 假设1月28日春节开始
-        {"start": "10-01", "duration_weeks": 1}  # 国庆
-    ],
+    # "annual_holidays": [ # 默认春节和国庆后一周休息
+        # {"start": "01-28", "duration_weeks": 1}, # 假设1月28日春节开始
+        # {"start": "10-01", "duration_weeks": 1}  # 国庆
+    # ],
     # 双色球蓝球最新出现频率规则 (4.1.11)
     'ssq_blue_recent_occurrence_draws': 10,      # 检查前10期
     'ssq_blue_recent_occurrence_threshold': 5,   # 出现5次以上

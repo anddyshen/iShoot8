@@ -1,4 +1,4 @@
-<!-- templates/admin/settings.html (请确认或更新此部分) -->
+<!-- templates/admin/settings.html -->
 {% extends "admin/base.html" %}
 
 {% block title %}网站设置 - 管理后台{% endblock %}
@@ -21,14 +21,16 @@
     <div class="card-body">
         <form method="POST" action="{{ url_for('admin_routes.admin_settings') }}">
             {% for key, value in settings.items() %}
+            {# 只有当 key 不是 'annual_holidays' 时才渲染输入框 #}
+            {% if key != 'annual_holidays' %} {# <-- 修正这里 #}
             <div class="mb-3">
                 <label for="{{ key }}" class="form-label">
                     {# 使用 setting_labels 字典获取中文标题，如果不存在则回退到英文key #}
-                    {{ setting_labels.get(key, key) }} {# <-- 确保是这一行 #}
+                    {{ setting_labels.get(key, key) }}
                 </label>
                 {% if key == 'admin_password' %}
                     <input type="password" class="form-control" id="{{ key }}" name="{{ key }}" placeholder="留空则不修改密码">
-                {% elif key in ['history_page_size', 'history_stats_range_default', 'ssq_red_size_midpoint', 'ssq_blue_size_midpoint', 'dlt_front_size_midpoint', 'dlt_back_size_midpoint', 'prediction_latest_draws', 'prediction_omitted_red_balls', 'prediction_omitted_blue_balls', 'prediction_generated_count', 'ssq_blue_omit_latest_draws', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_area_min_count', 'ssq_red_prev_2_draws_max_repeat', 'ssq_red_max_consecutive_balls', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_area_min_count', 'dlt_red_prev_2_draws_max_repeat', 'dlt_red_max_consecutive_balls', 'dlt_red_omit_12_prob', 'dlt_red_omit_13_prob', 'dlt_red_omit_14_prob', 'prize_check_range', 'ssq_blue_recent_occurrence_draws', 'ssq_blue_recent_occurrence_threshold', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_draws', 'dlt_blue_recent_occurrence_threshold', 'dlt_blue_recent_occurrence_weight'] %}
+                {% elif key in ['history_page_size', 'history_stats_range_default', 'ssq_red_size_midpoint', 'ssq_blue_size_midpoint', 'dlt_front_size_midpoint', 'dlt_back_size_midpoint', 'prediction_latest_draws', 'prediction_omitted_red_balls', 'prediction_omitted_blue_balls', 'prediction_generated_count', 'ssq_blue_omit_latest_draws', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_area_min_count', 'ssq_red_prev_2_draws_max_repeat', 'ssq_red_max_consecutive_balls', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_area_min_count', 'dlt_red_prev_2_draws_max_repeat', 'dlt_red_max_consecutive_balls', 'dlt_red_omit_12_prob', 'dlt_red_omit_13_prob', 'dlt_red_omit_14_prob', 'prize_check_range', 'ssq_blue_recent_occurrence_draws', 'ssq_blue_recent_occurrence_threshold', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_draws', 'dlt_blue_recent_occurrence_threshold', 'dlt_blue_recent_occurrence_weight', 'fun_game_max_simulations'] %}
                     <input type="number" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
                 {% elif key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob'] %}
                     <input type="number" step="0.01" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
@@ -36,13 +38,11 @@
                     <input type="url" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
                 {% elif key in ['ssq_draw_days', 'dlt_draw_days'] %}
                     <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value | join(', ') }}">
-                {% elif key == 'annual_holidays' %}
-                    <textarea class="form-control" id="{{ key }}" name="{{ key }}" rows="3">{{ value | tojson(indent=2) }}</textarea>
-                    <small class="form-text text-muted">格式: `[{'start': 'MM-DD', 'duration_weeks': N}, ...]`</small>
                 {% else %}
                     <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
                 {% endif %}
             </div>
+            {% endif %} {# <-- 修正这里 #}
             {% endfor %}
             <button type="submit" class="btn btn-primary">保存设置</button>
         </form>
