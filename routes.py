@@ -3,10 +3,10 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News
 from data_manager import get_latest_draws
-from config import CURRENT_SETTINGS
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS # <-- 导入 STAT_EXPLANATIONS
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
-    get_aggregated_stats, calculate_frequency_and_omissions_for_balls # 导入新的统计函数
+    get_aggregated_stats, calculate_frequency_and_omissions_for_balls # 导入统计函数
 )
 from prediction_engine import check_lottery_rules
 
@@ -46,6 +46,51 @@ def history():
         except ValueError:
             flash('结束日期格式不正确。', 'warning')
 
+    # 构建查询
+    if lottery_type == 'ssq':
+        model_class = SSQDraw
+    else: # default to dlt
+        model_class = DLTDraw
+
+    # --- 历史开奖数据分页查询 ---
+    query = model_class.query
+    if start_date_obj:
+        query = query.filter(model_class.draw_date >= start_date_obj)
+    if end_date_obj:
+        query = query.filter(model_class.draw_date <= end_date_obj)
+    
+    draws_pagination = query.order_by(model_class.issue.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('history.html',
+                           draws_pagination=draws_pagination,
+                           lottery_type=lottery_type,
+                           per_page=per_page,
+                           start_date=start_date_str,
+                           end_date=end_date_str
+                           )
+
+@bp.route('/statistics')
+def statistics():
+    lottery_type = request.args.get('lottery_type', 'ssq')
+
+    # 获取日期筛选参数
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+
+    start_date_obj = None
+    end_date_obj = None
+
+    if start_date_str:
+        try:
+            start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('开始日期格式不正确。', 'warning')
+    if end_date_str:
+        try:
+            end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('结束日期格式不正确。', 'warning')
+
     # 获取统计范围参数
     stats_range = request.args.get('stats_range', CURRENT_SETTINGS['history_stats_range_default'], type=int)
 
@@ -58,15 +103,6 @@ def history():
         model_class = DLTDraw
         red_ball_range = 35
         blue_ball_range = 12
-
-    # --- 历史开奖数据分页查询 ---
-    query = model_class.query
-    if start_date_obj:
-        query = query.filter(model_class.draw_date >= start_date_obj)
-    if end_date_obj:
-        query = query.filter(model_class.draw_date <= end_date_obj)
-    
-    draws_pagination = query.order_by(model_class.issue.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     # --- 统计数据查询与计算 ---
     stats_query = model_class.query
@@ -81,21 +117,19 @@ def history():
     else: # stats_range == 0, 表示所有历史数据
         all_draws_for_stats = stats_query.order_by(model_class.issue.desc()).all()
 
-    # 调用新的聚合统计函数
+    # 调用聚合统计函数
     aggregated_stats = get_aggregated_stats(all_draws_for_stats, lottery_type, CURRENT_SETTINGS)
 
-    return render_template('history.html',
-                           draws_pagination=draws_pagination,
+    return render_template('statistics.html',
                            lottery_type=lottery_type,
-                           per_page=per_page,
                            start_date=start_date_str,
                            end_date=end_date_str,
                            stats_range=stats_range,
                            stats_range_options=CURRENT_SETTINGS['history_stats_range_options'],
                            red_ball_range=red_ball_range,
                            blue_ball_range=blue_ball_range,
-                           # 传递聚合后的统计数据
-                           aggregated_stats=aggregated_stats
+                           aggregated_stats=aggregated_stats,
+                           stat_explanations=STAT_EXPLANATIONS # <-- 传递解释字典
                            )
 
 @bp.route('/prediction')

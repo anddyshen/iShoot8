@@ -7,7 +7,9 @@
     <title>{{ site_name }} - {% block title %}{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    {% block head %}{% endblock %}
+    <!-- 引入 Bootstrap Icons CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+     {% block head %}{% endblock %}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -19,21 +21,24 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="{{ url_for('routes.index') }}">首页</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.index' %}active{% endif %}" aria-current="page" href="{{ url_for('routes.index') }}">首页</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.history') }}">历史数据</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.history' %}active{% endif %}" href="{{ url_for('routes.history') }}">历史数据</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.prediction') }}">号码预测</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.statistics' %}active{% endif %}" href="{{ url_for('routes.statistics') }}">统计数据</a> {# <-- 新增统计数据链接 #}
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.prize_check') }}">兑奖中心</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.prediction' %}active{% endif %}" href="{{ url_for('routes.prediction') }}">号码预测</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'routes.prize_check' %}active{% endif %}" href="{{ url_for('routes.prize_check') }}">兑奖中心</a>
                     </li>
                     <!-- 后台管理入口，仅在开发或特定条件下显示 -->
                     {% if session.get('logged_in_admin') %}
                     <li class="nav-item">
-                        <a class="nav-link text-warning" href="{{ url_for('admin_routes.admin_dashboard') }}">后台管理</a>
+                        <a class="nav-link text-warning {% if request.blueprint == 'admin_routes' %}active{% endif %}" href="{{ url_for('admin_routes.admin_dashboard') }}">后台管理</a>
                     </li>
                     {% endif %}
                 </ul>
