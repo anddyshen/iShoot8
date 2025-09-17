@@ -63,7 +63,8 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_12_prob": 0.015,
     "dlt_red_omit_13_prob": 0.0,
     "dlt_red_omit_14_prob": 0.0,
-    "prize_check_range": 10, # 兑奖页面往前核对的期数范围，默认改为10期
+    "prize_check_range": 10, # 对奖页面往前核对的期数范围，默认改为10期
+    "fun_game_max_simulations": 1000000, # 趣味游戏最大模拟次数
     "ssq_draw_days": [2, 4, 7], # 周二、周四、周日
     "dlt_draw_days": [1, 3, 6], # 周一、周三、周六
     "annual_holidays": [ # 默认春节和国庆后一周休息
@@ -90,8 +91,6 @@ DEFAULT_SETTINGS = {
     'dlt_front_size_midpoint': 18, # 大乐透前区 1-17 小，18-35 大
     'dlt_back_size_midpoint': 7, # 大乐透后区 1-6 小，7-12 大
 
-    # 趣味游戏最大模拟次数
-    'fun_game_max_simulations': 1000000, # 默认模拟100万次
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
@@ -204,9 +203,9 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_omit_13_prob': "大乐透红球遗漏13期概率",
     'dlt_red_omit_14_prob': "大乐透红球遗漏14期概率",
 
-    # 兑奖中心设置
-    'prize_check_range': "对奖中心检查范围", # 改为对奖
-    'fun_game_max_simulations': "趣味游戏最大模拟次数", # 新增
+    # 对奖中心设置
+    'prize_check_range': "对奖中心检查范围",
+    'fun_game_max_simulations': "趣味游戏最大模拟次数",
 
     # 开奖日期设置
     'ssq_draw_days': "双色球开奖日 (周几)",
@@ -225,8 +224,8 @@ SETTING_LABELS_CHINESE = {
 # --- 中奖规则定义 ---
 PRIZE_RULES = {
     'ssq': {
-        'red_count': 6,
-        'blue_count': 1,
+        'red_range': 33, # 红球范围 1-33
+        'blue_range': 16, # 蓝球范围 1-16
         'prizes': [
             {'level': '一等奖', 'match_red': 6, 'match_blue': 1, 'amount': '浮动'},
             {'level': '二等奖', 'match_red': 6, 'match_blue': 0, 'amount': '浮动'},
@@ -241,8 +240,8 @@ PRIZE_RULES = {
         ]
     },
     'dlt': {
-        'red_count': 5,
-        'blue_count': 2,
+        'red_range': 35, # 红球范围 1-35
+        'blue_range': 12, # 蓝球范围 1-12
         'prizes': [
             {'level': '一等奖', 'match_red': 5, 'match_blue': 2, 'amount': '浮动'},
             {'level': '二等奖', 'match_red': 5, 'match_blue': 1, 'amount': '浮动'},
@@ -260,6 +259,3 @@ PRIZE_RULES = {
         ]
     }
 }
-
-
-# ... (SETTINGS_FILE, load_settings, save_settings, CURRENT_SETTINGS, os.makedirs, STAT_EXPLANATIONS 等其他代码保持不变)

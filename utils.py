@@ -412,23 +412,11 @@ def check_prize_for_combination(user_red_balls, user_blue_balls, draw_red_balls,
 
     # 遍历中奖规则，从高到低匹配
     for prize in rules['prizes']:
-        # 对于复式投注，需要计算实际中奖注数
-        # 简化处理：这里只判断是否符合中奖条件，不计算复式中奖注数
-        # 实际复式中奖计算非常复杂，需要组合数学
-        
         # 检查红球匹配条件
-        red_match_condition = False
-        if isinstance(prize['match_red'], int): # 固定红球数量
-            red_match_condition = (matched_red == prize['match_red'])
-        elif isinstance(prize['match_red'], list): # 红球数量范围
-            red_match_condition = (prize['match_red'][0] <= matched_red <= prize['match_red'][1])
+        red_match_condition = (matched_red == prize['match_red'])
         
         # 检查蓝球匹配条件
-        blue_match_condition = False
-        if isinstance(prize['match_blue'], int): # 固定蓝球数量
-            blue_match_condition = (matched_blue == prize['match_blue'])
-        elif isinstance(prize['match_blue'], list): # 蓝球数量范围
-            blue_match_condition = (prize['match_blue'][0] <= matched_blue <= prize['match_blue'][1])
+        blue_match_condition = (matched_blue == prize['match_blue'])
 
         if red_match_condition and blue_match_condition:
             return {'prize_level': prize['level'], 'prize_amount': prize['amount']}
@@ -445,10 +433,16 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
     if not rules:
         return {'error': 'Invalid lottery type'}
 
-    red_range = 33 if lottery_type == 'ssq' else 35
-    blue_range = 16 if lottery_type == 'ssq' else 12
-    num_red_balls = 6 if lottery_type == 'ssq' else 5
-    num_blue_balls = 1 if lottery_type == 'ssq' else 2
+    red_range = rules['red_range'] # 从 PRIZE_RULES 获取范围
+    blue_range = rules['blue_range'] # 从 PRIZE_RULES 获取范围
+    
+    # 确保用户至少选择了一个红球或一个蓝球
+    if not user_red_balls and not user_blue_balls:
+        return {'error': '请至少选择一个红球或一个蓝球进行模拟。'}
+
+    # 模拟开奖需要知道开奖号码的数量，这里假设是标准玩法
+    num_red_balls_to_draw = 6 if lottery_type == 'ssq' else 5
+    num_blue_balls_to_draw = 1 if lottery_type == 'ssq' else 2
 
     first_prize_found = False
     draw_count = 0
@@ -458,8 +452,9 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
         draw_count += 1
         
         # 模拟开奖号码
-        simulated_red_balls = sorted(random.sample(range(1, red_range + 1), num_red_balls))
-        simulated_blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue_balls))
+        # 确保随机抽取的数量不超过范围内的总数
+        simulated_red_balls = sorted(random.sample(range(1, red_range + 1), num_red_balls_to_draw))
+        simulated_blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue_balls_to_draw))
 
         # 检查中奖情况
         match_result = check_prize_for_combination(
@@ -485,9 +480,9 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
         # 估算中奖时间
         draw_frequency_days = 0
         if lottery_type == 'ssq':
-            draw_frequency_days = 3.5 # 大约每3.5天一期 (3期/周)
+            draw_frequency_days = 7 / len(CURRENT_SETTINGS.get('ssq_draw_days', [1])) # 每周开奖次数
         elif lottery_type == 'dlt':
-            draw_frequency_days = 3.5 # 大约每3.5天一期 (3期/周)
+            draw_frequency_days = 7 / len(CURRENT_SETTINGS.get('dlt_draw_days', [1])) # 每周开奖次数
         
         estimated_days = draw_count * draw_frequency_days
         estimated_date = (datetime.now() + timedelta(days=estimated_days)).strftime('%Y-%m-%d')

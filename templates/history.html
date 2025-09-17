@@ -1,5 +1,5 @@
 <!-- templates/history.html -->
-<!-- 版本: 1.1.0 - 历史数据页面 (不含统计) -->
+<!-- 版本: 1.1.1 - 历史数据页面 (不含统计，修正 calculate_odd_even_sum 调用) -->
 {% extends "base.html" %}
 
 {% from "components/lottery_balls.html" import display_balls %}
@@ -73,7 +73,8 @@
                 <td>{{ "{:,.0f}".format(draw.sales_amount) }}</td>
                 <td>{{ "{:,.0f}".format(draw.prize_pool) }}</td>
                 <td>{{ draw.first_prize_count }} 注 / {{ "{:,.0f}".format(draw.first_prize_amount) }} 元</td>
-                {% set odd_count, even_count, red_sum = calculate_odd_even_sum(draw.red_balls) %}
+                {# 修正这里：传递红球列表，而不是整个 draw 对象 #}
+                {% set odd_count, even_count, red_sum = calculate_odd_even_sum(draw.get_red_balls_list()) %}
                 <td>{{ odd_count }}:{{ even_count }}</td>
                 <td>{{ red_sum }}</td>
                 <td>
