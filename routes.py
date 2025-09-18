@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News, db
 from data_manager import get_latest_draws
-from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE # PRIZE_RULES 已经导入
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
@@ -170,7 +170,8 @@ def prize_check():
                            prediction_generated_count=CURRENT_SETTINGS.get('prediction_generated_count', 10),
                            ssq_total_draws=ssq_total_draws,
                            dlt_total_draws=dlt_total_draws,
-                           per_bet_price=PER_BET_PRICE
+                           per_bet_price=PER_BET_PRICE,
+                           prize_rules=PRIZE_RULES # <--- 新增：将 PRIZE_RULES 传递给模板
                            )
 
 @bp.route('/api/check_prizes', methods=['POST'])

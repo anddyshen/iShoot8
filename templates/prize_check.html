@@ -603,6 +603,9 @@
 
 
     // Fun game logic
+    // <--- 新增：从 Jinja 模板获取 PRIZE_RULES，并转换为 JavaScript 对象 --->
+    const PRIZE_RULES_FRONTEND = {{ prize_rules | tojson }};
+
     async function startFunGame(lotteryType) {
         const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
         const candidateEntries = candidateList.querySelectorAll('.candidate-entry');
@@ -698,9 +701,25 @@
                 html += `<p class="text-danger">在模拟的 ${totalSimulations.toLocaleString()} 次内未中得一等奖。</p>`;
             }
             html += `<p>总共中奖情况:</p><ul>`;
-            for (const prizeLevel in result.total_prizes) {
-                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel].toLocaleString()} 次</li>`;
+            
+            // --- MODIFICATION START for prize_check.html: 按照预设顺序显示奖项 ---
+            const prizeLevelOrderRaw = PRIZE_RULES_FRONTEND[lotteryType]['prizes'].map(p => p.level);
+            const uniquePrizeLevelOrder = [];
+            const seenLevels = new Set();
+            for (const level of prizeLevelOrderRaw) {
+                if (!seenLevels.has(level)) {
+                    uniquePrizeLevelOrder.push(level);
+                    seenLevels.add(level);
+                }
             }
+            
+            for (const level of uniquePrizeLevelOrder) {
+                if (result.total_prizes[level] !== undefined) { // 检查该奖项是否实际中奖
+                    html += `<li>${level}: ${result.total_prizes[level].toLocaleString()} 次</li>`;
+                }
+            }
+            // --- MODIFICATION END for prize_check.html ---
+
             html += `</ul>`;
             html += '<hr>';
             funGameResultsDiv.innerHTML = html;

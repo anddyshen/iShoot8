@@ -1,7 +1,7 @@
 # utils.py
 from datetime import datetime, timedelta, date
 import math
-from collections import Counter
+from collections import Counter, OrderedDict # <-- 导入 OrderedDict
 import random
 from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE # 导入中奖规则和当前设置
 
@@ -440,7 +440,7 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     draw_red_balls: 开奖红球列表 (已排序)
     draw_blue_balls: 开奖蓝球列表 (已排序)
     lottery_type: 'ssq' 或 'dlt'
-    返回: { 'prize_level': { 'count': int, 'amount': float }, ... }
+    返回: { 'prize_level': count, ... }
     """
     rules = PRIZE_RULES.get(lottery_type)
     if not rules:
@@ -461,13 +461,9 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     matched_red_count = len(matched_red_balls)
     matched_blue_count = len(matched_blue_balls)
 
-    # 未匹配的红球和蓝球 (用户选择但未中奖)
-    unmatched_user_red_count = len(user_red_set) - matched_red_count
-    unmatched_user_blue_count = len(user_blue_set) - matched_blue_count
-
-    # 实际开奖但用户未选择的红球和蓝球 (用于计算组合数)
-    draw_unmatched_red_count = len(draw_red_set) - matched_red_count
-    draw_unmatched_blue_count = len(draw_blue_set) - matched_blue_count
+    # 假设标准玩法是 SSQ: 6红1蓝, DLT: 5红2蓝
+    standard_red_count = 6 if lottery_type == 'ssq' else 5
+    standard_blue_count = 1 if lottery_type == 'ssq' else 2
 
     # 存储中奖详情
     prize_details = Counter()
@@ -477,67 +473,24 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
         required_red = prize_rule['match_red']
         required_blue = prize_rule['match_blue']
 
-        # 计算红球中奖注数
-        # 从匹配的红球中选择 required_red 个
-        # 从用户未匹配的红球中选择 (6 - required_red) 个，且这些球必须是开奖号码中未匹配的
-        # 简化：这里我们只考虑用户选择的号码与开奖号码的匹配情况
-        
-        # 假设用户选择的红球数量 >= required_red
-        # 且用户选择的蓝球数量 >= required_blue
-        
-        # 从用户选择的红球中，有多少种方式能匹配 required_red 个开奖红球
-        # 并且有多少种方式能匹配 (用户红球总数 - required_red) 个非开奖红球
-        
-        # 实际中奖注数计算：
-        # 从用户匹配的红球中选 required_red 个 (C(matched_red_count, required_red))
-        # 从用户未匹配的红球中选 (num_red_balls_to_draw - required_red) 个，且这些球必须是开奖号码中未匹配的
-        # 简化为：从用户匹配的红球中选 required_red 个
-        # 从用户未匹配的红球中选 (num_red_balls_to_draw - required_red) 个，且这些球必须是开奖号码中未匹配的
-        
-        # 修正复式中奖注数计算逻辑
-        # 假设标准玩法是 SSQ: 6红1蓝, DLT: 5红2蓝
-        standard_red_count = 6 if lottery_type == 'ssq' else 5
-        standard_blue_count = 1 if lottery_type == 'ssq' else 2
-
         # 计算红球部分的中奖注数
-        # 从用户选中的且与开奖号码匹配的红球中，选择 required_red 个
+        # 从用户选中的匹配红球中选 `required_red` 个
         c_matched_red = combinations(matched_red_count, required_red)
         
-        # 从用户选中的但未与开奖号码匹配的红球中，选择 (standard_red_count - required_red) 个
-        # 且这些球必须是开奖号码中未匹配的
-        # 这一步是复式计算的核心，需要从用户选择的非中奖红球中，选择与开奖号码中非中奖红球匹配的
-        # 简化为：从用户选择的非中奖红球中，选择 (standard_red_count - required_red) 个
-        # 且这些球必须是开奖号码中未匹配的
+        # 从用户选中的非匹配红球中选 `standard_red_count - required_red` 个
+        # 这些非匹配红球必须是用户选了但开奖号码中没有的
+        c_unmatched_red = combinations(len(user_red_set - draw_red_set), standard_red_count - required_red)
         
-        # 实际计算：
-        # 从用户选中的且与开奖号码匹配的红球中，选择 required_red 个
-        # 从用户选中的但未与开奖号码匹配的红球中，选择 (standard_red_count - required_red) 个
-        # 这里的 (standard_red_count - required_red) 是指构成一注标准彩票所需的非中奖红球数量
-        
-        # 假设用户选择的红球总数为 N_red_user
-        # 匹配红球 M_red
-        # 未匹配红球 U_red = N_red_user - M_red
-        # 开奖红球总数 N_red_draw = 6 (SSQ) 或 5 (DLT)
-        # 开奖红球中未匹配的 (即用户没选中的) U_red_draw = N_red_draw - M_red
-        
-        # 红球中奖注数 = C(M_red, required_red) * C(U_red, N_red_draw - required_red)
-        # 注意：C(U_red, N_red_draw - required_red) 这里的 U_red 是用户选择的非中奖红球
-        # N_red_draw - required_red 是开奖号码中非中奖红球的数量
-        # 实际上，我们应该从用户选择的红球中，选出 required_red 个匹配的，
-        # 再从用户选择的红球中，选出 (standard_red_count - required_red) 个不匹配的。
-        # 且这 (standard_red_count - required_red) 个不匹配的红球，必须是开奖号码中没有的。
-        
-        # 更准确的复式计算：
-        # 从用户选中的匹配红球中选 `required_red` 个: C(matched_red_count, required_red)
-        # 从用户选中的非匹配红球中选 `standard_red_count - required_red` 个: C(len(user_red_set - draw_red_set), standard_red_count - required_red)
-        red_prize_combinations = combinations(matched_red_count, required_red) * \
-                                 combinations(len(user_red_set - draw_red_set), standard_red_count - required_red)
+        red_prize_combinations = c_matched_red * c_unmatched_red
 
         # 计算蓝球部分的中奖注数
-        # 从用户选中的匹配蓝球中选 `required_blue` 个: C(matched_blue_count, required_blue)
-        # 从用户选中的非匹配蓝球中选 `standard_blue_count - required_blue` 个: C(len(user_blue_set - draw_blue_set), standard_blue_count - required_blue)
-        blue_prize_combinations = combinations(matched_blue_count, required_blue) * \
-                                  combinations(len(user_blue_set - draw_blue_set), standard_blue_count - required_blue)
+        # 从用户选中的匹配蓝球中选 `required_blue` 个
+        c_matched_blue = combinations(matched_blue_count, required_blue)
+        
+        # 从用户选中的非匹配蓝球中选 `standard_blue_count - required_blue` 个
+        c_unmatched_blue = combinations(len(user_blue_set - draw_blue_set), standard_blue_count - required_blue)
+        
+        blue_prize_combinations = c_matched_blue * c_unmatched_blue
         
         total_prize_count_for_level = red_prize_combinations * blue_prize_combinations
         
@@ -607,7 +560,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
     result = {
         'input_red_balls': user_red_balls,
         'input_blue_balls': user_blue_balls,
-        'total_prizes': dict(total_prizes_counter), # 使用 Counter 的结果
+        'total_prizes': dict(total_prizes_counter), # Use Counter's result initially
         'first_prize_info': None
     }
 
@@ -620,16 +573,11 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
         elif lottery_type == 'dlt':
             draw_days_count = len(CURRENT_SETTINGS.get('dlt_draw_days', []))
         
-        draws_per_week = draw_days_count if draw_days_count > 0 else 1 # 至少1次/周
-
         # 考虑年度节假日
         annual_holidays = CURRENT_SETTINGS.get('annual_holidays', [])
         
         actual_draw_count = 0
         current_sim_date = datetime.now().date()
-        
-        # 计算总共需要跳过的节假日天数
-        total_holiday_days_skipped = 0
         
         # 模拟每一天，直到达到中一等奖所需的开奖次数
         while actual_draw_count < draw_count:
@@ -656,10 +604,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
             
             if is_draw_day and not is_holiday:
                 actual_draw_count += 1
-            # else:
-            #     if is_holiday:
-            #         total_holiday_days_skipped += 1 # 统计跳过的节假日天数，但这里不需要精确到天，只需要最终日期
-
+        
         estimated_date = current_sim_date.strftime('%Y年%m月%d日') # 格式化为中文日期
         
         # 计算单次投注花费
@@ -672,13 +617,18 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulat
             'estimated_cost': f"{estimated_cost:,.0f}" # 格式化金额
         }
     
-    # 按奖项级别降序排列 total_prizes
-    # 获取奖项的固定顺序
+    # --- MODIFICATION START ---
+    # 获取奖项的固定顺序 (从 config.py 中定义，通常是从高到低)
     prize_level_order = [p['level'] for p in rules['prizes']]
     
-    # 根据固定顺序对 total_prizes 进行排序
-    sorted_prizes = sorted(total_prizes_counter.items(), key=lambda item: prize_level_order.index(item[0]) if item[0] in prize_level_order else len(prize_level_order))
-    result['total_prizes'] = {level: count for level, count in sorted_prizes}
+    # 创建一个新的 OrderedDict，按照 prize_level_order 的顺序填充
+    ordered_total_prizes = OrderedDict()
+    for level in prize_level_order:
+        if level in total_prizes_counter:
+            ordered_total_prizes[level] = total_prizes_counter[level]
+    
+    result['total_prizes'] = ordered_total_prizes
+    # --- MODIFICATION END ---
 
     return result
 
