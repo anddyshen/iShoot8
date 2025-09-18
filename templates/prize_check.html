@@ -1,5 +1,5 @@
 <!-- templates/prize_check.html -->
-<!-- 版本: 1.2.1 - 对奖结果显示回报率 -->
+<!-- 版本: 1.2.4 - 修正“显示更多/收起”按钮逻辑和文本 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -65,6 +65,9 @@
         font-size: 0.9em;
         color: #6c757d;
         margin-bottom: 10px;
+    }
+    .hidden-matches {
+        display: none;
     }
 </style>
 {% endblock %}
@@ -165,12 +168,15 @@
                 请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>
                 看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
             </p>
-            <button class="btn btn-info" id="ssq_fun_game_start">大奖时光机</button>
+            <div class="d-flex justify-content-between mb-3"> {# 按钮组 #}
+                <button class="btn btn-info me-2" id="ssq_fun_game_start">大奖时光机</button>
+                <button class="btn btn-warning" id="ssq_fun_game_clear_selection">清除选择的号码</button>
+            </div>
             <div class="fun-game-progress" id="ssq_fun_game_progress">
                 <div class="progress">
                     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                 </div>
-                <p class="mt-2 text-muted" id="ssq_fun_game_status">正在模拟第 0 期...</p>
+                <p class="mt-2 text-muted" id="ssq_fun_game_status">正在计算中...</p>
             </div>
             <div class="mt-3" id="ssq_fun_game_results">
                 <p class="text-muted">游戏结果将在此处显示。</p>
@@ -258,12 +264,15 @@
                 请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>
                 看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
             </p>
-            <button class="btn btn-info" id="dlt_fun_game_start">大奖时光机</button>
+            <div class="d-flex justify-content-between mb-3"> {# 按钮组 #}
+                <button class="btn btn-info me-2" id="dlt_fun_game_start">大奖时光机</button>
+                <button class="btn btn-warning" id="dlt_fun_game_clear_selection">清除选择的号码</button>
+            </div>
             <div class="fun-game-progress" id="dlt_fun_game_progress">
                 <div class="progress">
                     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                 </div>
-                <p class="mt-2 text-muted" id="dlt_fun_game_status">正在模拟第 0 期...</p>
+                <p class="mt-2 text-muted" id="dlt_fun_game_status">正在计算中...</p>
             </div>
             <div class="mt-3" id="dlt_fun_game_results">
                 <p class="text-muted">游戏结果将在此处显示。</p>
@@ -514,35 +523,66 @@
             }
 
             let html = '';
+            const MAX_DISPLAY_MATCHES = 5; // 默认显示的最大记录数
+
             data.results.forEach((result, index) => {
                 html += `<h5>号码组合 ${index + 1}:</h5>`;
                 html += `<p>红球: ${renderBalls(result.input_red_balls.split(',').map(Number), 'red')}</p>`;
                 html += `<p>蓝球: ${renderBalls(result.input_blue_balls.split(',').map(Number), 'blue')}</p>`;
                 html += `<p><strong>单次投注花费:</strong> ${result.cost_per_draw.toLocaleString()} 元 (共 ${result.total_bets_per_draw.toLocaleString()} 注)</p>`;
                 
-                // 显示总中奖注数和总中奖金额
                 if (result.total_winning_bets > 0) {
                     html += `<p class="text-success"><strong>总中奖:</strong> 共中 ${result.total_winning_bets.toLocaleString()} 注, 总奖金 ${result.total_winning_amount.toLocaleString()} 元</p>`;
                 } else {
                     html += `<p class="text-danger"><strong>总中奖:</strong> 未中奖</p>`;
                 }
 
-                // 显示统计范围、总花费和回报率
                 const returnRateClass = result.return_rate >= 100 ? 'text-success' : (result.return_rate > 0 ? 'text-warning' : 'text-danger');
                 html += `<p><strong>统计范围:</strong> 实际核对 ${result.actual_checked_draws_count.toLocaleString()} 期, <strong>总花费:</strong> ${result.total_cost_for_range.toLocaleString()} 元, <strong>回报率:</strong> <span class="${returnRateClass}">${result.return_rate}%</span></p>`;
 
                 if (result.matches.length > 0) {
-                    html += '<p><strong>中奖记录:</strong></p><ul>';
-                    result.matches.forEach(match => {
-                        html += `<li>第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元</li>`;
+                    html += `<p><strong>中奖记录:</strong></p><ul id="match-list-${lotteryType}-${index}" class="match-list">`; // 添加唯一ID
+                    result.matches.forEach((match, matchIndex) => {
+                        const hiddenClass = matchIndex >= MAX_DISPLAY_MATCHES ? 'hidden-matches' : '';
+                        html += `<li class="${hiddenClass}">第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元</li>`;
                     });
                     html += '</ul>';
+                    if (result.matches.length > MAX_DISPLAY_MATCHES) {
+                        html += `<button class="btn btn-sm btn-outline-info mt-2 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}">显示更多记录 (${result.matches.length - MAX_DISPLAY_MATCHES} 条)</button>`;
+                        html += `<button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收   起</button>`; // <-- 修正这里：按钮文本
+                    }
                 } else {
                     html += '<p>在指定期数范围内未中奖。</p>';
                 }
                 html += '<hr>';
             });
             prizeResultsDiv.innerHTML = html;
+
+            // 为“显示更多”按钮添加事件监听器
+            document.querySelectorAll('.show-more-matches-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetListId = this.dataset.targetId;
+                    const targetList = document.getElementById(targetListId);
+                    targetList.querySelectorAll('.hidden-matches').forEach(item => {
+                        item.style.display = 'list-item'; // 显示隐藏的记录
+                    });
+                    this.style.display = 'none'; // <-- 修正这里：移除多余的 .style
+                    this.nextElementSibling.style.display = 'inline-block'; // 显示“收起”按钮
+                });
+            });
+
+            // 为“收起”按钮添加事件监听器
+            document.querySelectorAll('.hide-more-matches-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetListId = this.dataset.targetId;
+                    const targetList = document.getElementById(targetListId);
+                    targetList.querySelectorAll('.hidden-matches').forEach(item => {
+                        item.style.display = 'none'; // 隐藏超过5条的记录
+                    });
+                    this.style.display = 'none'; // 隐藏“收起”按钮
+                    this.previousElementSibling.style.display = 'inline-block'; // 显示“显示更多”按钮
+                });
+            });
 
         } catch (error) {
             console.error('Error during prize check:', error);
@@ -580,36 +620,39 @@
         const progressBar = funGameProgressDiv.querySelector('.progress-bar');
         const statusText = funGameProgressDiv.querySelector(`#${lotteryType}_fun_game_status`);
         const funGameStartBtn = document.getElementById(`${lotteryType}_fun_game_start`);
+        const funGameClearSelectionBtn = document.getElementById(`${lotteryType}_fun_game_clear_selection`);
+
 
         funGameResultsDiv.innerHTML = ''; // 清空上次结果
         funGameProgressDiv.style.display = 'block'; // 显示进度条
         progressBar.style.width = '0%';
         progressBar.setAttribute('aria-valuenow', '0');
         progressBar.textContent = '0%';
-        statusText.textContent = '正在模拟第 0 期...';
+        statusText.textContent = '正在计算中...'; // 优化状态文本
         funGameStartBtn.disabled = true; // 禁用按钮防止重复点击
+        funGameClearSelectionBtn.disabled = true; // 禁用清除按钮
 
         let simulationInterval; // 用于更新进度条的定时器
 
         try {
             // 模拟进度条更新 (前端无法知道后端真实进度，这里做个假进度)
-            let currentSimulatedCount = 0;
+            let currentProgress = 0;
             const totalSimulations = {{ settings.get('fun_game_max_simulations', 1000000) }};
             const updateFrequency = 100; // 每100毫秒更新一次
-            const updateStep = Math.max(1, Math.floor(totalSimulations / 200)); // 每次更新模拟的期数，确保进度条平滑且不会太快
+            const progressIncrement = 100 / (totalSimulations / 100000); // 假设每10万次模拟更新一次进度条
 
             simulationInterval = setInterval(() => {
-                currentSimulatedCount += updateStep;
-                if (currentSimulatedCount > totalSimulations) {
-                    currentSimulatedCount = totalSimulations;
+                currentProgress += progressIncrement;
+                if (currentProgress >= 99) { // 接近完成时停止自动更新，等待后端结果
+                    clearInterval(simulationInterval);
+                    currentProgress = 99;
                 }
-                const progressPercentage = (currentSimulatedCount / totalSimulations) * 100;
-                progressBar.style.width = `${progressPercentage}%`;
-                progressBar.setAttribute('aria-valuenow', progressPercentage);
-                progressBar.textContent = `${Math.floor(progressPercentage)}%`;
-                statusText.textContent = `正在模拟第 ${currentSimulatedCount.toLocaleString()} 期...`; // 格式化数字
+                progressBar.style.width = `${currentProgress}%`;
+                progressBar.setAttribute('aria-valuenow', currentProgress);
+                progressBar.textContent = `${Math.floor(currentProgress)}%`;
+                statusText.textContent = `正在计算中... (已模拟约 ${Math.floor(currentProgress / progressIncrement) * 100000} 期)`;
 
-                if (currentSimulatedCount >= totalSimulations) {
+                if (currentProgress >= totalSimulations) {
                     clearInterval(simulationInterval);
                 }
             }, updateFrequency);
@@ -631,6 +674,7 @@
             clearInterval(simulationInterval); // 停止进度条更新
             funGameProgressDiv.style.display = 'none'; // 隐藏进度条
             funGameStartBtn.disabled = false; // 启用按钮
+            funGameClearSelectionBtn.disabled = false; // 启用清除按钮
 
             if (data.error) {
                 funGameResultsDiv.innerHTML = `<p class="text-danger">游戏模拟失败: ${data.error}</p>`;
@@ -644,19 +688,18 @@
             html += `<h5>号码组合 1:</h5>`;
             html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
             html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
-            html += `<p><strong>单次投注花费:</strong> ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)</p>`; // 显示单次投注花费
+            html += `<p><strong>单次投注花费:</strong> ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)</p>`;
             
             if (result.first_prize_info) {
-                html += `<p class="text-success">恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count.toLocaleString()}</strong> 次开奖时中得一等奖！</p>`; // 格式化数字
+                html += `<p class="text-success">恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count.toLocaleString()}</strong> 次开奖时中得一等奖！</p>`;
                 html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
                 html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
             } else {
-                html += `<p class="text-danger">在模拟的 ${totalSimulations.toLocaleString()} 次内未中得一等奖。</p>`; // 修正这里，直接使用 totalSimulations 变量
+                html += `<p class="text-danger">在模拟的 ${totalSimulations.toLocaleString()} 次内未中得一等奖。</p>`;
             }
             html += `<p>总共中奖情况:</p><ul>`;
-            // 遍历并显示按降序排列的奖项
             for (const prizeLevel in result.total_prizes) {
-                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel].toLocaleString()} 次</li>`; // 格式化数字
+                html += `<li>${prizeLevel}: ${result.total_prizes[prizeLevel].toLocaleString()} 次</li>`;
             }
             html += `</ul>`;
             html += '<hr>';
@@ -667,12 +710,25 @@
             clearInterval(simulationInterval); // 确保清除定时器
             funGameProgressDiv.style.display = 'none'; // 隐藏进度条
             funGameStartBtn.disabled = false; // 启用按钮
+            funGameClearSelectionBtn.disabled = false; // 启用清除按钮
             funGameResultsDiv.innerHTML = '<p class="text-danger">趣味游戏模拟失败。</p>';
         }
     }
 
     document.getElementById('ssq_fun_game_start').addEventListener('click', () => startFunGame('ssq'));
     document.getElementById('dlt_fun_game_start').addEventListener('click', () => startFunGame('dlt'));
+
+    // 清除趣味游戏选择的号码
+    function clearFunGameSelection(lotteryType) {
+        const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
+        candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
+        document.getElementById(`${lotteryType}_fun_game_results`).innerHTML = '<p class="text-muted">游戏结果将在此处显示。</p>';
+        document.getElementById(`${lotteryType}_fun_game_progress`).style.display = 'none'; // 隐藏进度条
+        updateFunGameTip(lotteryType);
+    }
+    document.getElementById('ssq_fun_game_clear_selection').addEventListener('click', () => clearFunGameSelection('ssq'));
+    document.getElementById('dlt_fun_game_clear_selection').addEventListener('click', () => clearFunGameSelection('dlt'));
+
 
     // 更新趣味游戏提示文本
     function updateFunGameTip(lotteryType) {
