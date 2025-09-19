@@ -3,7 +3,7 @@ import os
 import json
 
 # 项目版本号
-__version__ = "1.0.0" # 每次生成文件时更新此版本号
+__version__ = "1.0.1" # 更新版本号
 
 # 网站基本信息
 SITE_NAME = "iShoot"
@@ -28,10 +28,10 @@ ADMIN_ROUTE_PREFIX = os.environ.get('ADMIN_ROUTE_PREFIX', 'admin_xyz12') # 首�
 # 网站设置参数 (可从后台修改)
 DEFAULT_SETTINGS = {
     "history_page_size": 25,
-    "prediction_latest_draws": 3,
-    "prediction_omitted_red_balls": 7,
-    "prediction_omitted_blue_balls": 7,
-    "prediction_generated_count": 10,
+    "prediction_latest_draws": 3, # 预测页面显示最新开奖期数
+    "prediction_omitted_red_balls": 7, # 预测页面显示遗漏最多红球数量
+    "prediction_omitted_blue_balls": 7, # 预测页面显示遗漏最多蓝球数量
+    "prediction_generated_count": 10, # 预测页面默认生成号码组数
     "ssq_blue_omit_latest_draws": 1, # 蓝球如最新一期开出过的号码就不作为本期的预测候选号码
     "ssq_blue_consecutive_3_prob": 0.08,
     "ssq_blue_consecutive_5_prob": 0.35,
@@ -56,6 +56,7 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_3_weight": 0.02,
     "dlt_red_omit_4_weight": 0.03,
     "dlt_red_omit_5_weight": 0.03,
+    "dlt_red_omit_6_weight": 0.03, # 新增：大乐透红球遗漏6期权重
     "dlt_red_consecutive_3_prob": 0.35,
     "dlt_red_area_min_count": 2,
     "dlt_red_prev_2_draws_max_repeat": 2,
@@ -163,49 +164,50 @@ SETTING_LABELS_CHINESE = {
     'dlt_back_size_midpoint': "大乐透后区大小号分界点",
 
     # 预测相关设置
-    'prediction_latest_draws': "预测分析期数",
-    'prediction_omitted_red_balls': "预测红球遗漏期数",
-    'prediction_omitted_blue_balls': "预测蓝球遗漏期数",
-    'prediction_generated_count': "预测生成号码组数",
+    'prediction_latest_draws': "预测页面：显示最新开奖期数",
+    'prediction_omitted_red_balls': "预测页面：显示遗漏最多红球数量",
+    'prediction_omitted_blue_balls': "预测页面：显示遗漏最多蓝球数量",
+    'prediction_generated_count': "预测页面：默认生成号码组数",
 
     # 双色球预测规则权重/概率
-    'ssq_blue_omit_latest_draws': "双色球蓝球遗漏分析期数",
-    'ssq_blue_consecutive_3_prob': "双色球蓝球连号3期概率",
-    'ssq_blue_consecutive_5_prob': "双色球蓝球连号5期概率",
-    'ssq_red_omit_1_weight': "双色球红球遗漏1期权重",
-    'ssq_red_omit_2_weight': "双色球红球遗漏2期权重",
-    'ssq_red_omit_3_weight': "双色球红球遗漏3期权重",
-    'ssq_red_omit_4_weight': "双色球红球遗漏4期权重",
-    'ssq_red_omit_5_weight': "双色球红球遗漏5期权重",
-    'ssq_red_omit_6_weight': "双色球红球遗漏6期权重",
-    'ssq_red_consecutive_3_prob': "双色球红球连号3期概率",
-    'ssq_red_consecutive_3_second_prob': "双色球红球连号3期第二次概率",
-    'ssq_red_area_min_count': "双色球红球分区最小数量",
-    'ssq_red_prev_2_draws_max_repeat': "双色球红球近2期最大重复数",
-    'ssq_red_max_consecutive_balls': "双色球红球最大连号数量",
-    'ssq_red_omit_12_prob': "双色球红球遗漏12期概率",
-    'ssq_red_omit_13_prob': "双色球红球遗漏13期概率",
-    'ssq_red_omit_14_prob': "双色球红球遗漏14期概率",
+    'ssq_blue_omit_latest_draws': "双色球蓝球：遗漏分析期数",
+    'ssq_blue_consecutive_3_prob': "双色球蓝球：连号3期概率",
+    'ssq_blue_consecutive_5_prob': "双色球蓝球：连号5期概率",
+    'ssq_red_omit_1_weight': "双色球红球：遗漏1期权重",
+    'ssq_red_omit_2_weight': "双色球红球：遗漏2期权重",
+    'ssq_red_omit_3_weight': "双色球红球：遗漏3期权重",
+    'ssq_red_omit_4_weight': "双色球红球：遗漏4期权重",
+    'ssq_red_omit_5_weight': "双色球红球：遗漏5期权重",
+    'ssq_red_omit_6_weight': "双色球红球：遗漏6期权重",
+    'ssq_red_consecutive_3_prob': "双色球红球：连号3期概率",
+    'ssq_red_consecutive_3_second_prob': "双色球红球：连号3期第二次概率",
+    'ssq_red_area_min_count': "双色球红球：分区最小数量",
+    'ssq_red_prev_2_draws_max_repeat': "双色球红球：近2期最大重复数",
+    'ssq_red_max_consecutive_balls': "双色球红球：最大连号数量",
+    'ssq_red_omit_12_prob': "双色球红球：遗漏12期概率",
+    'ssq_red_omit_13_prob': "双色球红球：遗漏13期概率",
+    'ssq_red_omit_14_prob': "双色球红球：遗漏14期概率",
     
     # 大乐透预测规则权重/概率
-    'dlt_blue_repeat_prob': "大乐透蓝球重复概率",
-    'dlt_blue_consecutive_5_prob': "大乐透蓝球连号5期概率",
-    'dlt_red_omit_1_weight': "大乐透红球遗漏1期权重",
-    'dlt_red_omit_2_weight': "大乐透红球遗漏2期权重",
-    'dlt_red_omit_3_weight': "大乐透红球遗漏3期权重",
-    'dlt_red_omit_4_weight': "大乐透红球遗漏4期权重",
-    'dlt_red_omit_5_weight': "大乐透红球遗漏5期权重",
-    'dlt_red_consecutive_3_prob': "大乐透红球连号3期概率",
-    'dlt_red_area_min_count': "大乐透红球分区最小数量",
-    'dlt_red_prev_2_draws_max_repeat': "大乐透红球近2期最大重复数",
-    'dlt_red_max_consecutive_balls': "大乐透红球最大连号数量",
-    'dlt_red_omit_12_prob': "大乐透红球遗漏12期概率",
-    'dlt_red_omit_13_prob': "大乐透红球遗漏13期概率",
-    'dlt_red_omit_14_prob': "大乐透红球遗漏14期概率",
+    'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
+    'dlt_blue_consecutive_5_prob': "大乐透蓝球：连号5期概率",
+    'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重",
+    'dlt_red_omit_2_weight': "大乐透红球：遗漏2期权重",
+    'dlt_red_omit_3_weight': "大乐透红球：遗漏3期权重",
+    'dlt_red_omit_4_weight': "大乐透红球：遗漏4期权重",
+    'dlt_red_omit_5_weight': "大乐透红球：遗漏5期权重",
+    'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重", # 新增
+    'dlt_red_consecutive_3_prob': "大乐透红球：连号3期概率",
+    'dlt_red_area_min_count': "大乐透红球：分区最小数量",
+    'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
+    'dlt_red_max_consecutive_balls': "大乐透红球：最大连号数量",
+    'dlt_red_omit_12_prob': "大乐透红球：遗漏12期概率",
+    'dlt_red_omit_13_prob': "大乐透红球：遗漏13期概率",
+    'dlt_red_omit_14_prob': "大乐透红球：遗漏14期概率",
 
     # 对奖中心设置
-    'prize_check_range': "对奖中心检查范围",
-    'fun_game_max_simulations': "趣味游戏最大模拟次数",
+    'prize_check_range': "对奖中心：检查范围",
+    'fun_game_max_simulations': "趣味游戏：最大模拟次数",
 
     # 开奖日期设置
     'ssq_draw_days': "双色球开奖日 (周几)",
@@ -213,12 +215,63 @@ SETTING_LABELS_CHINESE = {
     'annual_holidays': "年度节假日 (不更新数据)",
 
     # 蓝球近期出现频率规则
-    'ssq_blue_recent_occurrence_draws': "双色球蓝球近期出现分析期数",
-    'ssq_blue_recent_occurrence_threshold': "双色球蓝球近期出现频率阈值",
-    'ssq_blue_recent_occurrence_weight': "双色球蓝球近期出现频率权重",
-    'dlt_blue_recent_occurrence_draws': "大乐透蓝球近期出现分析期数",
-    'dlt_blue_recent_occurrence_threshold': "大乐透蓝球近期出现频率阈值",
-    'dlt_blue_recent_occurrence_weight': "大乐透蓝球近期出现频率权重",
+    'ssq_blue_recent_occurrence_draws': "双色球蓝球：近期出现分析期数",
+    'ssq_blue_recent_occurrence_threshold': "双色球蓝球：近期出现频率阈值",
+    'ssq_blue_recent_occurrence_weight': "双色球蓝球：近期出现频率权重",
+    'dlt_blue_recent_occurrence_draws': "大乐透蓝球：近期出现分析期数",
+    'dlt_blue_recent_occurrence_threshold': "大乐透蓝球：近期出现频率阈值",
+    'dlt_blue_recent_occurrence_weight': "大乐透蓝球：近期出现频率权重",
+}
+
+SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
+
+def load_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(DEFAULT_SETTINGS, f, indent=4, ensure_ascii=False)
+        return DEFAULT_SETTINGS
+    with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+        settings = json.load(f)
+        # 合并默认设置，确保新参数有默认值
+        for key, value in DEFAULT_SETTINGS.items():
+            if key not in settings:
+                settings[key] = value
+        return settings
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(settings, f, indent=4, ensure_ascii=False)
+
+# 加载初始设置
+CURRENT_SETTINGS = load_settings()
+
+# 确保 instance 目录存在
+os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+
+# --- 统计维度解释文本 ---
+STAT_EXPLANATIONS = {
+    'red_frequency': "统计每个红球号码在指定范围内的出现次数和频率百分比。",
+    'red_omission': "统计每个红球号码当前的遗漏期数和历史最大遗漏期数。",
+    'red_size_ratio': "将红球号码范围划分为“大”和“小”两个区域，统计开奖号码中大小号的比例。双色球红球通常以17为界（1-16小，17-33大），大乐透前区以18为界（1-17小，18-35大）。",
+    'red_prime_composite_ratio': "统计红球开奖号码中质数和合数的比例。质数：只能被1和自身整除的数（如2,3,5,7,11,13,17,19,23,29,31）。合数：除了1和自身外，还能被其他数整除的数（如4,6,8,9,10,12,14,15,16...）。1既非质数也非合数。",
+    'red_012_way_ratio': "将红球号码除以3，根据余数分为0路、1路、2路。统计开奖号码中0路、1路、2路号码的比例。",
+    'red_consecutive_groups': "统计红球开奖号码中连续数字的组数（例如：1,2,3 算一组）。",
+    'red_max_consecutive_length': "统计红球开奖号码中最长连号的长度（例如：1,2,3,4 最长连号为4）。",
+    'red_repeated_counts': "统计当前红球开奖号码与前一期红球开奖号码中重复出现的数字数量。",
+    'red_span': "红球开奖号码中最大数字与最小数字之差。",
+    'red_head': "红球开奖号码中最小的数字（龙头）。",
+    'red_tail': "红球开奖号码中最大的数字（凤尾）。",
+    'red_ac_value': "红球AC值是彩票号码组合中任意两个号码差值的绝对值，然后统计这些差值中不重复的个数，再减去 (N-1) (N为开奖号码个数)。AC值反映了号码的离散程度。",
+
+    'blue_frequency': "统计每个蓝球号码在指定范围内的出现次数和频率百分比。",
+    'blue_omission': "统计每个蓝球号码当前的遗漏期数和历史最大遗漏期数。",
+    'blue_size_ratio': "将蓝球号码范围划分为“大”和“小”两个区域，统计开奖号码中大小号的比例。双色球蓝球通常以9为界（1-8小，9-16大），大乐透后区以7为界（1-6小，7-12大）。",
+    'blue_prime_composite_ratio': "统计蓝球开奖号码中质数和合数的比例。质数：只能被1和自身整除的数。合数：除了1和自身外，还能被其他数整除的数。1既非质数也非合数。",
+    'blue_012_way_ratio': "将蓝球号码除以3，根据余数分为0路、1路、2路。统计开奖号码中0路、1路、2路号码的比例。",
+    'blue_repeated_counts': "统计当前蓝球开奖号码与前一期蓝球开奖号码中重复出现的数字数量。",
+    'blue_head': "蓝球开奖号码中最小的数字（龙头）。",
+    'blue_tail': "蓝球开奖号码中最大的数字（凤尾）。",
 }
 
 # --- 中奖规则定义 ---
@@ -259,3 +312,4 @@ PRIZE_RULES = {
         ]
     }
 }
+

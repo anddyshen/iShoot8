@@ -1,5 +1,5 @@
 <!-- templates/prediction.html -->
-<!-- 版本: 1.0.0 -->
+<!-- 版本: 1.0.2 - 修复大乐透数据不显示问题，增加调试日志 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -36,7 +36,25 @@
     .prediction-result-card .ball-container {
         margin-bottom: 5px;
     }
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0,0,0,.1);
+        border-radius: 50%;
+        border-top-color: #0d6efd;
+        animation: spin 1s ease-in-out infinite;
+        -webkit-animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
+    @-webkit-keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
 </style>
+<!-- Chart.js for the pie chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -78,7 +96,7 @@
             <div class="card mb-4">
                 <div class="card-header">双色球预测规则</div>
                 <div class="card-body rule-list">
-                    <p><strong>4.1.1 蓝球规则:</strong> 蓝球如最新一期开出过的号码就不作为本期的预测候选号码。蓝球连续{{ settings.ssq_blue_consecutive_3_prob }}期开出此号码则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_3_prob * 100 }}%，如果连续{{ settings.ssq_blue_consecutive_5_prob }}期开出同样的蓝球号码，则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_5_prob * 100 }}%。</p>
+                    <p><strong>4.1.1 蓝球规则:</strong> 蓝球如最新一期开出过的号码就不作为本期的预测候选号码，蓝球连续{{ settings.ssq_blue_consecutive_3_prob }}期开出此号码则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_3_prob * 100 }}%，如果连续{{ settings.ssq_blue_consecutive_5_prob }}期开出同样的蓝球号码，则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_5_prob * 100 }}%。</p>
                     <p><strong>4.1.2 红球遗漏权重:</strong> 红球最近未开出号码连续遗漏次数的第1多的号码数字作为候选球池中的一员，权重占 {{ settings.ssq_red_omit_1_weight * 100 }}%，第2多占{{ settings.ssq_red_omit_2_weight * 100 }}%，第3多占{{ settings.ssq_red_omit_3_weight * 100 }}%，第4多占{{ settings.ssq_red_omit_4_weight * 100 }}%，第5多占{{ settings.ssq_red_omit_5_weight * 100 }}%，第6多占{{ settings.ssq_red_omit_6_weight * 100 }}%。其他所有号码数字占比加起来平分剩下的百分比。</p>
                     <p><strong>4.1.3 红球重复概率:</strong> 如果红球最新开奖号码中的某一个号码连续开出重复3期及以上，则这个号码在候选号码池中的概率增加到{{ settings.ssq_red_consecutive_3_prob * 100 }}%，第二个重复3期以上的号码，概率增加到{{ settings.ssq_red_consecutive_3_second_prob * 100 }}%，其他号码概率平分剩下的百分比。</p>
                     <p><strong>4.1.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-33]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.ssq_red_area_min_count }}个数字区间。</p>
@@ -96,23 +114,12 @@
                 <div class="card-body">
                     <p><strong>红球 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></p>
                     <div class="ball-container" id="ssq_omitted_red_balls">
-                        <!-- JS动态加载 -->
+                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
                     <p><strong>蓝球 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></p>
                     <div class="ball-container" id="ssq_omitted_blue_balls">
-                        <!-- JS动态加载 -->
+                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
-                </div>
-            </div>
-            <!-- 组合数及筛选饼状图 -->
-            <div class="card mb-4">
-                <div class="card-header">组合筛选概览</div>
-                <div class="card-body">
-                    <p>总组合数: <span id="ssq_total_combinations">计算中...</span></p>
-                    <p>通过规则筛选掉的可能: <span id="ssq_filtered_combinations">计算中...</span></p>
-                    <p>中奖的可能性: <span id="ssq_winning_chance">计算中...</span></p>
-                    <p>节省费用: <span id="ssq_saved_cost">计算中...</span> 元</p>
-                    <canvas id="ssq_filter_chart" width="400" height="200"></canvas>
                 </div>
             </div>
         </div>
@@ -169,6 +176,18 @@
             </div>
         </div>
     </div>
+
+    <!-- 组合数及筛选饼状图 (移动到最下方) -->
+    <div class="card mb-4">
+        <div class="card-header">组合筛选概览</div>
+        <div class="card-body">
+            <p>总组合数: <span id="ssq_total_combinations">计算中...</span></p>
+            <p>通过规则筛选掉的可能: <span id="ssq_filtered_combinations">计算中...</span></p>
+            <p>中奖的可能性: <span id="ssq_winning_chance">计算中...</span></p>
+            <p>节省费用: <span id="ssq_saved_cost">计算中...</span> 元</p>
+            <canvas id="ssq_filter_chart" width="400" height="200"></canvas>
+        </div>
+    </div>
 </div>
 
 <div id="dlt_prediction_section" class="lottery-section" style="display: none;">
@@ -199,8 +218,8 @@
                 <div class="card-header">大乐透预测规则</div>
                 <div class="card-body rule-list">
                     <p><strong>4.2.1 蓝球规则:</strong> 如果与最新一期的蓝球重复，则重复的每个号码数字在候选池中的出现概率不超过{{ settings.dlt_blue_repeat_prob * 100 }}%。如果任何一个蓝球号码连续5期开出，则此号码候选池内的出现的概率为{{ settings.dlt_blue_consecutive_5_prob * 100 }}%。</p>
-                    <p><strong>4.2.2 红球遗漏权重:</strong> 红球最近未开出号码连续遗漏次数的第1多的号码数字作为候选球池中的一员，权重占 {{ settings.dlt_red_omit_1_weight * 100 }}%，第2多占{{ settings.dlt_red_omit_2_weight * 100 }}%，第3多占{{ settings.dlt_red_omit_3_weight * 100 }}%，第4多占{{ settings.dlt_red_omit_4_weight * 100 }}%，第5多占{{ settings.dlt_red_omit_5_weight * 100 }}%。其他所有号码数字占比加起来平分剩下的百分比。</p>
-                    <p><strong>4.2.3 红球重复概率:</strong> 如果红球最新开奖号码中的某一个号码连续开出重复3期及以上，则这个号码在候选号码池中的概率增加到{{ settings.dlt_red_consecutive_3_prob * 100 }}%，其他号码概率平分剩下的百分比。</p>
+                    <p><strong>4.2.2 红球遗漏优先权重:</strong> 在整个红球号码池中，红球未开出的连续遗漏次数的第[1]多的号码数字作为候选球池中的一员，权重占 [1%] ，连续遗漏数字第[2]的号码多占[1.5]% ，连续遗漏第[3]多的占 [2%]，连续遗漏第[4]多的占 [3%]，连续遗漏第[5]多的占 [3%]，其他所有号码数字占比加起来平分剩下的百分比 。因为大乐透红球中奖信息为5+2所以只统计前5多的号码，如果有重复造成大于5则把多出的当第6或第7个数字进行计算，以此类推。比如红球连续遗漏期数最多的前6个号码，权重分别为1%、1.5%、2%、3%、3%、3%（总计13.5%），剩余86.5%平分给33-6=27个球（每球≈3.2%）。</p>
+                    <p><strong>4.2.3 红球重复高概率:</strong> 如果红球最新开奖号码中的某一个号码连续开出重复[3]期及以上，则这个号码在候选号码池中的概率增加到{{ settings.dlt_red_consecutive_3_prob * 100 }}%，其他号码概率平分剩下的百分比。</p>
                     <p><strong>4.2.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-35]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.dlt_red_area_min_count }}个数字区间。</p>
                     <p><strong>4.2.5 红球重复限制:</strong> 红球预测的号码中的数字与前2期的开奖结果重复的号码加起来不超过{{ settings.dlt_red_prev_2_draws_max_repeat }}个。</p>
                     <p><strong>4.2.6 红球连号限制:</strong> 红球球不出现连续{{ settings.dlt_red_max_consecutive_balls + 1 }}个及以上数字的号码。</p>
@@ -216,23 +235,12 @@
                 <div class="card-body">
                     <p><strong>红球 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></p>
                     <div class="ball-container" id="dlt_omitted_red_balls">
-                        <!-- JS动态加载 -->
+                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
                     <p><strong>蓝球 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></p>
                     <div class="ball-container" id="dlt_omitted_blue_balls">
-                        <!-- JS动态加载 -->
+                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
-                </div>
-            </div>
-            <!-- 组合数及筛选饼状图 -->
-            <div class="card mb-4">
-                <div class="card-header">组合筛选概览</div>
-                <div class="card-body">
-                    <p>总组合数: <span id="dlt_total_combinations">计算中...</span></p>
-                    <p>通过规则筛选掉的可能: <span id="dlt_filtered_combinations">计算中...</span></p>
-                    <p>中奖的可能性: <span id="dlt_winning_chance">计算中...</span></p>
-                    <p>节省费用: <span id="dlt_saved_cost">计算中...</span> 元</p>
-                    <canvas id="dlt_filter_chart" width="400" height="200"></canvas>
                 </div>
             </div>
         </div>
@@ -269,16 +277,16 @@
 
             <hr>
 
-            <!-- 复式预测功能 (4.4) -->
-            <h5 class="mt-4">大乐透复式预测 (4.4)</h5>
+            <!-- 复式预测功能 (4.3) -->
+            <h5 class="mt-4">大乐透复式预测 (4.3)</h5>
             <div class="mb-3 row align-items-center">
-                <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">红球数量 (6-35):</label>
+                <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">红球数量 (6-20):</label>
                 <div class="col-sm-2">
-                    <input type="number" class="form-control" id="dlt_complex_red_count" value="6" min="6" max="35">
+                    <input type="number" class="form-control" id="dlt_complex_red_count" value="6" min="6" max="20">
                 </div>
                 <label for="dlt_complex_blue_count" class="col-sm-3 col-form-label">蓝球数量 (1-12):</label>
                 <div class="col-sm-2">
-                    <input type="number" class="form-control" id="dlt_complex_blue_count" value="2" min="1" max="12">
+                    <input type="number" class="form-control" id="dlt_complex_blue_count" value="1" min="1" max="12">
                 </div>
                 <div class="col-sm-2">
                     <button class="btn btn-warning" id="generate_dlt_complex_prediction">生成复式号码</button>
@@ -289,20 +297,43 @@
             </div>
         </div>
     </div>
+
+    <!-- 组合数及筛选饼状图 (移动到最下方) -->
+    <div class="card mb-4">
+        <div class="card-header">组合筛选概览</div>
+        <div class="card-body">
+            <p>总组合数: <span id="dlt_total_combinations">计算中...</span></p>
+            <p>通过规则筛选掉的可能: <span id="dlt_filtered_combinations">计算中...</span></p>
+            <p>中奖的可能性: <span id="dlt_winning_chance">计算中...</span></p>
+            <p>节省费用: <span id="dlt_saved_cost">计算中...</span> 元</p>
+            <canvas id="dlt_filter_chart" width="400" height="200"></canvas>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // JavaScript for tab switching
+    // Function to render lottery balls (replicated from Jinja macro for JS use)
+    function renderBalls(balls, ballType) {
+        let html = '';
+        const sortedBalls = [...balls].sort((a, b) => a - b);
+        for (const ball of sortedBalls) {
+            html += `<span class="lottery-ball ball-${ballType}">${String(ball).padStart(2, '0')}</span>`;
+        }
+        return html;
+    }
+
+    // Tab switching logic
     document.getElementById('ssq_prediction_tab').addEventListener('click', function(e) {
         e.preventDefault();
         document.getElementById('ssq_prediction_section').style.display = 'block';
         document.getElementById('dlt_prediction_section').style.display = 'none';
         this.classList.add('active');
         document.getElementById('dlt_prediction_tab').classList.remove('active');
+        console.log("Switched to SSQ tab. Loading omitted balls for SSQ."); // 新增日志
+        loadOmittedBalls('ssq'); // Load data for SSQ when tab is clicked
     });
 
     document.getElementById('dlt_prediction_tab').addEventListener('click', function(e) {
@@ -311,185 +342,217 @@
         document.getElementById('ssq_prediction_section').style.display = 'none';
         this.classList.add('active');
         document.getElementById('ssq_prediction_tab').classList.remove('active');
+        console.log("Switched to DLT tab. Loading omitted balls for DLT."); // 新增日志
+        loadOmittedBalls('dlt'); // Load data for DLT when tab is clicked
     });
 
-    // Function to render lottery balls (replicated from Jinja macro for JS use)
-    function renderBalls(balls, ballType, isConsecutiveCheck = true) {
-        let html = '';
-        const sortedBalls = [...balls].sort((a, b) => a - b);
-        for (let i = 0; i < sortedBalls.length; i++) {
-            const ball = sortedBalls[i];
-            let isConsecutive = false;
-            if (isConsecutiveCheck) {
-                if (i > 0 && sortedBalls[i-1] === ball - 1) {
-                    isConsecutive = true;
-                } else if (i < sortedBalls.length - 1 && sortedBalls[i+1] === ball + 1) {
-                    isConsecutive = true;
-                }
-            }
-            html += `<span class="lottery-ball ball-${ballType} ${isConsecutive ? 'ball-consecutive' : ''}">${String(ball).padStart(2, '0')}</span>`;
-        }
-        return html;
-    }
+    // Load omitted balls via API
+    async function loadOmittedBalls(lotteryType) {
+        const redContainer = document.getElementById(`${lotteryType}_omitted_red_balls`);
+        const blueContainer = document.getElementById(`${lotteryType}_omitted_blue_balls`);
+        
+        redContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
+        blueContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
 
-    // Function to fetch and display omitted balls
-    async function fetchAndDisplayOmittedBalls(lotteryType) {
+        console.log(`Fetching omitted balls for ${lotteryType}...`); // 新增日志
         try {
-            const response = await fetch(`/api/omitted_balls?lottery_type=${lotteryType}`);
+            const response = await fetch(`/api/prediction/omitted_balls?lottery_type=${lotteryType}`);
             const data = await response.json();
 
-            const redOutput = document.getElementById(`${lotteryType}_omitted_red_balls`);
-            const blueOutput = document.getElementById(`${lotteryType}_omitted_blue_balls`);
+            console.log(`Received response for ${lotteryType} omitted balls:`, data); // 新增日志
 
-            redOutput.innerHTML = '';
-            data.red_omitted.forEach(item => {
-                redOutput.innerHTML += renderBalls([item.ball], 'red', false) + ` (${item.omission_count}期)`;
-            });
+            if (data.error) {
+                redContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+                blueContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+                return;
+            }
 
-            blueOutput.innerHTML = '';
-            data.blue_omitted.forEach(item => {
-                blueOutput.innerHTML += renderBalls([item.ball], 'blue', false) + ` (${item.omission_count}期)`;
-            });
+            redContainer.innerHTML = renderBalls(data.red_balls, 'red');
+            blueContainer.innerHTML = renderBalls(data.blue_balls, 'blue');
+            console.log(`Successfully rendered omitted balls for ${lotteryType}.`); // 新增日志
 
         } catch (error) {
-            console.error('Error fetching omitted balls:', error);
-            document.getElementById(`${lotteryType}_omitted_red_balls`).innerHTML = '<p class="text-danger">加载失败。</p>';
-            document.getElementById(`${lotteryType}_omitted_blue_balls`).innerHTML = '<p class="text-danger">加载失败。</p>';
+            console.error(`Error loading omitted balls for ${lotteryType}:`, error);
+            redContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
+            blueContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
         }
     }
 
-    // Function to fetch and display prediction results
-    async function fetchAndDisplayPredictions(lotteryType, numGenerate, isRandom = false, isComplex = false, redCount = null, blueCount = null) {
-        const outputDivId = isRandom ? `${lotteryType}_random_numbers_output` : (isComplex ? `${lotteryType}_complex_prediction_output` : `${lotteryType}_predicted_numbers_output`);
-        const outputDiv = document.getElementById(outputDivId);
-        outputDiv.innerHTML = '<p class="text-muted">生成中...</p>';
+    // Generate Random Numbers
+    async function generateRandomNumbers(lotteryType) {
+        const numGenerate = document.getElementById(`${lotteryType}_num_generate`).value;
+        const outputDiv = document.getElementById(`${lotteryType}_random_numbers_output`);
+        outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
 
-        let url = `/api/generate_prediction?lottery_type=${lotteryType}&count=${numGenerate}&is_random=${isRandom}`;
-        if (isComplex) {
-            url += `&is_complex=true&red_count=${redCount}&blue_count=${blueCount}`;
-        }
-
+        console.log(`Generating random numbers for ${lotteryType}, count: ${numGenerate}...`); // 新增日志
         try {
-            const response = await fetch(url);
+            const response = await fetch('/api/prediction/generate_random', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lottery_type: lotteryType, count: parseInt(numGenerate) })
+            });
             const data = await response.json();
+
+            console.log(`Received response for ${lotteryType} random numbers:`, data); // 新增日志
 
             if (data.error) {
                 outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
                 return;
             }
 
-            outputDiv.innerHTML = '';
-            data.predictions.forEach(prediction => {
-                let cost = prediction.cost ? ` (费用: ${prediction.cost}元)` : '';
-                outputDiv.innerHTML += `
-                    <div class="prediction-result-card">
-                        <p class="card-title">号码组合${cost}:</p>
-                        <div class="ball-container">
-                            红球: ${renderBalls(prediction.red_balls, 'red')}
-                            蓝球: ${renderBalls(prediction.blue_balls, 'blue')}
-                        </div>
-                        <div class="mt-2">
-                            <button class="btn btn-sm btn-outline-primary me-2" onclick="regenerateNumber('${lotteryType}', ${isRandom}, ${isComplex}, ${redCount}, ${blueCount}, this)">重新生成</button>
-                            <button class="btn btn-sm btn-outline-info" onclick="checkHistoryMatch('${lotteryType}', '${prediction.red_balls.join(',')}', '${prediction.blue_balls.join(',')}', this)">核对历史中奖</button>
-                            ${isRandom ? `<button class="btn btn-sm btn-outline-warning ms-2" onclick="checkRandomRules('${lotteryType}', '${prediction.red_balls.join(',')}', '${prediction.blue_balls.join(',')}', this)">核对规则</button>` : ''}
-                        </div>
-                        <div class="mt-2 small text-muted" id="result_for_${lotteryType}_${prediction.red_balls.join('')}${prediction.blue_balls.join('')}"></div>
-                    </div>
-                `;
+            let html = '';
+            data.numbers.forEach((combo, index) => {
+                html += `<div class="prediction-result-card">
+                            <p class="card-title">随机号码 ${index + 1}:</p>
+                            <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
+                            <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
+                            <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                            <button class="btn btn-sm btn-outline-primary check-random-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
+                            <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
+                        </div>`;
             });
+            outputDiv.innerHTML = html;
+            console.log(`Successfully rendered random numbers for ${lotteryType}.`); // 新增日志
+
         } catch (error) {
-            console.error('Error fetching predictions:', error);
-            outputDiv.innerHTML = '<p class="text-danger">生成号码失败。</p>';
+            console.error(`Error generating random numbers for ${lotteryType}:`, error);
+            outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
         }
     }
 
-    // Placeholder functions for button actions
-    function regenerateNumber(lotteryType, isRandom, isComplex, redCount, blueCount, button) {
-        const numGenerate = button.closest('.card-body').querySelector('input[type="number"]').value;
-        fetchAndDisplayPredictions(lotteryType, numGenerate, isRandom, isComplex, redCount, blueCount);
-    }
+    // Generate Predicted Numbers (Placeholder for now)
+    async function generatePredictedNumbers(lotteryType) {
+        const numGenerate = document.getElementById(`${lotteryType}_num_generate`).value;
+        const outputDiv = document.getElementById(`${lotteryType}_predicted_numbers_output`);
+        outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
 
-    async function checkHistoryMatch(lotteryType, redBallsStr, blueBallsStr, button) {
-        const resultDiv = button.closest('.prediction-result-card').querySelector('.mt-2.small.text-muted');
-        resultDiv.innerHTML = '核对中...';
+        console.log(`Generating predicted numbers for ${lotteryType}, count: ${numGenerate}...`); // 新增日志
         try {
-            const response = await fetch(`/api/check_history_match?lottery_type=${lotteryType}&red_balls=${redBallsStr}&blue_balls=${blueBallsStr}`);
+            const response = await fetch('/api/prediction/generate_predicted', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lottery_type: lotteryType, count: parseInt(numGenerate) })
+            });
             const data = await response.json();
+
+            console.log(`Received response for ${lotteryType} predicted numbers:`, data); // 新增日志
+
             if (data.error) {
-                resultDiv.innerHTML = `<span class="text-danger">${data.error}</span>`;
-            } else if (data.matches.length > 0) {
-                let html = '历史中奖记录:<br>';
-                data.matches.forEach(match => {
-                    html += `第 ${match.issue} 期: ${match.prize_level} (${match.prize_amount}元)<br>`;
-                });
-                resultDiv.innerHTML = html;
-            } else {
-                resultDiv.innerHTML = '未在历史开奖中找到中奖记录。';
+                outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                return;
             }
+
+            let html = '';
+            data.numbers.forEach((combo, index) => {
+                html += `<div class="prediction-result-card">
+                            <p class="card-title">预测号码 ${index + 1}:</p>
+                            <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
+                            <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
+                            <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                            <button class="btn btn-sm btn-outline-primary check-predicted-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
+                            <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
+                        </div>`;
+            });
+            outputDiv.innerHTML = html;
+            console.log(`Successfully rendered predicted numbers for ${lotteryType}.`); // 新增日志
+
         } catch (error) {
-            console.error('Error checking history match:', error);
-            resultDiv.innerHTML = '<span class="text-danger">核对失败。</span>';
+            console.error(`Error generating predicted numbers for ${lotteryType}:`, error);
+            outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
         }
     }
 
-    async function checkRandomRules(lotteryType, redBallsStr, blueBallsStr, button) {
-        const resultDiv = button.closest('.prediction-result-card').querySelector('.mt-2.small.text-muted');
-        resultDiv.innerHTML = '核对规则中...';
-        try {
-            const response = await fetch(`/api/check_rules?lottery_type=${lotteryType}&red_balls=${redBallsStr}&blue_balls=${blueBallsStr}`);
-            const data = await response.json();
-            if (data.error) {
-                resultDiv.innerHTML = `<span class="text-danger">${data.error}</span>`;
-            } else if (data.broken_rules.length > 0) {
-                let html = '不符合以下规则:<br>';
-                data.broken_rules.forEach(rule => {
-                    html += `- ${rule}<br>`;
-                });
-                resultDiv.innerHTML = html;
-            } else {
-                resultDiv.innerHTML = '符合所有预测规则。';
-            }
-        } catch (error) {
-            console.error('Error checking rules:', error);
-            resultDiv.innerHTML = '<span class="text-danger">规则核对失败。</span>';
-        }
+    // Check Rules for Generated Numbers (Placeholder for now)
+    async function checkGeneratedRules(lotteryType, redBallsStr, blueBallsStr, outputElementId) {
+        const outputDiv = document.getElementById(outputElementId);
+        outputDiv.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+
+        console.log(`Checking rules for generated numbers for ${lotteryType}: Red=${redBallsStr}, Blue=${blueBallsStr}`); // 新增日志
+
+        // This API endpoint currently checks rules against a *historical draw issue*.
+        // To check rules against a *generated number*, the backend API needs to be modified
+        // to accept the balls directly, not an issue number.
+        // For now, we'll just show a placeholder message.
+        outputDiv.innerHTML = '<p class="text-warning">规则检查功能待实现 (需要修改后端API以支持对生成号码的检查)。</p>';
+        // TODO: Modify backend API /api/check_rules to accept red_balls and blue_balls directly
+        // Then, implement the actual fetch call here.
     }
 
-    // Event listeners for generation buttons
-    document.getElementById('generate_ssq_prediction').addEventListener('click', () => {
-        const num = document.getElementById('ssq_num_generate').value;
-        fetchAndDisplayPredictions('ssq', num, false);
+
+    // Event Listeners
+    document.getElementById('generate_ssq_random').addEventListener('click', () => generateRandomNumbers('ssq'));
+    document.getElementById('generate_dlt_random').addEventListener('click', () => generateRandomNumbers('dlt'));
+
+    document.getElementById('generate_ssq_prediction').addEventListener('click', () => generatePredictedNumbers('ssq'));
+    document.getElementById('generate_dlt_prediction').addEventListener('click', () => generatePredictedNumbers('dlt'));
+
+    // Event delegation for dynamically added "重新生成" buttons for random numbers
+    document.getElementById('ssq_random_numbers_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('regenerate-random-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const index = e.target.dataset.index;
+            // For now, just regenerate all random numbers.
+            // A more advanced implementation would regenerate only this specific one.
+            generateRandomNumbers(lotteryType); 
+        }
+        if (e.target.classList.contains('check-random-rules-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const redBalls = e.target.dataset.redBalls;
+            const blueBalls = e.target.dataset.blueBalls;
+            const outputElementId = `${lotteryType}_random_rule_check_${e.target.dataset.index}`;
+            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        }
     });
-    document.getElementById('generate_ssq_random').addEventListener('click', () => {
-        const num = document.getElementById('ssq_num_generate').value;
-        fetchAndDisplayPredictions('ssq', num, true);
-    });
-    document.getElementById('generate_ssq_complex_prediction').addEventListener('click', () => {
-        const redCount = document.getElementById('ssq_complex_red_count').value;
-        const blueCount = document.getElementById('ssq_complex_blue_count').value;
-        fetchAndDisplayPredictions('ssq', 1, false, true, redCount, blueCount);
+    document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('regenerate-random-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const index = e.target.dataset.index;
+            generateRandomNumbers(lotteryType);
+        }
+        if (e.target.classList.contains('check-random-rules-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const redBalls = e.target.dataset.redBalls;
+            const blueBalls = e.target.dataset.blueBalls;
+            const outputElementId = `${lotteryType}_random_rule_check_${e.target.dataset.index}`;
+            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        }
     });
 
-    document.getElementById('generate_dlt_prediction').addEventListener('click', () => {
-        const num = document.getElementById('dlt_num_generate').value;
-        fetchAndDisplayPredictions('dlt', num, false);
+    // Event delegation for dynamically added "重新生成" buttons for predicted numbers
+    document.getElementById('ssq_predicted_numbers_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('regenerate-predicted-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const index = e.target.dataset.index;
+            generatePredictedNumbers(lotteryType);
+        }
+        if (e.target.classList.contains('check-predicted-rules-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const redBalls = e.target.dataset.redBalls;
+            const blueBalls = e.target.dataset.blueBalls;
+            const outputElementId = `${lotteryType}_predicted_rule_check_${e.target.dataset.index}`;
+            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        }
     });
-    document.getElementById('generate_dlt_random').addEventListener('click', () => {
-        const num = document.getElementById('dlt_num_generate').value;
-        fetchAndDisplayPredictions('dlt', num, true);
-    });
-    document.getElementById('generate_dlt_complex_prediction').addEventListener('click', () => {
-        const redCount = document.getElementById('dlt_complex_red_count').value;
-        const blueCount = document.getElementById('dlt_complex_blue_count').value;
-        fetchAndDisplayPredictions('dlt', 1, false, true, redCount, blueCount);
+    document.getElementById('dlt_predicted_numbers_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('regenerate-predicted-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const index = e.target.dataset.index;
+            generatePredictedNumbers(lotteryType);
+        }
+        if (e.target.classList.contains('check-predicted-rules-btn')) {
+            const lotteryType = e.target.dataset.lotteryType;
+            const redBalls = e.target.dataset.redBalls;
+            const blueBalls = e.target.dataset.blueBalls;
+            const outputElementId = `${lotteryType}_predicted_rule_check_${e.target.dataset.index}`;
+            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        }
     });
 
 
     // Initial load
     document.addEventListener('DOMContentLoaded', function() {
-        fetchAndDisplayOmittedBalls('ssq');
-        fetchAndDisplayOmittedBalls('dlt');
-        // TODO: Fetch and display total combinations and filter chart data
+        // Ensure the correct tab is active on load
+        document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq')
     });
 </script>
 {% endblock %}

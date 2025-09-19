@@ -1,15 +1,15 @@
 # routes.py
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify, current_app
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News, db
 from data_manager import get_latest_draws
-from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE # PRIZE_RULES 已经导入
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
     calculate_combination_cost, calculate_prize_details, simulate_fun_game
 )
-from prediction_engine import check_lottery_rules
+from prediction_engine import check_lottery_rules, generate_random_balls, get_omitted_balls_for_prediction, generate_predicted_balls
 
 bp = Blueprint('routes', __name__)
 
@@ -135,9 +135,112 @@ def statistics():
 
 @bp.route('/prediction')
 def prediction():
-    # 号码预测页面
-    # TODO: 实现预测逻辑、随机号码生成、规则展示、筛选饼状图
-    return render_template('prediction.html')
+    # 获取最新开奖号码用于显示
+    num_latest_draws = CURRENT_SETTINGS.get('prediction_latest_draws', 3)
+    
+    current_app.logger.info(f"Fetching latest {num_latest_draws} SSQ draws for prediction page.") # 新增日志
+    latest_ssq_draws = get_latest_draws(SSQDraw, num_latest_draws)
+    current_app.logger.info(f"Fetched {len(latest_ssq_draws)} SSQ draws.") # 新增日志
+
+    current_app.logger.info(f"Fetching latest {num_latest_draws} DLT draws for prediction page.") # 新增日志
+    latest_dlt_draws = get_latest_draws(DLTDraw, num_latest_draws)
+    current_app.logger.info(f"Fetched {len(latest_dlt_draws)} DLT draws.") # 新增日志
+
+    return render_template('prediction.html',
+                           latest_ssq_draws=latest_ssq_draws,
+                           latest_dlt_draws=latest_dlt_draws,
+                           # settings is already injected via context processor
+                           )
+
+@bp.route('/api/prediction/omitted_balls', methods=['GET'])
+def api_prediction_omitted_balls():
+    lottery_type = request.args.get('lottery_type')
+    current_app.logger.info(f"API call: /api/prediction/omitted_balls for {lottery_type}") # 新增日志
+
+    if not lottery_type:
+        current_app.logger.warning("API call: Missing lottery_type for omitted_balls.") # 新增日志
+        return jsonify({'error': 'Missing lottery_type'}), 400
+    
+    omitted_data = get_omitted_balls_for_prediction(lottery_type)
+    if 'error' in omitted_data:
+        current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type}: {omitted_data['error']}") # 新增日志
+        return jsonify(omitted_data), 500
+    
+    current_app.logger.info(f"API call: Successfully returned omitted balls for {lottery_type}.") # 新增日志
+    return jsonify(omitted_data)
+
+@bp.route('/api/prediction/generate_random', methods=['POST'])
+def api_generate_random_numbers():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    count = data.get('count', 1, type=int)
+    current_app.logger.info(f"API call: /api/prediction/generate_random for {lottery_type}, count={count}") # 新增日志
+
+    if not lottery_type:
+        current_app.logger.warning("API call: Missing lottery_type for generate_random.") # 新增日志
+        return jsonify({'error': 'Missing lottery_type'}), 400
+    
+    if lottery_type == 'ssq':
+        num_red = 6
+        num_blue = 1
+    elif lottery_type == 'dlt':
+        num_red = 5
+        num_blue = 2
+    else:
+        current_app.logger.warning(f"API call: Invalid lottery type '{lottery_type}' for generate_random.") # 新增日志
+        return jsonify({'error': 'Invalid lottery type'}), 400
+
+    generated_numbers = []
+    for _ in range(count):
+        red_balls, blue_balls = generate_random_balls(lottery_type, num_red, num_blue)
+        if red_balls is None: # Error case from generate_random_balls
+            current_app.logger.error(f"API call: Failed to generate random numbers for {lottery_type} due to invalid ranges.") # 新增日志
+            return jsonify({'error': 'Failed to generate random numbers due to invalid ranges.'}), 500
+        generated_numbers.append({
+            'red_balls': ','.join(map(str, red_balls)),
+            'blue_balls': ','.join(map(str, blue_balls))
+        })
+    
+    current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} random numbers for {lottery_type}.") # 新增日志
+    return jsonify({'numbers': generated_numbers})
+
+@bp.route('/api/prediction/generate_predicted', methods=['POST'])
+def api_generate_predicted_numbers():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    count = data.get('count', 1, type=int)
+    current_app.logger.info(f"API call: /api/prediction/generate_predicted for {lottery_type}, count={count}") # 新增日志
+
+    if not lottery_type:
+        current_app.logger.warning("API call: Missing lottery_type for generate_predicted.") # 新增日志
+        return jsonify({'error': 'Missing lottery_type'}), 400
+    
+    # TODO: Implement actual prediction logic here
+    # For now, return random numbers as a placeholder
+    if lottery_type == 'ssq':
+        num_red = 6
+        num_blue = 1
+    elif lottery_type == 'dlt':
+        num_red = 5
+        num_blue = 2
+    else:
+        current_app.logger.warning(f"API call: Invalid lottery type '{lottery_type}' for generate_predicted.") # 新增日志
+        return jsonify({'error': 'Invalid lottery type'}), 400
+
+    generated_numbers = []
+    for _ in range(count):
+        red_balls, blue_balls = generate_predicted_balls(lottery_type) # Call the placeholder
+        if red_balls is None:
+            current_app.logger.error(f"API call: Failed to generate predicted numbers for {lottery_type}.") # 新增日志
+            return jsonify({'error': 'Failed to generate predicted numbers.'}), 500
+        generated_numbers.append({
+            'red_balls': ','.join(map(str, red_balls)),
+            'blue_balls': ','.join(map(str, blue_balls))
+        })
+    
+    current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} predicted numbers for {lottery_type}.") # 新增日志
+    return jsonify({'numbers': generated_numbers})
+
 
 @bp.route('/prize_check')
 def prize_check():
@@ -171,7 +274,7 @@ def prize_check():
                            ssq_total_draws=ssq_total_draws,
                            dlt_total_draws=dlt_total_draws,
                            per_bet_price=PER_BET_PRICE,
-                           prize_rules=PRIZE_RULES # <--- 新增：将 PRIZE_RULES 传递给模板
+                           prize_rules=PRIZE_RULES
                            )
 
 @bp.route('/api/check_prizes', methods=['POST'])
