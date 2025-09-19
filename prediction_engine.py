@@ -1,21 +1,22 @@
 # prediction_engine.py
 import random
 from collections import Counter
+from datetime import date
 from flask import current_app
 from models import SSQDraw, DLTDraw, db
 from config import CURRENT_SETTINGS, PRIZE_RULES
 from utils import format_lottery_numbers, calculate_omissions, get_consecutive_groups, calculate_odd_even_sum, calculate_frequency_and_omissions_for_balls
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.6" # 更新版本号
+__version__ = "1.0.9" # 更新版本号
 
 # --- 辅助函数：获取指定期号之前的历史开奖数据 ---
 def _get_previous_draws(model_class, current_issue, num_draws):
     """
     获取指定期号之前的num_draws期开奖数据。
     返回的列表按issue降序排列 (即最新一期在前)。
+    如果 current_issue 为 None，则获取最新的 num_draws 期数据。
     """
-    # 如果没有提供 current_issue (例如，在预测最新一期时)，则从最新期开始获取
     if current_issue is None:
         return model_class.query.order_by(model_class.issue.desc()).limit(num_draws).all()
 
@@ -340,6 +341,75 @@ def check_lottery_rules(lottery_type, issue):
 
     return check_func(draw)
 
+# --- 新增：检查生成号码的规则函数 ---
+def check_ssq_rules_for_balls(red_balls: list, blue_balls: list):
+    """
+    检查一组双色球号码是否符合预设规则。
+    此函数用于检查生成的号码，因此需要模拟一个 Draw 对象。
+    """
+    current_app.logger.info(f"Checking SSQ rules for generated balls: Red={red_balls}, Blue={blue_balls}")
+    results = {}
+    
+    # 获取最新的实际开奖期号，用于模拟新生成的号码的“前N期”查询
+    latest_ssq_draw = SSQDraw.query.order_by(SSQDraw.issue.desc()).first()
+    
+    if latest_ssq_draw:
+        # 创建一个临时的 SSQDraw 对象，模拟为最新开奖的下一期
+        dummy_draw_issue = latest_ssq_draw.issue + 1
+        dummy_draw_date = date.today()
+    else:
+        # 如果没有历史数据，则使用一个默认的期号和日期
+        dummy_draw_issue = 2023001 # 任意一个起始期号
+        dummy_draw_date = date.today()
+
+    dummy_draw = SSQDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
+                         red_balls=','.join(map(str, red_balls)), 
+                         blue_balls=','.join(map(str, blue_balls)))
+    
+    # 应用双色球规则
+    results['rule_4_1_1_blue_consecutive'] = _check_ssq_rule_4_1_1_blue_consecutive(dummy_draw)
+    results['rule_4_1_3_red_consecutive_repeat'] = _check_ssq_rule_4_1_3_red_consecutive_repeat(dummy_draw)
+    results['rule_4_1_4_red_area_distribution'] = _check_ssq_rule_4_1_4_red_area_distribution(red_balls)
+    results['rule_4_1_5_red_repeat_previous_2'] = _check_ssq_rule_4_1_5_red_repeat_previous_2(dummy_draw)
+    results['rule_4_1_6_red_consecutive_4_plus'] = _check_ssq_rule_4_1_6_red_consecutive_4_plus(red_balls)
+    # TODO: Add other SSQ rules here as they are implemented, adapting them for raw balls
+    
+    return results
+
+def check_dlt_rules_for_balls(front_balls: list, blue_balls: list):
+    """
+    检查一组大乐透号码是否符合预设规则。
+    此函数用于检查生成的号码，因此需要模拟一个 Draw 对象。
+    """
+    current_app.logger.info(f"Checking DLT rules for generated balls: Front={front_balls}, Blue={blue_balls}")
+    results = {}
+
+    # 获取最新的实际开奖期号，用于模拟新生成的号码的“前N期”查询
+    latest_dlt_draw = DLTDraw.query.order_by(DLTDraw.issue.desc()).first()
+
+    if latest_dlt_draw:
+        # 创建一个临时的 DLTDraw 对象，模拟为最新开奖的下一期
+        dummy_draw_issue = latest_dlt_draw.issue + 1
+        dummy_draw_date = date.today()
+    else:
+        # 如果没有历史数据，则使用一个默认的期号和日期
+        dummy_draw_issue = 2023001 # 任意一个起始期号
+        dummy_draw_date = date.today()
+
+    dummy_draw = DLTDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
+                         red_balls=','.join(map(str, front_balls)), 
+                         blue_balls=','.join(map(str, blue_balls)))
+
+    # 应用大乐透规则
+    results['rule_4_2_1_blue_repeat_latest'] = _check_dlt_rule_4_2_1_blue_repeat_latest(dummy_draw)
+    results['rule_4_2_3_red_consecutive_repeat'] = _check_dlt_rule_4_2_3_red_consecutive_repeat(dummy_draw)
+    results['rule_4_2_4_red_area_distribution'] = _check_dlt_rule_4_2_4_red_area_distribution(front_balls)
+    results['rule_4_2_5_red_repeat_previous_2'] = _check_dlt_rule_4_2_5_red_repeat_previous_2(dummy_draw)
+    results['rule_4_2_6_red_consecutive_4_plus'] = _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls)
+    # TODO: Add other DLT rules here as they are implemented, adapting them for raw balls
+
+    return results
+
 
 # --- 号码生成逻辑 ---
 
@@ -347,6 +417,8 @@ def generate_random_balls(lottery_type, num_red, num_blue):
     """
     生成一组完全随机的号码。
     """
+    current_app.logger.info(f"Attempting to generate random balls for {lottery_type}: num_red={num_red}, num_blue={num_blue}")
+
     if lottery_type == 'ssq':
         red_range = PRIZE_RULES['ssq']['red_range']
         blue_range = PRIZE_RULES['ssq']['blue_range']
@@ -354,15 +426,24 @@ def generate_random_balls(lottery_type, num_red, num_blue):
         red_range = PRIZE_RULES['dlt']['red_range']
         blue_range = PRIZE_RULES['dlt']['blue_range']
     else:
+        current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_random_balls.")
         return None, None
 
-    if num_red > red_range or num_blue > blue_range:
-        current_app.logger.error(f"Attempted to generate too many balls for {lottery_type}: red={num_red}/{red_range}, blue={num_blue}/{blue_range}")
-        return [], []
+    current_app.logger.info(f"Ranges for {lottery_type}: red_range={red_range}, blue_range={blue_range}")
 
-    red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
-    blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue))
-    return red_balls, blue_balls
+    if num_red > red_range or num_blue > blue_range:
+        current_app.logger.error(f"Attempted to generate too many balls for {lottery_type}: red={num_red}/{red_range}, blue={num_blue}/{blue_range}. This will cause random.sample to fail.")
+        # 返回 None, None 表示生成失败，而不是空列表，以便上层函数可以区分是参数错误还是数据不足
+        return None, None 
+
+    try:
+        red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
+        blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue))
+        current_app.logger.info(f"Successfully generated random balls: Red={red_balls}, Blue={blue_balls}")
+        return red_balls, blue_balls
+    except ValueError as e:
+        current_app.logger.error(f"Error generating random balls for {lottery_type}: {e}")
+        return None, None # 返回 None, None 表示生成失败
 
 def generate_predicted_balls(lottery_type):
     """
@@ -370,6 +451,8 @@ def generate_predicted_balls(lottery_type):
     这部分将是核心逻辑，需要根据 config.py 中的规则进行复杂的加权和筛选。
     目前先返回一个占位符。
     """
+    current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type} (placeholder).")
+
     # TODO: Implement actual prediction logic based on rules from CURRENT_SETTINGS
     # This will involve:
     # 1. Fetching historical data (e.g., latest N draws)
@@ -385,15 +468,18 @@ def generate_predicted_balls(lottery_type):
     elif lottery_type == 'dlt':
         red_balls, blue_balls = generate_random_balls('dlt', 5, 2) # For now, just random
     else:
-        return [], []
+        current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_predicted_balls.")
+        return None, None
     
+    current_app.logger.info(f"Generated predicted balls (placeholder): Red={red_balls}, Blue={blue_balls}")
     return red_balls, blue_balls
 
 def get_omitted_balls_for_prediction(lottery_type):
     """
-    获取遗漏最多的红球和蓝球，用于预测页面显示。
+    获取遗漏最多的红球和蓝球，并包含其遗漏期数，用于预测页面显示。
+    返回格式: {'red_balls_with_omission': [{'ball': 1, 'omission': 10}, ...], ...}
     """
-    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type}") # 新增日志
+    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type}")
 
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
     red_ball_range = PRIZE_RULES[lottery_type]['red_range']
@@ -401,34 +487,36 @@ def get_omitted_balls_for_prediction(lottery_type):
 
     all_draws = model_class.query.order_by(model_class.issue.desc()).all()
     
-    current_app.logger.info(f"Found {len(all_draws)} historical draws for {lottery_type}.") # 新增日志
+    current_app.logger.info(f"Found {len(all_draws)} historical draws for {lottery_type}.")
 
     if not all_draws:
-        current_app.logger.warning(f"No historical data available for {lottery_type} to calculate omissions.") # 新增日志
+        current_app.logger.warning(f"No historical data available for {lottery_type} to calculate omissions.")
         return {'error': 'No historical data available.'}
 
     # 计算红球遗漏
     red_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_ball_range, 'red')
+    current_app.logger.debug(f"Raw red_stats_list for {lottery_type}: {red_stats_list[:5]}...") # 打印前5个，检查结构
     # 按照当前遗漏期数降序排序
     sorted_red_omissions = sorted(red_stats_list, key=lambda x: x['current_omission'], reverse=True)
     
-    # 获取遗漏最多的 N 个红球
+    # 获取遗漏最多的 N 个红球 (包含遗漏期数)
     num_omitted_red = CURRENT_SETTINGS.get('prediction_omitted_red_balls', 7)
-    top_omitted_red = [ball_data['ball'] for ball_data in sorted_red_omissions[:num_omitted_red]]
+    top_omitted_red_with_omission = sorted_red_omissions[:num_omitted_red]
 
     # 计算蓝球遗漏
     blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_ball_range, 'blue')
+    current_app.logger.debug(f"Raw blue_stats_list for {lottery_type}: {blue_stats_list[:5]}...") # 打印前5个，检查结构
     # 按照当前遗漏期数降序排序
     sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
     
-    # 获取遗漏最多的 N 个蓝球
+    # 获取遗漏最多的 N 个蓝球 (包含遗漏期数)
     num_omitted_blue = CURRENT_SETTINGS.get('prediction_omitted_blue_balls', 7)
-    top_omitted_blue = [ball_data['ball'] for ball_data in sorted_blue_omissions[:num_omitted_blue]]
+    top_omitted_blue_with_omission = sorted_blue_omissions[:num_omitted_blue]
 
-    current_app.logger.info(f"Omitted balls for {lottery_type}: Red={top_omitted_red}, Blue={top_omitted_blue}") # 新增日志
+    current_app.logger.info(f"Omitted balls for {lottery_type}: Red={top_omitted_red_with_omission}, Blue={top_omitted_blue_with_omission}")
 
     return {
-        'red_balls': top_omitted_red,
-        'blue_balls': top_omitted_blue
+        'red_balls_with_omission': top_omitted_red_with_omission,
+        'blue_balls_with_omission': top_omitted_blue_with_omission
     }
 

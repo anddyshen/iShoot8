@@ -1,5 +1,5 @@
 <!-- templates/prediction.html -->
-<!-- 版本: 1.0.2 - 修复大乐透数据不显示问题，增加调试日志 -->
+<!-- 版本: 1.0.6 - 修复遗漏号码排序问题，改为按遗漏期数从多到少排列 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -12,6 +12,20 @@
         flex-wrap: wrap;
         gap: 5px;
         margin-bottom: 10px;
+    }
+    .lottery-ball-with-omission {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-right: 10px; /* 调整间距 */
+        margin-bottom: 5px;
+    }
+    .lottery-ball-with-omission .lottery-ball {
+        margin-bottom: 2px; /* 球和遗漏期数之间的间距 */
+    }
+    .lottery-ball-with-omission .omission-text {
+        font-size: 0.75em; /* 遗漏期数小字体 */
+        color: #6c757d; /* 灰色 */
     }
     .rule-list {
         max-height: 300px;
@@ -52,8 +66,22 @@
     @-webkit-keyframes spin {
         to { -webkit-transform: rotate(360deg); }
     }
+    /* 规则检查模态框样式 */
+    .rule-check-modal-body .rule-item {
+        margin-bottom: 5px;
+        padding: 5px;
+        border-radius: 3px;
+    }
+    .rule-check-modal-body .rule-item.passed {
+        background-color: #d4edda; /* 绿色背景 */
+        color: #155724; /* 深绿色文字 */
+    }
+    .rule-check-modal-body .rule-item.failed {
+        background-color: #f8d7da; /* 红色背景 */
+        color: #721c24; /* 深红色文字 */
+    }
 </style>
-<!-- Chart.js for the pie chart -->
+<!-- 引入 Chart.js for the pie chart -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
@@ -135,17 +163,18 @@
                     <input type="number" class="form-control" id="ssq_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
                 </div>
                 <div class="col-sm-6">
-                    <button class="btn btn-success me-2" id="generate_ssq_prediction">生成预测号码</button>
-                    <button class="btn btn-info" id="generate_ssq_random">生成真随机号码</button>
+                    <button class="btn btn-success me-2" id="generate_ssq_prediction">生成规则号码</button> <!-- 文本修改 -->
+                    <button class="btn btn-info me-2" id="generate_ssq_random">生成真随机号码</button>
+                    <button class="btn btn-secondary" id="clear_ssq_generated_numbers">清除生成的号码</button> <!-- 新增按钮 -->
                 </div>
             </div>
 
             <hr>
 
-            <h5>预测号码 (单式)</h5>
+            <h5>规则预测号码 (单式)</h5> <!-- 标题修改 -->
             <div id="ssq_predicted_numbers_output">
                 <!-- 预测号码将在此处动态生成 -->
-                <p class="text-muted">点击“生成预测号码”按钮。</p>
+                <p class="text-muted">点击“生成规则号码”按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
@@ -256,17 +285,18 @@
                     <input type="number" class="form-control" id="dlt_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
                 </div>
                 <div class="col-sm-6">
-                    <button class="btn btn-success me-2" id="generate_dlt_prediction">生成预测号码</button>
-                    <button class="btn btn-info" id="generate_dlt_random">生成真随机号码</button>
+                    <button class="btn btn-success me-2" id="generate_dlt_prediction">生成规则号码</button> <!-- 文本修改 -->
+                    <button class="btn btn-info me-2" id="generate_dlt_random">生成真随机号码</button>
+                    <button class="btn btn-secondary" id="clear_dlt_generated_numbers">清除生成的号码</button> <!-- 新增按钮 -->
                 </div>
             </div>
 
             <hr>
 
-            <h5>预测号码 (单式)</h5>
+            <h5>规则预测号码 (单式)</h5> <!-- 标题修改 -->
             <div id="dlt_predicted_numbers_output">
                 <!-- 预测号码将在此处动态生成 -->
-                <p class="text-muted">点击“生成预测号码”按钮。</p>
+                <p class="text-muted">点击“生成规则号码”按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
@@ -311,9 +341,31 @@
     </div>
 </div>
 
+<!-- Rule Check Modal -->
+<div class="modal fade" id="ruleCheckModal" tabindex="-1" aria-labelledby="ruleCheckModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleCheckModalLabel">号码规则检查结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body rule-check-modal-body">
+                <!-- 规则检查结果将在此处动态加载 -->
+                <p class="text-muted">加载中...</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
+<!-- 确保在自定义脚本之前加载 Bootstrap 的 JS，特别是 Modal 组件 -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     // Function to render lottery balls (replicated from Jinja macro for JS use)
     function renderBalls(balls, ballType) {
@@ -325,6 +377,22 @@
         return html;
     }
 
+    // New function to render balls with omission count
+    function renderBallsWithOmission(ballsWithOmission, ballType) {
+        let html = '';
+        // 移除前端的二次排序，因为后端已经按遗漏期数降序排列
+        // const sortedBalls = [...ballsWithOmission].sort((a, b) => a.ball - b.ball); 
+        for (const ballData of ballsWithOmission) { // 直接使用后端返回的已排序数据
+            html += `
+                <div class="lottery-ball-with-omission">
+                    <span class="lottery-ball ball-${ballType}">${String(ballData.ball).padStart(2, '0')}</span>
+                    <small class="omission-text">遗漏${ballData.current_omission}</small>
+                </div>
+            `;
+        }
+        return html;
+    }
+
     // Tab switching logic
     document.getElementById('ssq_prediction_tab').addEventListener('click', function(e) {
         e.preventDefault();
@@ -332,7 +400,7 @@
         document.getElementById('dlt_prediction_section').style.display = 'none';
         this.classList.add('active');
         document.getElementById('dlt_prediction_tab').classList.remove('active');
-        console.log("Switched to SSQ tab. Loading omitted balls for SSQ."); // 新增日志
+        console.log("Switched to SSQ tab. Loading omitted balls for SSQ.");
         loadOmittedBalls('ssq'); // Load data for SSQ when tab is clicked
     });
 
@@ -342,7 +410,7 @@
         document.getElementById('ssq_prediction_section').style.display = 'none';
         this.classList.add('active');
         document.getElementById('ssq_prediction_tab').classList.remove('active');
-        console.log("Switched to DLT tab. Loading omitted balls for DLT."); // 新增日志
+        console.log("Switched to DLT tab. Loading omitted balls for DLT.");
         loadOmittedBalls('dlt'); // Load data for DLT when tab is clicked
     });
 
@@ -354,12 +422,12 @@
         redContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
         blueContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
 
-        console.log(`Fetching omitted balls for ${lotteryType}...`); // 新增日志
+        console.log(`Frontend: Fetching omitted balls for ${lotteryType}...`);
         try {
             const response = await fetch(`/api/prediction/omitted_balls?lottery_type=${lotteryType}`);
             const data = await response.json();
 
-            console.log(`Received response for ${lotteryType} omitted balls:`, data); // 新增日志
+            console.log(`Frontend: Received response for ${lotteryType} omitted balls:`, data);
 
             if (data.error) {
                 redContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
@@ -367,12 +435,13 @@
                 return;
             }
 
-            redContainer.innerHTML = renderBalls(data.red_balls, 'red');
-            blueContainer.innerHTML = renderBalls(data.blue_balls, 'blue');
-            console.log(`Successfully rendered omitted balls for ${lotteryType}.`); // 新增日志
+            // Use the new renderBallsWithOmission function
+            redContainer.innerHTML = renderBallsWithOmission(data.red_balls, 'red');
+            blueContainer.innerHTML = renderBallsWithOmission(data.blue_balls, 'blue');
+            console.log(`Frontend: Successfully rendered omitted balls for ${lotteryType}.`);
 
         } catch (error) {
-            console.error(`Error loading omitted balls for ${lotteryType}:`, error);
+            console.error(`Frontend: Error loading omitted balls for ${lotteryType}:`, error);
             redContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
             blueContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
         }
@@ -384,7 +453,7 @@
         const outputDiv = document.getElementById(`${lotteryType}_random_numbers_output`);
         outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
 
-        console.log(`Generating random numbers for ${lotteryType}, count: ${numGenerate}...`); // 新增日志
+        console.log(`Frontend: Generating random numbers for ${lotteryType}, count: ${numGenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_random', {
                 method: 'POST',
@@ -393,7 +462,7 @@
             });
             const data = await response.json();
 
-            console.log(`Received response for ${lotteryType} random numbers:`, data); // 新增日志
+            console.log(`Frontend: Received response for ${lotteryType} random numbers:`, data);
 
             if (data.error) {
                 outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
@@ -407,26 +476,26 @@
                             <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
                             <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
-                            <button class="btn btn-sm btn-outline-primary check-random-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-primary check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
                         </div>`;
             });
             outputDiv.innerHTML = html;
-            console.log(`Successfully rendered random numbers for ${lotteryType}.`); // 新增日志
+            console.log(`Frontend: Successfully rendered random numbers for ${lotteryType}.`);
 
         } catch (error) {
-            console.error(`Error generating random numbers for ${lotteryType}:`, error);
+            console.error(`Frontend: Error generating random numbers for ${lotteryType}:`, error);
             outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
         }
     }
 
-    // Generate Predicted Numbers (Placeholder for now)
+    // Generate Predicted Numbers (now "规则号码")
     async function generatePredictedNumbers(lotteryType) {
         const numGenerate = document.getElementById(`${lotteryType}_num_generate`).value;
         const outputDiv = document.getElementById(`${lotteryType}_predicted_numbers_output`);
         outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
 
-        console.log(`Generating predicted numbers for ${lotteryType}, count: ${numGenerate}...`); // 新增日志
+        console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count: ${numGenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_predicted', {
                 method: 'POST',
@@ -435,7 +504,7 @@
             });
             const data = await response.json();
 
-            console.log(`Received response for ${lotteryType} predicted numbers:`, data); // 新增日志
+            console.log(`Frontend: Received response for ${lotteryType} predicted numbers:`, data);
 
             if (data.error) {
                 outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
@@ -445,37 +514,71 @@
             let html = '';
             data.numbers.forEach((combo, index) => {
                 html += `<div class="prediction-result-card">
-                            <p class="card-title">预测号码 ${index + 1}:</p>
+                            <p class="card-title">规则预测号码 ${index + 1}:</p>
                             <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
                             <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
-                            <button class="btn btn-sm btn-outline-primary check-predicted-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-primary check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
                         </div>`;
             });
             outputDiv.innerHTML = html;
-            console.log(`Successfully rendered predicted numbers for ${lotteryType}.`); // 新增日志
+            console.log(`Frontend: Successfully rendered predicted numbers for ${lotteryType}.`);
 
         } catch (error) {
-            console.error(`Error generating predicted numbers for ${lotteryType}:`, error);
+            console.error(`Frontend: Error generating predicted numbers for ${lotteryType}:`, error);
             outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
         }
     }
 
-    // Check Rules for Generated Numbers (Placeholder for now)
-    async function checkGeneratedRules(lotteryType, redBallsStr, blueBallsStr, outputElementId) {
-        const outputDiv = document.getElementById(outputElementId);
-        outputDiv.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+    // Check Rules for Generated Numbers (using new API)
+    async function checkGeneratedRules(lotteryType, redBallsStr, blueBallsStr) {
+        const modalBody = document.querySelector('#ruleCheckModal .modal-body'); // Output to modal body
+        modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+        const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
+        ruleCheckModal.show(); // Show modal immediately
 
-        console.log(`Checking rules for generated numbers for ${lotteryType}: Red=${redBallsStr}, Blue=${blueBallsStr}`); // 新增日志
+        console.log(`Frontend: Checking rules for generated numbers for ${lotteryType}: Red=${redBallsStr}, Blue=${blueBallsStr}`);
+        try {
+            const response = await fetch('/api/prediction/check_generated_rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    lottery_type: lotteryType, 
+                    red_balls: redBallsStr, 
+                    blue_balls: blueBallsStr 
+                })
+            });
+            const data = await response.json();
 
-        // This API endpoint currently checks rules against a *historical draw issue*.
-        // To check rules against a *generated number*, the backend API needs to be modified
-        // to accept the balls directly, not an issue number.
-        // For now, we'll just show a placeholder message.
-        outputDiv.innerHTML = '<p class="text-warning">规则检查功能待实现 (需要修改后端API以支持对生成号码的检查)。</p>';
-        // TODO: Modify backend API /api/check_rules to accept red_balls and blue_balls directly
-        // Then, implement the actual fetch call here.
+            console.log(`Frontend: Received rule check response for ${lotteryType}:`, data);
+
+            if (data.error) {
+                modalBody.innerHTML = `<p class="text-danger">规则检查失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '';
+            for (const ruleKey in data) {
+                const ruleResult = data[ruleKey];
+                const statusClass = ruleResult.passed ? 'passed' : 'failed';
+                html += `<div class="rule-item ${statusClass}">
+                            <strong>${ruleKey}:</strong> ${ruleResult.message}
+                        </div>`;
+            }
+            modalBody.innerHTML = html;
+
+        } catch (error) {
+            console.error(`Frontend: Error checking rules for generated numbers for ${lotteryType}:`, error);
+            modalBody.innerHTML = '<p class="text-danger">规则检查失败。</p>';
+        }
+    }
+
+    // Clear Generated Numbers
+    function clearGeneratedNumbers(lotteryType) {
+        document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
+        document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击“生成真随机号码”按钮。</p>';
+        console.log(`Frontend: Cleared generated numbers for ${lotteryType}.`);
     }
 
 
@@ -486,65 +589,43 @@
     document.getElementById('generate_ssq_prediction').addEventListener('click', () => generatePredictedNumbers('ssq'));
     document.getElementById('generate_dlt_prediction').addEventListener('click', () => generatePredictedNumbers('dlt'));
 
-    // Event delegation for dynamically added "重新生成" buttons for random numbers
+    // Clear buttons
+    document.getElementById('clear_ssq_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('ssq'));
+    document.getElementById('clear_dlt_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('dlt'));
+
+
+    // Event delegation for dynamically added "重新生成" and "检查规则" buttons
     document.getElementById('ssq_random_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-random-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const index = e.target.dataset.index;
-            // For now, just regenerate all random numbers.
-            // A more advanced implementation would regenerate only this specific one.
-            generateRandomNumbers(lotteryType); 
+            generateRandomNumbers(e.target.dataset.lotteryType); 
         }
-        if (e.target.classList.contains('check-random-rules-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const redBalls = e.target.dataset.redBalls;
-            const blueBalls = e.target.dataset.blueBalls;
-            const outputElementId = `${lotteryType}_random_rule_check_${e.target.dataset.index}`;
-            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
         }
     });
     document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-random-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const index = e.target.dataset.index;
-            generateRandomNumbers(lotteryType);
+            generateRandomNumbers(e.target.dataset.lotteryType);
         }
-        if (e.target.classList.contains('check-random-rules-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const redBalls = e.target.dataset.redBalls;
-            const blueBalls = e.target.dataset.blueBalls;
-            const outputElementId = `${lotteryType}_random_rule_check_${e.target.dataset.index}`;
-            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
         }
     });
 
-    // Event delegation for dynamically added "重新生成" buttons for predicted numbers
     document.getElementById('ssq_predicted_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-predicted-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const index = e.target.dataset.index;
-            generatePredictedNumbers(lotteryType);
+            generatePredictedNumbers(e.target.dataset.lotteryType);
         }
-        if (e.target.classList.contains('check-predicted-rules-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const redBalls = e.target.dataset.redBalls;
-            const blueBalls = e.target.dataset.blueBalls;
-            const outputElementId = `${lotteryType}_predicted_rule_check_${e.target.dataset.index}`;
-            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
         }
     });
     document.getElementById('dlt_predicted_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-predicted-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const index = e.target.dataset.index;
-            generatePredictedNumbers(lotteryType);
+            generatePredictedNumbers(e.target.dataset.lotteryType);
         }
-        if (e.target.classList.contains('check-predicted-rules-btn')) {
-            const lotteryType = e.target.dataset.lotteryType;
-            const redBalls = e.target.dataset.redBalls;
-            const blueBalls = e.target.dataset.blueBalls;
-            const outputElementId = `${lotteryType}_predicted_rule_check_${e.target.dataset.index}`;
-            checkGeneratedRules(lotteryType, redBalls, blueBalls, outputElementId);
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
         }
     });
 
