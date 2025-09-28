@@ -31,8 +31,8 @@ DEFAULT_SETTINGS = {
     "prediction_latest_draws": 3, # 预测页面显示最新开奖期数
     "prediction_omitted_red_balls": 7, # 预测页面显示遗漏最多红球数量
     "prediction_omitted_blue_balls": 7, # 预测页面显示遗漏最多蓝球数量
-    "prediction_generated_count": 10, # 预测页面默认生成号码组数
-    "ssq_blue_omit_latest_draws": 1, # 蓝球如最新一期开出过的号码就不作为本期的预测候选号码
+    "prediction_generated_count": 5, # 预测页面默认生成号码组数
+    "ssq_blue_omit_latest_draws": 2, # 蓝球如最新一期开出过的号码就不作为本期的预测候选号码
     "ssq_blue_consecutive_3_prob": 0.08,
     "ssq_blue_consecutive_5_prob": 0.35,
     "ssq_red_omit_1_weight": 0.01,
@@ -173,7 +173,7 @@ SETTING_LABELS_CHINESE = {
     'ssq_blue_omit_latest_draws': "双色球蓝球：遗漏分析期数",
     'ssq_blue_consecutive_3_prob': "双色球蓝球：连号3期概率",
     'ssq_blue_consecutive_5_prob': "双色球蓝球：连号5期概率",
-    'ssq_red_omit_1_weight': "双色球红球：遗漏1期权重",
+    'ssq_red_omit_1_weight': "双色球红球：遗漏1期权重，每球平均概率 3.03%",
     'ssq_red_omit_2_weight': "双色球红球：遗漏2期权重",
     'ssq_red_omit_3_weight': "双色球红球：遗漏3期权重",
     'ssq_red_omit_4_weight': "双色球红球：遗漏4期权重",
@@ -191,7 +191,7 @@ SETTING_LABELS_CHINESE = {
     # 大乐透预测规则权重/概率
     'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
     'dlt_blue_consecutive_5_prob': "大乐透蓝球：连号5期概率",
-    'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重",
+    'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重，每球平均概率 2.857%",
     'dlt_red_omit_2_weight': "大乐透红球：遗漏2期权重",
     'dlt_red_omit_3_weight': "大乐透红球：遗漏3期权重",
     'dlt_red_omit_4_weight': "大乐透红球：遗漏4期权重",

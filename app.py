@@ -12,7 +12,7 @@ import string
 from dotenv import load_dotenv
 from utils import format_lottery_numbers, calculate_odd_even_sum # 导入 utils 中的函数
 from prediction_engine import check_lottery_rules # 导入规则检查函数
-
+from data_manager import save_draw_data, get_latest_draws, update_latest_draws
 
 # 加载环境变量
 load_dotenv()
@@ -65,8 +65,8 @@ def inject_global_data():
     }
 
 # 数据库初始化和定时任务启动
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
     # 检查并初始化 ADMIN_ROUTE_PREFIX
     # 注意：这里只是打印提示，实际持久化需要手动修改config.py或环境变量
     # 或者在AdminSettings表中存储
@@ -79,9 +79,9 @@ with app.app_context():
     #     pass
 
     # 启动定时任务 (例如，每天凌晨3点更新数据)
-    scheduler.add_job(func=update_latest_draws, trigger="cron", hour=3, minute=0)
-    scheduler.start()
-    print("APScheduler started.")
+    # job = scheduler.add_job(func=update_latest_draws, trigger="cron", hour=23, minute=14)
+    # scheduler.start()
+    # print("APScheduler started.")
 
 # 首页路由 (示例，实际由 routes.py 处理)
 # @app.route('/')
@@ -91,6 +91,26 @@ with app.app_context():
 #     homepage_news = News.query.filter_by(is_homepage_display=True, is_public=True).order_by(News.created_at.desc()).limit(3).all()
 #     return render_template('index.html', latest_ssq=latest_ssq, latest_dlt=latest_dlt, homepage_news=homepage_news)
 
+# 数据库初始化和定时任务启动
+with app.app_context():
+    db.create_all()
+    # ... (代码不变) ...
+
+    # 启动定时任务 (例如，每天凌晨3点更新数据)
+    # 重点修改下面这一行
+    job = scheduler.add_job(
+        func=update_latest_draws, 
+        trigger="cron", 
+        hour=23, 
+        minute=31, 
+        args=[app]  # <--- 在这里把 app 实例作为参数传进去
+    )
+    scheduler.start()
+    print("APScheduler started.")
+
+
 if __name__ == '__main__':
+    print(f"任务下一次运行时间:  {job.next_run_time}")
     app.run(debug=True, host='0.0.0.0', port=5000) # 生产环境请关闭 debug
+    
 
