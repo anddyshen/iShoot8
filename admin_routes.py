@@ -1,5 +1,5 @@
 # admin_routes.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 import os
@@ -123,13 +123,44 @@ def restore_default_settings():
     return redirect(url_for('admin_routes.admin_settings'))
 
 
+# @bp.route('/data_update', methods=['GET', 'POST'])
+# @admin_required
+# def admin_data_update():
+#     if request.method == 'POST':
+#         action = request.form.get('action')
+#         if action == 'manual_update':
+#             ssq_count, dlt_count = update_latest_draws()
+#             flash(f'手动更新完成！双色球新增 {ssq_count} 条，大乐透新增 {dlt_count} 条。', 'success')
+#         elif action == 'manual_add':
+#             lottery_type = request.form.get('lottery_type')
+#             data_string = request.form.get('data_string').strip()
+#             if lottery_type == 'ssq':
+#                 is_valid, msg = validate_ssq_format(data_string)
+#             elif lottery_type == 'dlt':
+#                 is_valid, msg = validate_dlt_format(data_string)
+#             else:
+#                 is_valid, msg = False, "未知彩票类型"
+
+#             if is_valid:
+#                 new_count = add_manual_draw(lottery_type, data_string)
+#                 if new_count > 0:
+#                     flash(f'手动添加 {lottery_type.upper()} 数据成功！新增 {new_count} 条。', 'success')
+#                 else:
+#                     flash(f'手动添加 {lottery_type.upper()} 数据失败，可能期号已存在或数据格式有误。', 'warning')
+#             else:
+#                 flash(f'手动添加 {lottery_type.upper()} 数据格式校验失败: {msg}', 'danger')
+#         # TODO: 添加定时任务控制逻辑
+#         return redirect(url_for('admin_routes.admin_data_update'))
+#     return render_template('admin/data_update.html')
+
 @bp.route('/data_update', methods=['GET', 'POST'])
 @admin_required
 def admin_data_update():
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'manual_update':
-            ssq_count, dlt_count = update_latest_draws()
+            # 2. 修改这一行，传入 current_app
+            ssq_count, dlt_count = update_latest_draws(current_app)
             flash(f'手动更新完成！双色球新增 {ssq_count} 条，大乐透新增 {dlt_count} 条。', 'success')
         elif action == 'manual_add':
             lottery_type = request.form.get('lottery_type')
@@ -142,6 +173,7 @@ def admin_data_update():
                 is_valid, msg = False, "未知彩票类型"
 
             if is_valid:
+                # 注意：add_manual_draw 如果也需要 app 上下文，也需要类似修改
                 new_count = add_manual_draw(lottery_type, data_string)
                 if new_count > 0:
                     flash(f'手动添加 {lottery_type.upper()} 数据成功！新增 {new_count} 条。', 'success')
