@@ -101,8 +101,8 @@ with app.app_context():
     job = scheduler.add_job(
         func=update_latest_draws, 
         trigger="cron", 
-        hour=23, 
-        minute=31, 
+        hour=3, 
+        minute=1, 
         args=[app]  # <--- 在这里把 app 实例作为参数传进去
     )
     scheduler.start()
