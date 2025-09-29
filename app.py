@@ -110,7 +110,7 @@ with app.app_context():
 
 
 if __name__ == '__main__':
-    print(f"任务下一次运行时间:  {job.next_run_time}")
+    print(f"下一次数据更新时间:  {job.next_run_time}")
     app.run(debug=True, host='0.0.0.0', port=5000) # 生产环境请关闭 debug
     
 

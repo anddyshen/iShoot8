@@ -31,7 +31,38 @@ def parse_ssq_data(raw_data, app): # <--- 添加 app 参数
             app.logger.warning(f"Skipping malformed SSQ line: {line}") # <--- 使用 app.logger
             continue
         try:
-            # ... (代码不变)
+            issue = parts[0]
+            draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
+            red_balls = ','.join(sorted([str(int(p)) for p in parts[2:8]])) # 确保两位数格式
+            blue_balls = str(int(parts[8]))
+            red_order = ','.join([str(int(p)) for p in parts[9:15]])
+            sales_amount = int(parts[15])
+            prize_pool = int(parts[16])
+            first_prize_count = int(parts[17])
+            first_prize_amount = int(parts[18])
+            second_prize_count = int(parts[19])
+            second_prize_amount = int(parts[20])
+            third_prize_count = int(parts[21])
+            third_prize_amount = int(parts[22])
+            fourth_prize_count = int(parts[23])
+            fourth_prize_amount = int(parts[24])
+            fifth_prize_count = int(parts[25])
+            fifth_prize_amount = int(parts[26])
+            sixth_prize_count = int(parts[27])
+            sixth_prize_amount = int(parts[28])
+
+            draws.append(SSQDraw(
+                issue=issue, draw_date=draw_date,
+                red_balls=red_balls, blue_balls=blue_balls,
+                red_order=red_order,
+                sales_amount=sales_amount, prize_pool=prize_pool,
+                first_prize_count=first_prize_count, first_prize_amount=first_prize_amount,
+                second_prize_count=second_prize_count, second_prize_amount=second_prize_amount,
+                third_prize_count=third_prize_count, third_prize_amount=third_prize_amount,
+                fourth_prize_count=fourth_prize_count, fourth_prize_amount=fourth_prize_amount,
+                fifth_prize_count=fifth_prize_count, fifth_prize_amount=fifth_prize_amount,
+                sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount
+            ))
             pass
         except (ValueError, IndexError) as e:
             app.logger.error(f"Error parsing SSQ line '{line}': {e}") # <--- 使用 app.logger
@@ -49,7 +80,60 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
             app.logger.warning(f"Skipping malformed DLT line: {line}") # <--- 使用 app.logger
             continue
         try:
-            # ... (代码不变)
+            issue = parts[0]
+            draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
+            red_balls = ','.join(sorted([str(int(p)) for p in parts[2:7]]))
+            blue_balls = ','.join(sorted([str(int(p)) for p in parts[7:9]]))
+            red_order = ','.join([str(int(p)) for p in parts[9:14]])
+            blue_order = ','.join([str(int(p)) for p in parts[14:16]])
+            sales_amount = int(parts[16])
+            prize_pool = int(parts[17])
+            first_prize_count = int(parts[18])
+            first_prize_amount = int(parts[19])
+            second_prize_count = int(parts[20])
+            second_prize_amount = int(parts[21])
+            third_prize_count = int(parts[22])
+            third_prize_amount = int(parts[23])
+            fourth_prize_count = int(parts[24])
+            fourth_prize_amount = int(parts[25])
+            fifth_prize_count = int(parts[26])
+            fifth_prize_amount = int(parts[27])
+            sixth_prize_count = int(parts[28])
+            sixth_prize_amount = int(parts[29])
+            seventh_prize_count = int(parts[30])
+            seventh_prize_amount = int(parts[31])
+            eighth_prize_count = int(parts[32])
+            eighth_prize_amount = int(parts[33])
+            ninth_prize_count = int(parts[34])
+            ninth_prize_amount = int(parts[35])
+            additional_first_prize_count = int(parts[36])
+            additional_first_prize_amount = int(parts[37])
+            additional_second_prize_count = int(parts[38])
+            additional_second_prize_amount = int(parts[39])
+            reserve1 = parts[40] if len(parts) > 40 else None
+            reserve2 = parts[41] if len(parts) > 41 else None
+            reserve3 = parts[42] if len(parts) > 42 else None
+            reserve4 = parts[43] if len(parts) > 43 else None
+            reserve5 = parts[44] if len(parts) > 44 else None
+
+            draws.append(DLTDraw(
+                issue=issue, draw_date=draw_date,
+                red_balls=red_balls, blue_balls=blue_balls,
+                red_order=red_order, blue_order=blue_order,
+                sales_amount=sales_amount, prize_pool=prize_pool,
+                first_prize_count=first_prize_count, first_prize_amount=first_prize_amount,
+                second_prize_count=second_prize_count, second_prize_amount=second_prize_amount,
+                third_prize_count=third_prize_count, third_prize_amount=third_prize_amount,
+                fourth_prize_count=fourth_prize_count, fourth_prize_amount=fourth_prize_amount,
+                fifth_prize_count=fifth_prize_count, fifth_prize_amount=fifth_prize_amount,
+                sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount,
+                seventh_prize_count=seventh_prize_count, seventh_prize_amount=seventh_prize_amount,
+                eighth_prize_count=eighth_prize_count, eighth_prize_amount=eighth_prize_amount,
+                ninth_prize_count=ninth_prize_count, ninth_prize_amount=ninth_prize_amount,
+                additional_first_prize_count=additional_first_prize_count, additional_first_prize_amount=additional_first_prize_amount,
+                additional_second_prize_count=additional_second_prize_count, additional_second_prize_amount=additional_second_prize_amount,
+                reserve1=reserve1, reserve2=reserve2, reserve3=reserve3, reserve4=reserve4, reserve5=reserve5
+            ))
             pass
         except (ValueError, IndexError) as e:
             app.logger.error(f"Error parsing DLT line '{line}': {e}") # <--- 使用 app.logger
