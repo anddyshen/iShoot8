@@ -63,7 +63,6 @@ def parse_ssq_data(raw_data, app): # <--- 添加 app 参数
                 fifth_prize_count=fifth_prize_count, fifth_prize_amount=fifth_prize_amount,
                 sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount
             ))
-            pass
         except (ValueError, IndexError) as e:
             app.logger.error(f"Error parsing SSQ line '{line}': {e}") # <--- 使用 app.logger
     return draws
@@ -134,7 +133,6 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
                 additional_second_prize_count=additional_second_prize_count, additional_second_prize_amount=additional_second_prize_amount,
                 reserve1=reserve1, reserve2=reserve2, reserve3=reserve3, reserve4=reserve4, reserve5=reserve5
             ))
-            pass
         except (ValueError, IndexError) as e:
             app.logger.error(f"Error parsing DLT line '{line}': {e}") # <--- 使用 app.logger
     return draws
