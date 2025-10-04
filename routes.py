@@ -3,6 +3,9 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News, db
 from data_manager import get_latest_draws
+import threading
+import uuid
+from time import sleep
 from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
@@ -291,7 +294,8 @@ def prize_check():
                            ssq_total_draws=ssq_total_draws,
                            dlt_total_draws=dlt_total_draws,
                            per_bet_price=PER_BET_PRICE,
-                           prize_rules=PRIZE_RULES
+                           prize_rules=PRIZE_RULES,
+                           CURRENT_SETTINGS=CURRENT_SETTINGS # 传递 CURRENT_SETTINGS 到模板
                            )
 
 @bp.route('/api/check_prizes', methods=['POST'])
@@ -437,34 +441,34 @@ def api_check_generated_rules():
     return jsonify(results)
 
 
-@bp.route('/api/fun_game', methods=['POST'])
-def api_fun_game():
-    data = request.get_json()
-    lottery_type = data.get('lottery_type')
-    combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
+# @bp.route('/api/fun_game', methods=['POST'])
+# def api_fun_game():
+#     data = request.get_json()
+#     lottery_type = data.get('lottery_type')
+#     combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
 
-    if not lottery_type or not combinations:
-        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+#     if not lottery_type or not combinations:
+#         return jsonify({'error': '缺少彩票类型或号码组合'}), 400
 
-    # 趣味游戏只处理第一个号码组合
-    first_combo = combinations[0]
-    user_red_balls_str = first_combo.get('red_balls')
-    user_blue_balls_str = first_combo.get('blue_balls')
+#     # 趣味游戏只处理第一个号码组合
+#     first_combo = combinations[0]
+#     user_red_balls_str = first_combo.get('red_balls')
+#     user_blue_balls_str = first_combo.get('blue_balls')
 
-    user_red_balls = format_lottery_numbers(user_red_balls_str)
-    user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+#     user_red_balls = format_lottery_numbers(user_red_balls_str)
+#     user_blue_balls = format_lottery_numbers(user_blue_balls_str)
 
-    max_simulations_val = data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000))
-    try:
-        max_simulations = int(max_simulations_val)
-    except (ValueError, TypeError):
-        max_simulations = CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000) # Fallback to default
+#     max_simulations_val = data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000))
+#     try:
+#         max_simulations = int(max_simulations_val)
+#     except (ValueError, TypeError):
+#         max_simulations = CURRENT_SETTINGS.get('fun_game_max_simulations', 1000000) # Fallback to default
 
-    # 调用 simulate_fun_game，只传递一个组合
-    sim_result = simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations)
+#     # 调用 simulate_fun_game，只传递一个组合
+#     sim_result = simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, max_simulations)
     
-    # 返回结果，因为只模拟了一个组合，所以直接返回其结果
-    return jsonify({'results': [sim_result]})
+#     # 返回结果，因为只模拟了一个组合，所以直接返回其结果
+#     return jsonify({'results': [sim_result]})
 
 
 @bp.route('/news/<int:news_id>')
@@ -497,3 +501,69 @@ def api_check_rules_historical(): # 重命名以避免与新的POST路由冲突
 
     return jsonify(results)
 
+# 创建一个全局字典来存储后台任务的状态和结果
+# 格式: { 'task_id': {'status': 'running', 'progress': 0, 'result': None} }
+# 注意：在生产环境中，最好使用 Redis 或数据库来代替内存字典，以支持多进程部署
+tasks = {}
+
+def run_simulation_in_background(task_id, user_red_balls, user_blue_balls, lottery_type, app):
+    """这个函数将在一个单独的线程中运行"""
+    with app.app_context(): # 在线程中手动创建应用上下文
+        try:
+            # 调用核心计算函数，并传入 task_id 以便更新进度
+            sim_result = simulate_fun_game(
+                user_red_balls, 
+                user_blue_balls, 
+                lottery_type, 
+                task_id=task_id, # <--- 传入 task_id
+                tasks_dict=tasks # <--- 传入任务字典
+            )
+            # 任务完成后，更新状态和结果
+            tasks[task_id]['status'] = 'completed'
+            tasks[task_id]['result'] = sim_result
+            tasks[task_id]['progress'] = 100
+        except Exception as e:
+            app.logger.error(f"Task {task_id} failed: {e}") # 使用 app.logger
+            tasks[task_id]['status'] = 'failed'
+            tasks[task_id]['result'] = {'error': '任务执行失败，请查看服务器日志。'}
+
+@bp.route('/api/fun_game/start', methods=['POST'])
+def api_fun_game_start():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    combinations = data.get('combinations')
+
+    if not lottery_type or not combinations:
+        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+
+    first_combo = combinations[0]
+    user_red_balls = format_lottery_numbers(first_combo.get('red_balls'))
+    user_blue_balls = format_lottery_numbers(first_combo.get('blue_balls'))
+    # max_simulations 不再需要，因为 simulate_fun_game 会根据配置自行计算
+    # max_simulations = int(data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations')))
+
+    # 创建一个唯一的任务ID
+    task_id = str(uuid.uuid4())
+    
+    # 初始化任务状态
+    tasks[task_id] = {'status': 'pending', 'progress': 0, 'result': None}
+
+    # 创建并启动后台线程
+    thread = threading.Thread(
+        target=run_simulation_in_background, 
+        args=(task_id, user_red_balls, user_blue_balls, lottery_type, current_app._get_current_object()) # 传递 app 实例
+    )
+    thread.daemon = True # 设置为守护线程，主程序退出时线程也退出
+    thread.start()
+
+    # 立即返回任务ID
+    return jsonify({'task_id': task_id})
+
+
+@bp.route('/api/fun_game/status/<task_id>', methods=['GET'])
+def api_fun_game_status(task_id):
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '未找到该任务'}), 404
+    
+    return jsonify(task)

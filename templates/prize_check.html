@@ -166,7 +166,7 @@
         <div class="card-body">
             <p class="fun-game-tip" id="ssq_fun_game_tip">
                 请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>
-                看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+                我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！
             </p>
             <div class="d-flex justify-content-between mb-3"> {# 按钮组 #}
                 <button class="btn btn-info me-2" id="ssq_fun_game_start">大奖时光机</button>
@@ -262,7 +262,7 @@
         <div class="card-body">
             <p class="fun-game-tip" id="dlt_fun_game_tip">
                 请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>
-                看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+                我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！
             </p>
             <div class="d-flex justify-content-between mb-3"> {# 按钮组 #}
                 <button class="btn btn-info me-2" id="dlt_fun_game_start">大奖时光机</button>
@@ -631,108 +631,133 @@
         progressBar.style.width = '0%';
         progressBar.setAttribute('aria-valuenow', '0');
         progressBar.textContent = '0%';
-        statusText.textContent = '正在计算中...'; // 优化状态文本
+        statusText.textContent = '正在启动任务...'; // 优化状态文本
         funGameStartBtn.disabled = true; // 禁用按钮防止重复点击
         funGameClearSelectionBtn.disabled = true; // 禁用清除按钮
 
         let simulationInterval; // 用于更新进度条的定时器
+        let pollingInterval; // 用于轮询的定时器
+
+        // --- 轮询函数 ---
+        function checkTaskStatus(taskId) {
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/fun_game/status/${taskId}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+
+                    // 更新进度条
+                    progressBar.style.width = `${data.progress}%`;
+                    progressBar.setAttribute('aria-valuenow', data.progress);
+                    progressBar.textContent = `${Math.round(data.progress)}%`;
+                    statusText.textContent = `计算中... (${Math.round(data.progress)}%)`;
+
+                    // 检查任务是否完成
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(pollingInterval); // 停止轮询
+                        displayFunGameResults(data.result, lotteryType); // 显示最终结果
+                        funGameProgressDiv.style.display = 'none'; // 隐藏进度条
+                        funGameStartBtn.disabled = false;
+                        funGameClearSelectionBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('轮询失败:', error);
+                    clearInterval(pollingInterval); // 停止轮询
+                    funGameResultsDiv.innerHTML = `<p class="text-danger">查询任务状态失败。</p>`;
+                    funGameProgressDiv.style.display = 'none';
+                    funGameStartBtn.disabled = false;
+                    funGameClearSelectionBtn.disabled = false;
+                }
+            }, 2000); // 每2秒查询一次
+        }
+
+
 
         try {
-            // 模拟进度条更新 (前端无法知道后端真实进度，这里做个假进度)
-            let currentProgress = 0;
-            const totalSimulations = {{ settings.get('fun_game_max_simulations', 1000000) }};
-            const updateFrequency = 100; // 每100毫秒更新一次
-            const progressIncrement = 100 / (totalSimulations / 100000); // 假设每10万次模拟更新一次进度条
-
-            simulationInterval = setInterval(() => {
-                currentProgress += progressIncrement;
-                if (currentProgress >= 99) { // 接近完成时停止自动更新，等待后端结果
-                    clearInterval(simulationInterval);
-                    currentProgress = 99;
-                }
-                progressBar.style.width = `${currentProgress}%`;
-                progressBar.setAttribute('aria-valuenow', currentProgress);
-                progressBar.textContent = `${Math.floor(currentProgress)}%`;
-                statusText.textContent = `正在计算中... (已模拟约 ${Math.floor(currentProgress / progressIncrement) * 100000} 期)`;
-
-                if (currentProgress >= totalSimulations) {
-                    clearInterval(simulationInterval);
-                }
-            }, updateFrequency);
-
-
-            const response = await fetch('/api/fun_game', {
+            // max_simulations 不再需要，后端会根据配置自行计算
+            const response = await fetch('/api/fun_game/start', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     lottery_type: lotteryType,
-                    combinations: [{ red_balls: redBalls, blue_balls: blueBalls }], // 只传递第一个组合
-                    max_simulations: totalSimulations // 传递给后端
+                    combinations: [{ red_balls: redBalls, blue_balls: blueBalls }]
                 })
             });
             const data = await response.json();
 
-            clearInterval(simulationInterval); // 停止进度条更新
-            funGameProgressDiv.style.display = 'none'; // 隐藏进度条
-            funGameStartBtn.disabled = false; // 启用按钮
-            funGameClearSelectionBtn.disabled = false; // 启用清除按钮
-
-            if (data.error) {
-                funGameResultsDiv.innerHTML = `<p class="text-danger">游戏模拟失败: ${data.error}</p>`;
-                return;
-            }
-
-            let html = '';
-            const result = data.results[0]; // 只处理第一个结果
-            const costDetails = calculateCombinationCost(result.input_red_balls.length, result.input_blue_balls.length, lotteryType);
-            
-            html += `<h5>号码组合 1:</h5>`;
-            html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
-            html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
-            html += `<p><strong>单次投注花费:</strong> ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)</p>`;
-            
-            if (result.first_prize_info) {
-                html += `<p class="text-success">恭喜！在虚拟开奖中，您的号码在第 <strong>${result.first_prize_info.draw_count.toLocaleString()}</strong> 次开奖时中得一等奖！</p>`;
-                html += `<p>预计中奖时间: <strong>${result.first_prize_info.estimated_date}</strong></p>`;
-                html += `<p>预计花费: <strong>${result.first_prize_info.estimated_cost}</strong> 元</p>`;
+            if (data.task_id) {
+                statusText.textContent = '任务已启动，正在获取进度...';
+                checkTaskStatus(data.task_id); // 开始轮询
             } else {
-                html += `<p class="text-danger">在模拟的 ${totalSimulations.toLocaleString()} 次内未中得一等奖。</p>`;
+                throw new Error(data.error || '无法启动任务。');
             }
-            html += `<p>总共中奖情况:</p><ul>`;
-            
-            // --- MODIFICATION START for prize_check.html: 按照预设顺序显示奖项 ---
-            const prizeLevelOrderRaw = PRIZE_RULES_FRONTEND[lotteryType]['prizes'].map(p => p.level);
-            const uniquePrizeLevelOrder = [];
-            const seenLevels = new Set();
-            for (const level of prizeLevelOrderRaw) {
-                if (!seenLevels.has(level)) {
-                    uniquePrizeLevelOrder.push(level);
-                    seenLevels.add(level);
-                }
-            }
-            
-            for (const level of uniquePrizeLevelOrder) {
-                if (result.total_prizes[level] !== undefined) { // 检查该奖项是否实际中奖
-                    html += `<li>${level}: ${result.total_prizes[level].toLocaleString()} 次</li>`;
-                }
-            }
-            // --- MODIFICATION END for prize_check.html ---
-
-            html += `</ul>`;
-            html += '<hr>';
-            funGameResultsDiv.innerHTML = html;
-
         } catch (error) {
-            console.error('Error during fun game:', error);
-            clearInterval(simulationInterval); // 确保清除定时器
-            funGameProgressDiv.style.display = 'none'; // 隐藏进度条
-            funGameStartBtn.disabled = false; // 启用按钮
-            funGameClearSelectionBtn.disabled = false; // 启用清除按钮
-            funGameResultsDiv.innerHTML = '<p class="text-danger">趣味游戏模拟失败。</p>';
+            console.error('启动趣味游戏失败:', error);
+            funGameResultsDiv.innerHTML = `<p class="text-danger">启动游戏模拟失败: ${error.message}</p>`;
+            funGameProgressDiv.style.display = 'none';
+            funGameStartBtn.disabled = false;
+            funGameClearSelectionBtn.disabled = false;
         }
     }
+
+    // --- 新增：用于显示结果的独立函数 ---
+    function displayFunGameResults(result, lotteryType) {
+        const funGameResultsDiv = document.getElementById(`${lotteryType}_fun_game_results`);
+
+        if (!result || result.error) {
+            funGameResultsDiv.innerHTML = `<p class="text-danger">游戏模拟失败: ${result ? result.error : '未知错误'}</p>`;
+            return;
+        }
+        
+        let html = '';
+        const costDetails = calculateCombinationCost(result.input_red_balls.length, result.input_blue_balls.length, lotteryType);
+        
+        html += `<h5>号码组合:</h5>`;
+        html += `<p>红球: ${renderBalls(result.input_red_balls.map(Number), 'red')}</p>`;
+        html += `<p>蓝球: ${renderBalls(result.input_blue_balls.map(Number), 'blue')}</p>`;
+        html += `<p><strong>单次投注花费:</strong> ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)</p>`;
+        
+        // 根据后端返回的 message 和 first_prize_won 标志显示结果
+        html += `<div class="alert ${result.first_prize_won ? 'alert-success' : 'alert-info'}" role="alert">`;
+        html += `<strong>${result.message}</strong>`;
+        html += `</div>`;
+
+        html += `<p>在模拟的 <strong>${result.total_simulations.toLocaleString()}</strong> 期内，总花费 <strong>${result.total_cost_for_simulations.toLocaleString()}</strong> 元。</p>`;
+
+        if (result.total_winning_amount > 0) {
+            html += `<p class="text-success"><strong>总中奖金额:</strong> ${result.total_winning_amount.toLocaleString()} 元</p>`;
+        } else {
+            html += `<p class="text-muted">在模拟期间未中奖。</p>`;
+        }
+
+        if (Object.keys(result.total_prizes).length > 0) {
+            html += `<p>在模拟期间各奖项中奖情况:</p><ul>`;
+            // 遍历有序的 total_prizes 和 total_prize_level_amounts
+            // 获取当前彩票类型的奖项顺序
+            // 获取当前彩票类型的奖项顺序，并去重
+            const prizeLevelOrder = [];
+            const seenLevels = new Set();
+            for (const prizeRule of PRIZE_RULES_FRONTEND[lotteryType]['prizes']) {
+                if (!seenLevels.has(prizeRule.level)) {
+                    prizeLevelOrder.push(prizeRule.level);
+                    seenLevels.add(prizeRule.level);
+                }
+            }
+
+            for (const level of prizeLevelOrder) { // 按照预定义顺序遍历
+                if (result.total_prizes[level] > 0) {
+                    const prizeAmount = result.total_prize_level_amounts[level] !== undefined ? result.total_prize_level_amounts[level].toLocaleString() : 'N/A';
+                    html += `<li>${level}: ${result.total_prizes[level].toLocaleString()} 次, 总金额: ${prizeAmount} 元</li>`;
+                }
+            }
+            html += `</ul>`;
+        }
+        
+        funGameResultsDiv.innerHTML = html;
+    }
+
 
     document.getElementById('ssq_fun_game_start').addEventListener('click', () => startFunGame('ssq'));
     document.getElementById('dlt_fun_game_start').addEventListener('click', () => startFunGame('dlt'));
@@ -765,12 +790,12 @@
                 红球: ${renderBalls(redBalls, 'red')}<br>
                 蓝球: ${renderBalls(blueBalls, 'blue')}<br>
                 单次投注花费: ${costDetails.total_cost.toLocaleString()} 元 (共 ${costDetails.total_bets.toLocaleString()} 注)
-                <br>看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+                <br>我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！
             `;
         } else {
             funGameTipElement.innerHTML = `
                 请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>
-                看看这个号码多久能中一等奖！请准备好，时间正在流逝，大奖扑面而来！
+                我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！
             `;
         }
     }

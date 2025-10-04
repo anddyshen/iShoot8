@@ -66,6 +66,7 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_14_prob": 0.0,
     "prize_check_range": 10, # 对奖页面往前核对的期数范围，默认改为10期
     "fun_game_max_simulations": 20000000, # 趣味游戏最大模拟次数
+    "fun_game_simulation_years": 500, # 趣味游戏模拟年份范围
     "ssq_draw_days": [2, 4, 7], # 周二、周四、周日
     "dlt_draw_days": [1, 3, 6], # 周一、周三、周六
     # "annual_holidays": [ # 默认春节和国庆后一周休息
@@ -213,6 +214,7 @@ SETTING_LABELS_CHINESE = {
     'ssq_draw_days': "双色球开奖日 (周几)",
     'dlt_draw_days': "大乐透开奖日 (周几)",
     'annual_holidays': "年度节假日 (不更新数据)",
+    'fun_game_simulation_years': "趣味游戏：模拟年份范围",
 
     # 蓝球近期出现频率规则
     'ssq_blue_recent_occurrence_draws': "双色球蓝球：近期出现分析期数",
@@ -312,4 +314,3 @@ PRIZE_RULES = {
         ]
     }
 }
-
