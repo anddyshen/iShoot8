@@ -261,6 +261,52 @@ def api_generate_predicted_numbers():
     current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} predicted numbers for {lottery_type}.")
     return jsonify({'numbers': generated_numbers})
 
+@bp.route('/api/prediction/generate_complex', methods=['POST'])
+def api_generate_complex_prediction():
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    red_count = data.get('red_count')
+    blue_count = data.get('blue_count')
+    count = int(data.get('count', 1)) # 获取生成组数，默认为1
+
+    current_app.logger.info(f"API call: /api/prediction/generate_complex for {lottery_type}, red_count={red_count}, blue_count={blue_count}, count={count}")
+
+    if not lottery_type or red_count is None or blue_count is None or count is None:
+        current_app.logger.warning("API call: Missing lottery_type, red_count, blue_count, or count for generate_complex.")
+        return jsonify({'error': 'Missing lottery_type, red_count, blue_count, or count'}), 400
+
+    # 调用 prediction_engine 中的复式号码生成逻辑
+    from prediction_engine import generate_complex_prediction_balls # 局部导入以避免循环依赖
+
+    generated_complex_numbers = []
+    for _ in range(count):
+        try:
+            complex_balls_result = generate_complex_prediction_balls(lottery_type, red_count, blue_count)
+            if complex_balls_result is None:
+                current_app.logger.error(f"API call: Failed to generate complex numbers for {lottery_type} due to internal error or invalid parameters.")
+                # 如果单次生成失败，可以跳过或返回错误，这里选择返回错误
+                return jsonify({'error': 'Failed to generate complex numbers due to internal error or invalid parameters.'}), 500
+            
+            # 计算该组合的投注花费
+            cost_details = calculate_combination_cost(red_count, blue_count, lottery_type)
+
+            generated_complex_numbers.append({
+                'red_balls': ','.join(map(str, complex_balls_result['red_balls'])),
+                'blue_balls': ','.join(map(str, complex_balls_result['blue_balls'])),
+                'red_count': red_count,
+                'blue_count': blue_count,
+                'total_cost': cost_details['total_cost']
+            })
+        except ValueError as e:
+            current_app.logger.warning(f"API call: Invalid parameters for complex prediction: {e}")
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            current_app.logger.error(f"API call: Error generating complex prediction for {lottery_type}: {e}")
+            return jsonify({'error': 'Internal server error during complex prediction.'}), 500
+    
+    current_app.logger.info(f"API call: Successfully generated {len(generated_complex_numbers)} complex numbers for {lottery_type}.")
+    return jsonify({'numbers': generated_complex_numbers}) # 返回一个列表，因为前端期望 numbers 是一个数组
+
 
 @bp.route('/prize_check')
 def prize_check():

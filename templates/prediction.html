@@ -198,7 +198,15 @@
                     <input type="number" class="form-control" id="ssq_complex_blue_count" value="1" min="1" max="16">
                 </div>
                 <div class="col-sm-2">
-                    <button class="btn btn-warning" id="generate_ssq_complex_prediction">生成复式号码</button>
+                    <label for="ssq_complex_num_generate" class="col-form-label">生成组数:</label>
+                    <input type="number" class="form-control" id="ssq_complex_num_generate" value="1" min="1" max="50">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <div class="col-sm-12 text-end">
+                    <button class="btn btn-warning me-2" id="generate_ssq_complex_prediction">生成复式号码</button>
+                    <button class="btn btn-secondary me-2" id="clear_ssq_complex_generated_numbers">清除号码</button>
+                    <button class="btn btn-dark" id="copy_all_ssq_complex_numbers">复制所有号码</button>
                 </div>
             </div>
             <div id="ssq_complex_prediction_output">
@@ -321,7 +329,15 @@
                     <input type="number" class="form-control" id="dlt_complex_blue_count" value="1" min="1" max="12">
                 </div>
                 <div class="col-sm-2">
-                    <button class="btn btn-warning" id="generate_dlt_complex_prediction">生成复式号码</button>
+                    <label for="dlt_complex_num_generate" class="col-form-label">生成组数:</label>
+                    <input type="number" class="form-control" id="dlt_complex_num_generate" value="1" min="1" max="50">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <div class="col-sm-12 text-end">
+                    <button class="btn btn-warning me-2" id="generate_dlt_complex_prediction">生成复式号码</button>
+                    <button class="btn btn-secondary me-2" id="clear_dlt_complex_generated_numbers">清除号码</button>
+                    <button class="btn btn-dark" id="copy_all_dlt_complex_numbers">复制所有号码</button>
                 </div>
             </div>
             <div id="dlt_complex_prediction_output">
@@ -758,6 +774,68 @@
     document.getElementById('copy_all_ssq_numbers').addEventListener('click', () => copyAllGeneratedNumbers('ssq'));
     document.getElementById('copy_all_dlt_numbers').addEventListener('click', () => copyAllGeneratedNumbers('dlt'));
 
+    // Generate Complex Prediction Numbers
+    async function generateComplexPrediction(lotteryType) {
+        const redCount = document.getElementById(`${lotteryType}_complex_red_count`).value;
+        const blueCount = document.getElementById(`${lotteryType}_complex_blue_count`).value;
+        const numGenerate = document.getElementById(`${lotteryType}_complex_num_generate`).value;
+        const outputDiv = document.getElementById(`${lotteryType}_complex_prediction_output`);
+
+        outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
+
+        console.log(`Frontend: Generating complex prediction for ${lotteryType} with Red=${redCount}, Blue=${blueCount}, Count=${numGenerate}...`);
+        try {
+            const response = await fetch('/api/prediction/generate_complex', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    lottery_type: lotteryType, 
+                    red_count: parseInt(redCount), 
+                    blue_count: parseInt(blueCount),
+                    count: parseInt(numGenerate)
+                })
+            });
+            const data = await response.json();
+
+            console.log(`Frontend: Received response for ${lotteryType} complex prediction:`, data);
+
+            if (data.error) {
+                outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '';
+            if (data.numbers && data.numbers.length > 0) {
+                data.numbers.forEach((combo, index) => {
+                    const redBallsStr = combo.red_balls;
+                    const blueBallsStr = combo.blue_balls;
+                    const combinationText = `${combo.red_count}+${combo.blue_count}`;
+                    const priceText = `${combo.total_cost} 元`;
+                    const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr} (${combinationText}, ${priceText})`;
+
+                    html += `<div class="prediction-result-card complex-generated">
+                                <p class="card-title">复式号码 ${index + 1}: (${combinationText}, ${priceText})</p>
+                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
+                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                                <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
+                            </div>`;
+                });
+            } else {
+                html = '<p class="text-muted">未生成复式号码，请调整数量或检查规则。</p>';
+            }
+            outputDiv.innerHTML = html;
+            console.log(`Frontend: Successfully rendered complex prediction for ${lotteryType}.`);
+
+        } catch (error) {
+            console.error(`Frontend: Error generating complex prediction for ${lotteryType}:`, error);
+            outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
+        }
+    }
+
+    // Event Listeners for complex prediction buttons
+    document.getElementById('generate_ssq_complex_prediction').addEventListener('click', () => generateComplexPrediction('ssq'));
+    document.getElementById('generate_dlt_complex_prediction').addEventListener('click', () => generateComplexPrediction('dlt'));
 
     // Event delegation for dynamically added buttons
     document.getElementById('ssq_random_numbers_output').addEventListener('click', function(e) {
@@ -822,6 +900,53 @@
         }
     });
 
+
+    // Clear Complex Generated Numbers
+    function clearComplexGeneratedNumbers(lotteryType) {
+        document.getElementById(`${lotteryType}_complex_prediction_output`).innerHTML = '<p class="text-muted">复式号码将在此处生成。</p>';
+        console.log(`Frontend: Cleared complex generated numbers for ${lotteryType}.`);
+    }
+
+    // Copy All Complex Generated Numbers
+    function copyAllComplexNumbers(lotteryType) {
+        let allNumbersText = `--- ${lotteryType.toUpperCase()} 复式预测号码 ---\n`;
+        const complexCards = document.querySelectorAll(`#${lotteryType}_complex_prediction_output .prediction-result-card`);
+        if (complexCards.length === 0) {
+            allNumbersText += "无\n";
+        } else {
+            complexCards.forEach(card => {
+                const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
+                const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
+                allNumbersText += `${redBalls} ${blueBalls}\n`;
+            });
+        }
+        copyToClipboard(allNumbersText);
+    }
+
+    // Event Listeners for complex prediction clear/copy buttons
+    document.getElementById('clear_ssq_complex_generated_numbers').addEventListener('click', () => clearComplexGeneratedNumbers('ssq'));
+    document.getElementById('copy_all_ssq_complex_numbers').addEventListener('click', () => copyAllComplexNumbers('ssq'));
+
+    document.getElementById('clear_dlt_complex_generated_numbers').addEventListener('click', () => clearComplexGeneratedNumbers('dlt'));
+    document.getElementById('copy_all_dlt_complex_numbers').addEventListener('click', () => copyAllComplexNumbers('dlt'));
+
+    // Event delegation for dynamically added complex prediction buttons
+    document.getElementById('ssq_complex_prediction_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+    });
+    document.getElementById('dlt_complex_prediction_output').addEventListener('click', function(e) {
+        if (e.target.classList.contains('check-generated-rules-btn')) {
+            checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+    });
 
     // Initial load
     document.addEventListener('DOMContentLoaded', function() {

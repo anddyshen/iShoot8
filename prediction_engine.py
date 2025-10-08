@@ -361,7 +361,7 @@ def check_dlt_rules_for_draw(draw: DLTDraw):
     
     # 应用大乐透规则
     results['rule_4_2_1_blue_repeat_latest'] = _check_dlt_rule_4_2_1_blue_repeat_latest(draw)
-    results['rule_4_2_3_red_consecutive_repeat'] = _check_dlt_rule_4_2_3_red_consecutive_repeat(draw)
+    results['rule_4_2_3_red_consecutive_repeat'] = _check_dlt_rule_4_2_3_red_consecutive_3_repeat(draw)
     results['rule_4_2_4_red_area_distribution'] = _check_dlt_rule_4_2_4_red_area_distribution(front_balls)
     results['rule_4_2_5_red_repeat_previous_2'] = _check_dlt_rule_4_2_5_red_repeat_previous_2(draw)
     results['rule_4_2_6_red_consecutive_4_plus'] = _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls)
@@ -863,3 +863,258 @@ def get_omitted_balls_for_prediction(lottery_type):
         'red_balls_with_omission': top_omitted_red_with_omission,
         'blue_balls_with_omission': top_omitted_blue_with_omission
     }
+
+def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_count: int):
+    """
+    根据预测规则生成一组复式号码。
+    复用 generate_predicted_balls 的概率计算逻辑，但根据 red_count 和 blue_count 采样。
+    """
+    current_app.logger.info(f"Attempting to generate complex prediction balls for {lottery_type}: red_count={red_count}, blue_count={blue_count}")
+
+    red_range = PRIZE_RULES[lottery_type]['red_range']
+    blue_range = PRIZE_RULES[lottery_type]['blue_range']
+
+    if red_count > red_range or blue_count > blue_range:
+        raise ValueError(f"Requested counts exceed available ranges for {lottery_type}. Red: {red_count}/{red_range}, Blue: {blue_count}/{blue_range}")
+    
+    if (lottery_type == 'ssq' and red_count < 6) or \
+       (lottery_type == 'dlt' and red_count < 5):
+        raise ValueError(f"Red ball count {red_count} is less than minimum required for {lottery_type}.")
+    
+    if (lottery_type == 'ssq' and blue_count < 1) or \
+       (lottery_type == 'dlt' and blue_count < 2):
+        raise ValueError(f"Blue ball count {blue_count} is less than minimum required for {lottery_type}.")
+
+    predicted_red_balls = []
+    predicted_blue_balls = []
+
+    if lottery_type == 'ssq':
+        model_class = SSQDraw
+        num_red_required = 6
+        num_blue_required = 1
+    elif lottery_type == 'dlt':
+        model_class = DLTDraw
+        num_red_required = 5
+        num_blue_required = 2
+    else:
+        current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_complex_prediction_balls.")
+        return None
+
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    if not all_draws:
+        current_app.logger.warning(f"No historical {lottery_type.upper()} data available for complex prediction. Returning random balls.")
+        return {
+            'red_balls': sorted(random.sample(range(1, red_range + 1), red_count)),
+            'blue_balls': sorted(random.sample(range(1, blue_range + 1), blue_count))
+        }
+
+    latest_draw = all_draws[0]
+    dummy_draw_issue = int(latest_draw.issue) + 1
+    dummy_draw_date = date.today()
+
+    # --- 蓝球预测逻辑 (复用 generate_predicted_balls 的概率计算) ---
+    blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+
+    if lottery_type == 'ssq':
+        num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
+        excluded_blue_balls = set()
+        for i in range(min(num_omit_latest_blue, len(all_draws))):
+            excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
+        for ball in excluded_blue_balls:
+            if ball in blue_probabilities:
+                blue_probabilities[ball] = 0.0
+
+        ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
+        ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
+        for ball in range(1, blue_range + 1):
+            if blue_probabilities[ball] > 0:
+                consecutive_count = 0
+                for draw in all_draws:
+                    if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
+                        consecutive_count += 1
+                    else:
+                        break
+                if consecutive_count >= 5:
+                    blue_probabilities[ball] = ssq_blue_consecutive_5_prob
+                elif consecutive_count >= 3:
+                    blue_probabilities[ball] = ssq_blue_consecutive_3_prob
+    elif lottery_type == 'dlt':
+        dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
+        if latest_draw:
+            latest_blue_balls = set(latest_draw.get_blue_balls_list())
+            for ball in latest_blue_balls:
+                if ball in blue_probabilities:
+                    blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_repeat_prob)
+
+        dlt_blue_consecutive_5_prob = CURRENT_SETTINGS.get('dlt_blue_consecutive_5_prob', 0.25)
+        for ball in range(1, blue_range + 1):
+            consecutive_count = 0
+            for draw in all_draws:
+                if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
+                    consecutive_count += 1
+                else:
+                    break
+            if consecutive_count >= 5:
+                blue_probabilities[ball] = dlt_blue_consecutive_5_prob
+    
+    total_blue_prob = sum(blue_probabilities.values())
+    if total_blue_prob == 0:
+        current_app.logger.warning(f"All {lottery_type.upper()} blue balls have 0 probability. Resetting to uniform distribution.")
+        blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+        total_blue_prob = sum(blue_probabilities.values())
+    normalized_blue_probabilities = {ball: prob / total_blue_prob for ball, prob in blue_probabilities.items()}
+
+    # --- 红球预测逻辑 (复用 generate_predicted_balls 的概率计算) ---
+    red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
+
+    red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
+    sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+
+    if lottery_type == 'ssq':
+        omit_weights = {
+            1: CURRENT_SETTINGS.get('ssq_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('ssq_red_omit_2_weight', 0.015),
+            3: CURRENT_SETTINGS.get('ssq_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('ssq_red_omit_4_weight', 0.03),
+            5: CURRENT_SETTINGS.get('ssq_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('ssq_red_omit_6_weight', 0.03),
+        }
+        for i, ball_data in enumerate(sorted_red_omissions[:6]):
+            rank = i + 1
+            weight = omit_weights.get(rank, 0)
+            red_probabilities[ball_data['ball']] += weight
+
+        ssq_red_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_prob', 0.35)
+        ssq_red_consecutive_3_second_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_second_prob', 0.0)
+        latest_3_draws = all_draws[:3]
+        if len(latest_3_draws) >= 3:
+            red_ball_counts = Counter()
+            for draw in latest_3_draws:
+                red_ball_counts.update(draw.get_red_balls_list())
+            consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+            if consecutive_repeat_balls:
+                if len(consecutive_repeat_balls) >= 1:
+                    red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
+                if len(consecutive_repeat_balls) >= 2:
+                    red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
+
+        ssq_red_omit_12_prob = CURRENT_SETTINGS.get('ssq_red_omit_12_prob', 0.015)
+        ssq_red_omit_13_prob = CURRENT_SETTINGS.get('ssq_red_omit_13_prob', 0.0)
+        ssq_red_omit_14_prob = CURRENT_SETTINGS.get('ssq_red_omit_14_prob', 0.0)
+        for ball_data in red_omission_stats:
+            ball = ball_data['ball']
+            omission = ball_data['current_omission']
+            if omission >= 14: red_probabilities[ball] = ssq_red_omit_14_prob
+            elif omission >= 13: red_probabilities[ball] = ssq_red_omit_13_prob
+            elif omission >= 12: red_probabilities[ball] = ssq_red_omit_12_prob
+
+    elif lottery_type == 'dlt':
+        omit_weights = {
+            1: CURRENT_SETTINGS.get('dlt_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('dlt_red_omit_2_weight', 0.015),
+            3: CURRENT_SETTINGS.get('dlt_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('dlt_red_omit_4_weight', 0.03),
+            5: CURRENT_SETTINGS.get('dlt_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('dlt_red_omit_6_weight', 0.03),
+        }
+        for i, ball_data in enumerate(sorted_red_omissions[:6]):
+            rank = i + 1
+            weight = omit_weights.get(rank, 0)
+            red_probabilities[ball_data['ball']] += weight
+
+        dlt_red_consecutive_3_prob = CURRENT_SETTINGS.get('dlt_red_consecutive_3_prob', 0.35)
+        latest_3_draws = all_draws[:3]
+        if len(latest_3_draws) >= 3:
+            red_ball_counts = Counter()
+            for draw in latest_3_draws:
+                red_ball_counts.update(draw.get_red_balls_list())
+            consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+            if consecutive_repeat_balls:
+                if len(consecutive_repeat_balls) >= 1:
+                    red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
+
+        dlt_red_omit_12_prob = CURRENT_SETTINGS.get('dlt_red_omit_12_prob', 0.015)
+        dlt_red_omit_13_prob = CURRENT_SETTINGS.get('dlt_red_omit_13_prob', 0.0)
+        dlt_red_omit_14_prob = CURRENT_SETTINGS.get('dlt_red_omit_14_prob', 0.0)
+        for ball_data in red_omission_stats:
+            ball = ball_data['ball']
+            omission = ball_data['current_omission']
+            if omission >= 14: red_probabilities[ball] = dlt_red_omit_14_prob
+            elif omission >= 13: red_probabilities[ball] = dlt_red_omit_13_prob
+            elif omission >= 12: red_probabilities[ball] = dlt_red_omit_12_prob
+
+    total_red_prob = sum(red_probabilities.values())
+    if total_red_prob == 0:
+        current_app.logger.warning(f"All {lottery_type.upper()} red balls have 0 probability. Resetting to uniform distribution.")
+        red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
+        total_red_prob = sum(red_probabilities.values())
+    normalized_red_probabilities = {ball: prob / total_red_prob for ball, prob in red_probabilities.items()}
+
+    # --- 加权随机采样红球和蓝球，并检查结构性约束 ---
+    max_attempts = 500 # 增加尝试次数，因为复式号码的约束可能更难满足
+    for attempt in range(max_attempts):
+        try:
+            # 采样红球
+            sampled_red_balls = weighted_random_sample_without_replacement(
+                list(normalized_red_probabilities.keys()), 
+                list(normalized_red_probabilities.values()), 
+                k=red_count
+            )
+            # 采样蓝球
+            sampled_blue_balls = weighted_random_sample_without_replacement(
+                list(normalized_blue_probabilities.keys()), 
+                list(normalized_blue_probabilities.values()), 
+                k=blue_count
+            )
+        except ValueError as e:
+            current_app.logger.error(f"Error during weighted_random_sample_without_replacement for complex prediction: {e}")
+            # 如果采样失败，可能是因为 k > len(population)，作为回退，生成随机号码
+            sampled_red_balls = sorted(random.sample(range(1, red_range + 1), red_count))
+            sampled_blue_balls = sorted(random.sample(range(1, blue_range + 1), blue_count))
+
+        # 检查结构性规则
+        # 需要模拟一个 Draw 对象来调用规则检查函数
+        if lottery_type == 'ssq':
+            dummy_draw = SSQDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
+                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), # 只检查前6个红球
+                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required]))) # 只检查前1个蓝球
+            
+            # 规则 4.1.4 红球区域分布 (检查所有选中的红球)
+            rule_4_1_4_passed = _check_ssq_rule_4_1_4_red_area_distribution(sampled_red_balls)['passed']
+            # 规则 4.1.5 红球限重复数量 (检查所有选中的红球)
+            rule_4_1_5_passed = _check_ssq_rule_4_1_5_red_repeat_previous_2(dummy_draw)['passed']
+            # 规则 4.1.6 红球禁连续数字 (检查所有选中的红球)
+            rule_4_1_6_passed = _check_ssq_rule_4_1_6_red_consecutive_4_plus(sampled_red_balls)['passed']
+
+            # 对于复式号码，我们只检查其“核心”部分是否符合单式规则
+            # 例如，双色球复式7红1蓝，我们从7个红球中随机选6个，检查这6个是否符合规则
+            # 这里简化处理，直接检查选出的 red_count 个红球是否符合规则
+            # 更严谨的做法是，从 red_count 个红球中生成所有 C(red_count, 6) 组合，然后检查每个组合是否符合规则
+            # 但这会非常复杂且计算量大，对于“生成复式号码”的按钮，通常是生成一个符合规则的“复式号码本身”
+            # 而不是生成所有符合规则的单式组合。
+            # 因此，我们检查选出的 red_count 个红球和 blue_count 个蓝球是否符合规则。
+            
+            # 暂时只检查红球的结构性规则，蓝球的结构性规则（如重复）已经在概率调整中处理
+            if rule_4_1_4_passed and rule_4_1_5_passed and rule_4_1_6_passed:
+                predicted_red_balls = sorted(sampled_red_balls)
+                predicted_blue_balls = sorted(sampled_blue_balls)
+                current_app.logger.info(f"Successfully generated complex SSQ balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
+                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls}
+
+        elif lottery_type == 'dlt':
+            dummy_draw = DLTDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
+                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), # 只检查前5个红球
+                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required]))) # 只检查前2个蓝球
+
+            # 规则 4.2.4 红球区域分布 (检查所有选中的红球)
+            rule_4_2_4_passed = _check_dlt_rule_4_2_4_red_area_distribution(sampled_red_balls)['passed']
+            # 规则 4.2.5 红球限重复数量 (检查所有选中的红球)
+            rule_4_2_5_passed = _check_dlt_rule_4_2_5_red_repeat_previous_2(dummy_draw)['passed']
+            # 规则 4.2.6 红球禁连续数字 (检查所有选中的红球)
+            rule_4_2_6_passed = _check_dlt_rule_4_2_6_red_consecutive_4_plus(sampled_red_balls)['passed']
+
+            if rule_4_2_4_passed and rule_4_2_5_passed and rule_4_2_6_passed:
+                predicted_red_balls = sorted(sampled_red_balls)
+                predicted_blue_balls = sorted(sampled_blue_balls)
+                current_app.logger.info(f"Successfully generated complex DLT balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
+                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls}
+        
+        if attempt == max_attempts - 1:
+            current_app.logger.warning(f"Max attempts reached for {lottery_type.upper()} complex ball generation, some structural rules might not be met. Returning None.")
+            return None
+    
+    return None # 如果达到最大尝试次数仍未找到符合规则的组合
