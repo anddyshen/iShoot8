@@ -612,15 +612,19 @@ def generate_predicted_balls(lottery_type):
         ssq_red_omit_12_prob = CURRENT_SETTINGS.get('ssq_red_omit_12_prob', 0.015)
         ssq_red_omit_13_prob = CURRENT_SETTINGS.get('ssq_red_omit_13_prob', 0.0)
         ssq_red_omit_14_prob = CURRENT_SETTINGS.get('ssq_red_omit_14_prob', 0.0)
+        
+        ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
+        ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
+        ssq_red_omit_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_3', 14)
 
         for ball_data in red_omission_stats:
             ball = ball_data['ball']
             omission = ball_data['current_omission']
-            if omission >= 14:
+            if omission >= ssq_red_omit_threshold_3:
                 red_probabilities[ball] = ssq_red_omit_14_prob
-            elif omission >= 13:
+            elif omission >= ssq_red_omit_threshold_2:
                 red_probabilities[ball] = ssq_red_omit_13_prob
-            elif omission >= 12:
+            elif omission >= ssq_red_omit_threshold_1:
                 red_probabilities[ball] = ssq_red_omit_12_prob
         
         # 归一化红球概率
@@ -760,14 +764,18 @@ def generate_predicted_balls(lottery_type):
         dlt_red_omit_13_prob = CURRENT_SETTINGS.get('dlt_red_omit_13_prob', 0.0)
         dlt_red_omit_14_prob = CURRENT_SETTINGS.get('dlt_red_omit_14_prob', 0.0)
 
+        dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
+        dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
+        dlt_red_omit_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_3', 14)
+
         for ball_data in red_omission_stats:
             ball = ball_data['ball']
             omission = ball_data['current_omission']
-            if omission >= 14:
+            if omission >= dlt_red_omit_threshold_3:
                 red_probabilities[ball] = dlt_red_omit_14_prob
-            elif omission >= 13:
+            elif omission >= dlt_red_omit_threshold_2:
                 red_probabilities[ball] = dlt_red_omit_13_prob
-            elif omission >= 12:
+            elif omission >= dlt_red_omit_threshold_1:
                 red_probabilities[ball] = dlt_red_omit_12_prob
         
         # 归一化红球概率

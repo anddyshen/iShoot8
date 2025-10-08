@@ -64,6 +64,13 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_12_prob": 0.015,
     "dlt_red_omit_13_prob": 0.0,
     "dlt_red_omit_14_prob": 0.0,
+    # 新增：红球高遗漏降概率的阈值
+    "ssq_red_omit_threshold_1": 12,
+    "ssq_red_omit_threshold_2": 13,
+    "ssq_red_omit_threshold_3": 14,
+    "dlt_red_omit_threshold_1": 12,
+    "dlt_red_omit_threshold_2": 13,
+    "dlt_red_omit_threshold_3": 14,
     "prize_check_range": 10, # 对奖页面往前核对的期数范围，默认改为10期
     "fun_game_max_simulations": 20000000, # 趣味游戏最大模拟次数
     "fun_game_simulation_years": 500, # 趣味游戏模拟年份范围
@@ -188,6 +195,10 @@ SETTING_LABELS_CHINESE = {
     'ssq_red_omit_12_prob': "双色球红球：遗漏12期概率",
     'ssq_red_omit_13_prob': "双色球红球：遗漏13期概率",
     'ssq_red_omit_14_prob': "双色球红球：遗漏14期概率",
+    # 新增：红球高遗漏降概率的阈值中文标签
+    'ssq_red_omit_threshold_1': "双色球红球：遗漏降概率阈值1",
+    'ssq_red_omit_threshold_2': "双色球红球：遗漏降概率阈值2",
+    'ssq_red_omit_threshold_3': "双色球红球：遗漏降概率阈值3",
     
     # 大乐透预测规则权重/概率
     'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
@@ -205,6 +216,10 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_omit_12_prob': "大乐透红球：遗漏12期概率",
     'dlt_red_omit_13_prob': "大乐透红球：遗漏13期概率",
     'dlt_red_omit_14_prob': "大乐透红球：遗漏14期概率",
+    # 新增：大乐透红球高遗漏降概率的阈值中文标签
+    'dlt_red_omit_threshold_1': "大乐透红球：遗漏降概率阈值1",
+    'dlt_red_omit_threshold_2': "大乐透红球：遗漏降概率阈值2",
+    'dlt_red_omit_threshold_3': "大乐透红球：遗漏降概率阈值3",
 
     # 对奖中心设置
     'prize_check_range': "对奖中心：检查范围",
