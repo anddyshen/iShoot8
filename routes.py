@@ -10,7 +10,7 @@ from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRI
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
-    calculate_combination_cost, calculate_prize_details, simulate_fun_game
+    calculate_combination_cost, calculate_prize_details, simulate_fun_game, calculate_total_lottery_combinations
 )
 from prediction_engine import (
     check_lottery_rules, generate_random_balls, get_omitted_balls_for_prediction, 
@@ -247,8 +247,11 @@ def api_generate_predicted_numbers():
         return jsonify({'error': 'Invalid lottery type'}), 400
 
     generated_numbers = []
+    total_attempts = 0
+    total_filtered_count = 0
+
     for _ in range(count):
-        red_balls, blue_balls = generate_predicted_balls(lottery_type) # Call the placeholder
+        red_balls, blue_balls, attempts_made, filtered_count = generate_predicted_balls(lottery_type)
         # 检查 generate_predicted_balls 是否返回了 None, None 表示生成失败
         if red_balls is None or blue_balls is None:
             current_app.logger.error(f"API call: Failed to generate predicted numbers for {lottery_type} due to internal error.")
@@ -257,9 +260,20 @@ def api_generate_predicted_numbers():
             'red_balls': ','.join(map(str, red_balls)),
             'blue_balls': ','.join(map(str, blue_balls))
         })
-    
+        total_attempts += attempts_made
+        total_filtered_count += filtered_count
+
+    # 计算总组合数和未筛选中奖概率
+    total_combinations = calculate_total_lottery_combinations(lottery_type)
+    unfiltered_winning_chance = 1 / total_combinations if total_combinations > 0 else 0
+
     current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} predicted numbers for {lottery_type}.")
-    return jsonify({'numbers': generated_numbers})
+    return jsonify({
+        'numbers': generated_numbers,
+        'total_combinations': total_combinations,
+        'unfiltered_winning_chance': unfiltered_winning_chance,
+        'filtered_by_rules_count': total_filtered_count # 实际生成过程中过滤掉的组合数
+    })
 
 @bp.route('/api/prediction/generate_complex', methods=['POST'])
 def api_generate_complex_prediction():

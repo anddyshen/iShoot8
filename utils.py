@@ -431,6 +431,26 @@ def calculate_combination_cost(user_red_balls_count, user_blue_balls_count, lott
     total_cost = total_bets * PER_BET_PRICE
     return {'total_bets': total_bets, 'total_cost': total_cost}
 
+def calculate_total_lottery_combinations(lottery_type):
+    """
+    计算指定彩票类型的总组合数。
+    """
+    if lottery_type == 'ssq':
+        # 双色球: 红球 33 选 6, 蓝球 16 选 1
+        red_total = 33
+        red_pick = 6
+        blue_total = 16
+        blue_pick = 1
+    elif lottery_type == 'dlt':
+        # 大乐透: 红球 35 选 5, 蓝球 12 选 2
+        red_total = 35
+        red_pick = 5
+        blue_total = 12
+        blue_pick = 2
+    else:
+        return 0
+    return combinations(red_total, red_pick) * combinations(blue_total, blue_pick)
+
 
 # --- 对奖逻辑辅助函数 ---
 def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, draw_blue_balls, lottery_type):

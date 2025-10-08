@@ -498,6 +498,7 @@ def generate_predicted_balls(lottery_type):
     这部分将是核心逻辑，需要根据 config.py 中的规则进行复杂的加权和筛选。
     """
     current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type}.")
+    
 
     red_range = PRIZE_RULES[lottery_type]['red_range']
     blue_range = PRIZE_RULES[lottery_type]['blue_range']
@@ -664,7 +665,8 @@ def generate_predicted_balls(lottery_type):
                 break
             elif attempt == max_attempts - 1:
                 current_app.logger.warning("Max attempts reached for SSQ red ball generation, some structural rules might not be met. Returning None.")
-                return None, None # 返回 None, None 表示生成失败
+                # 返回 None, None, attempts + 1, attempts 表示生成失败
+                return None, None, attempts + 1, attempts 
         
         predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
 
@@ -810,13 +812,14 @@ def generate_predicted_balls(lottery_type):
                 current_app.logger.warning("Max attempts reached for DLT red ball generation, some structural rules might not be met.")
         
         predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
+        return predicted_red_balls, predicted_blue_balls, attempt + 1, attempt # 返回成功生成的号码，尝试次数，以及过滤掉的次数
 
     else:
         current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_predicted_balls.")
         return None, None
     
     current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
-    return predicted_red_balls, predicted_blue_balls
+    return predicted_red_balls, predicted_blue_balls, attempt + 1, attempt
 
 def get_omitted_balls_for_prediction(lottery_type):
     """

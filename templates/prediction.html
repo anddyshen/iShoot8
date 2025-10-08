@@ -216,18 +216,17 @@
     </div>
 
     <!-- 组合数及筛选饼状图 (移动到最下方) -->
-    <!--
     <div class="card mb-4">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
-            <p>总组合数: <span id="ssq_total_combinations">计算中...</span></p>
-            <p>通过规则筛选掉的可能: <span id="ssq_filtered_combinations">计算中...</span></p>
-            <p>中奖的可能性: <span id="ssq_winning_chance">计算中...</span></p>
-            <p>节省费用: <span id="ssq_saved_cost">计算中...</span> 元</p>
-            <canvas id="ssq_filter_chart" width="400" height="200"></canvas>
+            <p>总组合数: <span id="ssq_total_combinations_display">计算中...</span></p>
+            <p>通过规则筛选掉的可能: <span id="ssq_filtered_by_rules_count_display">计算中...</span></p>
+            <p>本次过滤掉号码率: <span id="ssq_filter_rate_display">计算中...</span></p>
+            <div style="width: 50%; height: 250px; margin: auto;"> <!-- 调整饼图大小 -->
+                <canvas id="ssq_filter_chart"></canvas>
+            </div>
         </div>
     </div>
-    -->
 </div>
 
 <div id="dlt_prediction_section" class="lottery-section" style="display: none;">
@@ -349,18 +348,17 @@
     </div>
 
     <!-- 组合数及筛选饼状图 (移动到最下方) -->
-    <!--
     <div class="card mb-4">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
-            <p>总组合数: <span id="dlt_total_combinations">计算中...</span></p>
-            <p>通过规则筛选掉的可能: <span id="dlt_filtered_combinations">计算中...</span></p>
-            <p>中奖的可能性: <span id="dlt_winning_chance">计算中...</span></p>
-            <p>节省费用: <span id="dlt_saved_cost">计算中...</span> 元</p>
-            <canvas id="dlt_filter_chart" width="400" height="200"></canvas>
+            <p>总组合数: <span id="dlt_total_combinations_display">计算中...</span></p>
+            <p>通过规则筛选掉的可能: <span id="dlt_filtered_by_rules_count_display">计算中...</span></p>
+            <p>本次过滤掉号码率: <span id="dlt_filter_rate_display">计算中...</span></p>
+            <div style="width: 50%; height: 250px; margin: auto;"> <!-- 调整饼图大小 -->
+                <canvas id="dlt_filter_chart"></canvas>
+            </div>
         </div>
     </div>
-    -->
 </div>
 
 <!-- Rule Check Modal -->
@@ -399,6 +397,9 @@
         return html;
     }
 
+    let ssqFilterChart;
+    let dltFilterChart;
+
     // New function to render balls with omission count
     function renderBallsWithOmission(ballsWithOmission, ballType) {
         let html = '';
@@ -423,6 +424,7 @@
         this.classList.add('active');
         document.getElementById('dlt_prediction_tab').classList.remove('active');
         console.log("Switched to SSQ tab. Loading omitted balls for SSQ.");
+        updateFilterStatsDisplay('ssq', null); // Clear stats when switching tabs
         loadOmittedBalls('ssq'); // Load data for SSQ when tab is clicked
     });
 
@@ -433,6 +435,7 @@
         this.classList.add('active');
         document.getElementById('ssq_prediction_tab').classList.remove('active');
         console.log("Switched to DLT tab. Loading omitted balls for DLT.");
+        updateFilterStatsDisplay('dlt', null); // Clear stats when switching tabs
         loadOmittedBalls('dlt'); // Load data for DLT when tab is clicked
     });
 
@@ -636,6 +639,10 @@
                     card.querySelector('.rule-check-results').innerHTML = '';
                 }
             }
+
+            // Update filter stats display
+            updateFilterStatsDisplay(lotteryType, data);
+
             console.log(`Frontend: Successfully rendered predicted numbers for ${lotteryType}.`);
 
         } catch (error) {
@@ -648,6 +655,7 @@
                     card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
                 }
             }
+            updateFilterStatsDisplay(lotteryType, null); // Clear stats on error
         }
     }
 
@@ -730,6 +738,7 @@
     function clearGeneratedNumbers(lotteryType) {
         document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
         document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击“生成真随机号码”按钮。</p>';
+        updateFilterStatsDisplay(lotteryType, null); // Clear stats when clearing numbers
         console.log(`Frontend: Cleared generated numbers for ${lotteryType}.`);
     }
 
@@ -856,6 +865,94 @@
         if (e.target.classList.contains('share-to-social-btn')) {
             // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
         }
+    });
+
+    // Function to update filter statistics display and chart
+    function updateFilterStatsDisplay(lotteryType, statsData) {
+        const totalCombinationsDisplay = document.getElementById(`${lotteryType}_total_combinations_display`);
+        // const unfilteredWinningChanceDisplay = document.getElementById(`${lotteryType}_unfiltered_winning_chance_display`); // 移除
+        const filteredByRulesCountDisplay = document.getElementById(`${lotteryType}_filtered_by_rules_count_display`);
+        const filterRateDisplay = document.getElementById(`${lotteryType}_filter_rate_display`);
+        const chartCanvas = document.getElementById(`${lotteryType}_filter_chart`);
+
+        if (!statsData) {
+            totalCombinationsDisplay.textContent = '计算中...';
+            // unfilteredWinningChanceDisplay.textContent = '计算中...'; // 移除
+            filteredByRulesCountDisplay.textContent = '计算中...';
+            filterRateDisplay.textContent = '计算中...'; // Clear filter rate
+            // Destroy existing chart if any
+            if (lotteryType === 'ssq' && ssqFilterChart) {
+                ssqFilterChart.destroy();
+                ssqFilterChart = null;
+            } else if (lotteryType === 'dlt' && dltFilterChart) {
+                dltFilterChart.destroy();
+                dltFilterChart = null;
+            }
+            return;
+        }
+
+        const totalCombinations = statsData.total_combinations;
+        // const unfilteredWinningChance = statsData.unfiltered_winning_chance; // 移除
+        const filteredByRulesCount = statsData.filtered_by_rules_count;
+        const generatedCount = statsData.numbers.length; // Number of successfully generated sets
+
+        totalCombinationsDisplay.textContent = totalCombinations.toLocaleString();
+        // unfilteredWinningChanceDisplay.textContent = `1 / ${totalCombinations.toLocaleString()} (约 ${unfilteredWinningChance.toExponential(2)})`; // 移除
+        filteredByRulesCountDisplay.textContent = filteredByRulesCount.toLocaleString();
+
+        // Calculate and display filter rate
+        let filterRate = 0;
+        if (filteredByRulesCount + generatedCount > 0) {
+            filterRate = (filteredByRulesCount / (filteredByRulesCount + generatedCount)) * 100;
+        }
+        filterRateDisplay.textContent = `${filterRate.toFixed(2)}%`;
+
+        // Update Chart
+        const ctx = chartCanvas.getContext('2d');
+        let chartInstance;
+        if (lotteryType === 'ssq') {
+            if (ssqFilterChart) ssqFilterChart.destroy();
+            chartInstance = ssqFilterChart;
+        } else {
+            if (dltFilterChart) dltFilterChart.destroy();
+            chartInstance = dltFilterChart;
+        }
+
+        chartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['通过规则筛选', '成功生成'],
+                datasets: [{
+                    data: [filteredByRulesCount, generatedCount],
+                    backgroundColor: ['#ff6384', '#36a2eb'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: '规则筛选概览'
+                    }
+                }
+            }
+        });
+
+        if (lotteryType === 'ssq') {
+            ssqFilterChart = chartInstance;
+        } else {
+            dltFilterChart = chartInstance;
+        }
+    }
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ensure the correct tab is active on load
+        document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq')
     });
     document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-random-btn')) {
