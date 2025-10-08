@@ -124,13 +124,13 @@
             <div class="card mb-4">
                 <div class="card-header">双色球预测规则</div>
                 <div class="card-body rule-list">
-                    <p><strong>4.1.1 蓝球规则:</strong> 蓝球如最新一期开出过的号码就不作为本期的预测候选号码，蓝球连续{{ settings.ssq_blue_consecutive_3_prob }}期开出此号码则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_3_prob * 100 }}%，如果连续{{ settings.ssq_blue_consecutive_5_prob }}期开出同样的蓝球号码，则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_5_prob * 100 }}%。</p>
+                    <p><strong>4.1.1 蓝球规则:</strong> 蓝球如最新一期开出过的号码就不作为本期的预测候选号码，蓝球连续3期开出此号码则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_3_prob * 100 }}%，如果连续5期开出同样的蓝球号码，则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_5_prob * 100 }}%。</p>
                     <p><strong>4.1.2 红球遗漏权重:</strong> 红球最近未开出号码连续遗漏次数的第1多的号码数字作为候选球池中的一员，权重占 {{ settings.ssq_red_omit_1_weight * 100 }}%，第2多占{{ settings.ssq_red_omit_2_weight * 100 }}%，第3多占{{ settings.ssq_red_omit_3_weight * 100 }}%，第4多占{{ settings.ssq_red_omit_4_weight * 100 }}%，第5多占{{ settings.ssq_red_omit_5_weight * 100 }}%，第6多占{{ settings.ssq_red_omit_6_weight * 100 }}%。其他所有号码数字占比加起来平分剩下的百分比。</p>
                     <p><strong>4.1.3 红球重复概率:</strong> 如果红球最新开奖号码中的某一个号码连续开出重复3期及以上，则这个号码在候选号码池中的概率增加到{{ settings.ssq_red_consecutive_3_prob * 100 }}%，第二个重复3期以上的号码，概率增加到{{ settings.ssq_red_consecutive_3_second_prob * 100 }}%，其他号码概率平分剩下的百分比。</p>
                     <p><strong>4.1.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-33]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.ssq_red_area_min_count }}个数字区间。</p>
                     <p><strong>4.1.5 红球重复限制:</strong> 红球预测的号码中的数字与前2期的开奖结果重复的号码加起来不超过{{ settings.ssq_red_prev_2_draws_max_repeat }}个。</p>
                     <p><strong>4.1.6 红球连号限制:</strong> 红球球不出现连续{{ settings.ssq_red_max_consecutive_balls + 1 }}个及以上数字的号码。</p>
-                    <p><strong>4.1.10 红球遗漏降权:</strong> 红球若遗漏超过{{ settings.ssq_red_omit_12_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_12_prob * 100 }}%，红球若遗漏超过{{ settings.ssq_red_omit_13_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_13_prob * 100 }}%，红球若遗漏超过{{ settings.ssq_red_omit_14_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_14_prob * 100 }}%。</p>
+                    <p><strong>4.1.10 红球遗漏降权:</strong> 红球若遗漏超过12期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_12_prob * 100 }}%，红球若遗漏超过13期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_13_prob * 100 }}%，红球若遗漏超过14期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_14_prob * 100 }}%。</p>
                     <p><strong>4.5 规则冲突优先级:</strong> 所有规则如果产生冲突，则按照顺序作为优先级，在先的优先考虑，舍弃后一条规则。</p>
                 </div>
             </div>
@@ -163,9 +163,10 @@
                     <input type="number" class="form-control" id="ssq_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
                 </div>
                 <div class="col-sm-6">
-                    <button class="btn btn-success me-2" id="generate_ssq_prediction">生成规则号码</button> <!-- 文本修改 -->
+                    <button class="btn btn-success me-2" id="generate_ssq_prediction">生成规则号码</button>
                     <button class="btn btn-info me-2" id="generate_ssq_random">生成真随机号码</button>
-                    <button class="btn btn-secondary" id="clear_ssq_generated_numbers">清除生成的号码</button> <!-- 新增按钮 -->
+                    <button class="btn btn-secondary me-2" id="clear_ssq_generated_numbers">清除生成的号码</button>
+                    <button class="btn btn-dark" id="copy_all_ssq_numbers">复制所有号码</button> <!-- 新增总按钮 -->
                 </div>
             </div>
 
@@ -252,7 +253,7 @@
                     <p><strong>4.2.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-35]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.dlt_red_area_min_count }}个数字区间。</p>
                     <p><strong>4.2.5 红球重复限制:</strong> 红球预测的号码中的数字与前2期的开奖结果重复的号码加起来不超过{{ settings.dlt_red_prev_2_draws_max_repeat }}个。</p>
                     <p><strong>4.2.6 红球连号限制:</strong> 红球球不出现连续{{ settings.dlt_red_max_consecutive_balls + 1 }}个及以上数字的号码。</p>
-                    <p><strong>4.2.10 红球遗漏降权:</strong> 红球若遗漏超过{{ settings.dlt_red_omit_12_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_12_prob * 100 }}%，红球若遗漏超过{{ settings.dlt_red_omit_13_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_13_prob * 100 }}%，红球若遗漏超过{{ settings.dlt_red_omit_14_prob }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_14_prob * 100 }}%。</p>
+                    <p><strong>4.2.10 红球遗漏降权:</strong> 红球若遗漏超过12期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_12_prob * 100 }}%，红球若遗漏超过13期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_13_prob * 100 }}%，红球若遗漏超过14期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_14_prob * 100 }}%。</p>
                     <p><strong>4.5 规则冲突优先级:</strong> 所有规则如果产生冲突，则按照顺序作为优先级，在先的优先考虑，舍弃后一条规则。</p>
                 </div>
             </div>
@@ -285,9 +286,10 @@
                     <input type="number" class="form-control" id="dlt_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
                 </div>
                 <div class="col-sm-6">
-                    <button class="btn btn-success me-2" id="generate_dlt_prediction">生成规则号码</button> <!-- 文本修改 -->
+                    <button class="btn btn-success me-2" id="generate_dlt_prediction">生成规则号码</button>
                     <button class="btn btn-info me-2" id="generate_dlt_random">生成真随机号码</button>
-                    <button class="btn btn-secondary" id="clear_dlt_generated_numbers">清除生成的号码</button> <!-- 新增按钮 -->
+                    <button class="btn btn-secondary me-2" id="clear_dlt_generated_numbers">清除生成的号码</button>
+                    <button class="btn btn-dark" id="copy_all_dlt_numbers">复制所有号码</button> <!-- 新增总按钮 -->
                 </div>
             </div>
 
@@ -448,12 +450,21 @@
     }
 
     // Generate Random Numbers
-    async function generateRandomNumbers(lotteryType) {
-        const numGenerate = document.getElementById(`${lotteryType}_num_generate`).value;
+    async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
+        const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
         const outputDiv = document.getElementById(`${lotteryType}_random_numbers_output`);
-        outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
+        
+        if (indexToRegenerate === null) { // Only clear if generating all
+            outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
+        } else {
+            // Show loading spinner on the specific card
+            const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+            if (card) {
+                card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}: <span class="loading-spinner"></span>`;
+            }
+        }
 
-        console.log(`Frontend: Generating random numbers for ${lotteryType}, count: ${numGenerate}...`);
+        console.log(`Frontend: Generating random numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_random', {
                 method: 'POST',
@@ -465,37 +476,87 @@
             console.log(`Frontend: Received response for ${lotteryType} random numbers:`, data);
 
             if (data.error) {
-                outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                if (indexToRegenerate === null) {
+                    outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                } else {
+                    const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                    if (card) {
+                        card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                    }
+                }
                 return;
             }
 
-            let html = '';
-            data.numbers.forEach((combo, index) => {
-                html += `<div class="prediction-result-card">
-                            <p class="card-title">随机号码 ${index + 1}:</p>
-                            <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
-                            <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
-                            <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
-                            <button class="btn btn-sm btn-outline-primary check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
-                            <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
-                        </div>`;
-            });
-            outputDiv.innerHTML = html;
+            if (indexToRegenerate === null) {
+                let html = '';
+                data.numbers.forEach((combo, index) => {
+                    const redBallsStr = combo.red_balls;
+                    const blueBallsStr = combo.blue_balls;
+                    const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+
+                    html += `<div class="prediction-result-card random-generated">
+                                <p class="card-title">随机号码 ${index + 1}:</p>
+                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
+                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                                <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                                <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
+                                <button class="btn btn-sm btn-outline-success share-to-social-btn" data-share-text="${fullNumberStr}">分享到</button>
+                                <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
+                            </div>`;
+                });
+                outputDiv.innerHTML = html;
+            } else {
+                // Replace content of specific card
+                const newCombo = data.numbers[0]; // Should only be one new combo
+                const redBallsStr = newCombo.red_balls;
+                const blueBallsStr = newCombo.blue_balls;
+                const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}:`;
+                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}`;
+                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}`;
+                    card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
+                    card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
+                    card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+                    card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr;
+                    // Clear previous rule check results if any
+                    card.querySelector('.rule-check-results').innerHTML = '';
+                }
+            }
             console.log(`Frontend: Successfully rendered random numbers for ${lotteryType}.`);
 
         } catch (error) {
             console.error(`Frontend: Error generating random numbers for ${lotteryType}:`, error);
-            outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
+            if (indexToRegenerate === null) {
+                outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
+            } else {
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                }
+            }
         }
     }
 
     // Generate Predicted Numbers (now "规则号码")
-    async function generatePredictedNumbers(lotteryType) {
-        const numGenerate = document.getElementById(`${lotteryType}_num_generate`).value;
+    async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
+        const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
         const outputDiv = document.getElementById(`${lotteryType}_predicted_numbers_output`);
-        outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
 
-        console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count: ${numGenerate}...`);
+        if (indexToRegenerate === null) { // Only clear if generating all
+            outputDiv.innerHTML = '<p class="text-muted">生成中... <span class="loading-spinner"></span></p>';
+        } else {
+            // Show loading spinner on the specific card
+            const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+            if (card) {
+                card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="loading-spinner"></span>`;
+            }
+        }
+
+        console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_predicted', {
                 method: 'POST',
@@ -507,27 +568,68 @@
             console.log(`Frontend: Received response for ${lotteryType} predicted numbers:`, data);
 
             if (data.error) {
-                outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                if (indexToRegenerate === null) {
+                    outputDiv.innerHTML = `<p class="text-danger">生成失败: ${data.error}</p>`;
+                } else {
+                    const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                    if (card) {
+                        card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                    }
+                }
                 return;
             }
 
-            let html = '';
-            data.numbers.forEach((combo, index) => {
-                html += `<div class="prediction-result-card">
-                            <p class="card-title">规则预测号码 ${index + 1}:</p>
-                            <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red')}</p>
-                            <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue')}</p>
-                            <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
-                            <button class="btn btn-sm btn-outline-primary check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${combo.red_balls}" data-blue-balls="${combo.blue_balls}">检查规则</button>
-                            <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
-                        </div>`;
-            });
-            outputDiv.innerHTML = html;
+            if (indexToRegenerate === null) {
+                let html = '';
+                data.numbers.forEach((combo, index) => {
+                    const redBallsStr = combo.red_balls;
+                    const blueBallsStr = combo.blue_balls;
+                    const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+
+                    html += `<div class="prediction-result-card rule-based">
+                                <p class="card-title">规则预测号码 ${index + 1}:</p>
+                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
+                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                                <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                                <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
+                                <button class="btn btn-sm btn-outline-success share-to-social-btn" data-share-text="${fullNumberStr}">分享到</button>
+                                <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
+                            </div>`;
+                });
+                outputDiv.innerHTML = html;
+            } else {
+                // Replace content of specific card
+                const newCombo = data.numbers[0]; // Should only be one new combo
+                const redBallsStr = newCombo.red_balls;
+                const blueBallsStr = newCombo.blue_balls;
+                const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}:`;
+                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}`;
+                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}`;
+                    card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
+                    card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
+                    card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+                    card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr;
+                    // Clear previous rule check results if any
+                    card.querySelector('.rule-check-results').innerHTML = '';
+                }
+            }
             console.log(`Frontend: Successfully rendered predicted numbers for ${lotteryType}.`);
 
         } catch (error) {
             console.error(`Frontend: Error generating predicted numbers for ${lotteryType}:`, error);
-            outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
+            if (indexToRegenerate === null) {
+                outputDiv.innerHTML = '<p class="text-danger">生成失败。</p>';
+            } else {
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                }
+            }
         }
     }
 
@@ -574,11 +676,93 @@
         }
     }
 
+    // Copy to Clipboard function
+    async function copyToClipboard(text) {
+        try {
+            // 尝试使用现代 Clipboard API
+            await navigator.clipboard.writeText(text);
+            alert('号码已复制到剪贴板！');
+        } catch (err) {
+            console.error('Clipboard API 复制失败，尝试回退方案:', err);
+            // 回退方案：使用 textarea 元素进行复制
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; // 避免滚动
+            textarea.style.opacity = 0; // 隐藏元素
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    alert('号码已复制到剪贴板！');
+                } else {
+                    alert('复制失败，请手动复制。');
+                }
+            } catch (copyErr) {
+                console.error('手动复制失败:', copyErr);
+                alert('复制失败，请手动复制。');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+    }
+
+    // Share to Social Media function
+    function shareToSocialMedia(text) {
+        if (navigator.share) {
+            navigator.share({
+                title: '我的彩票预测号码',
+                text: text,
+                url: window.location.href
+            }).then(() => {
+                console.log('成功分享');
+            }).catch((error) => {
+                console.error('分享失败:', error);
+                alert('分享失败，请手动复制。'); // Web Share API 失败时回退到复制
+                copyToClipboard(text);
+            });
+        } else {
+            // Fallback for browsers that do not support Web Share API
+            alert('您的浏览器不支持分享功能。号码已复制到剪贴板，请手动分享。');
+            copyToClipboard(text); // 回退到复制
+        }
+    }
+
     // Clear Generated Numbers
     function clearGeneratedNumbers(lotteryType) {
         document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
         document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击“生成真随机号码”按钮。</p>';
         console.log(`Frontend: Cleared generated numbers for ${lotteryType}.`);
+    }
+
+    // Copy All Generated Numbers
+    function copyAllGeneratedNumbers(lotteryType) {
+        let allNumbersText = `--- ${lotteryType.toUpperCase()} 规则预测号码 ---\n`;
+        const predictedCards = document.querySelectorAll(`#${lotteryType}_predicted_numbers_output .prediction-result-card`);
+        if (predictedCards.length === 0) {
+            allNumbersText += "无\n";
+        } else {
+            predictedCards.forEach(card => {
+                const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
+                const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
+                allNumbersText += `${redBalls} ${blueBalls}\n`;
+            });
+        }
+
+        allNumbersText += `\n--- ${lotteryType.toUpperCase()} 真随机号码 ---\n`;
+        const randomCards = document.querySelectorAll(`#${lotteryType}_random_numbers_output .prediction-result-card`);
+        if (randomCards.length === 0) {
+            allNumbersText += "无\n";
+        } else {
+            randomCards.forEach(card => {
+                const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
+                const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
+                allNumbersText += `${redBalls} ${blueBalls}\n`;
+            });
+        }
+        
+        copyToClipboard(allNumbersText);
     }
 
 
@@ -593,39 +777,71 @@
     document.getElementById('clear_ssq_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('ssq'));
     document.getElementById('clear_dlt_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('dlt'));
 
+    // Copy All buttons
+    document.getElementById('copy_all_ssq_numbers').addEventListener('click', () => copyAllGeneratedNumbers('ssq'));
+    document.getElementById('copy_all_dlt_numbers').addEventListener('click', () => copyAllGeneratedNumbers('dlt'));
 
-    // Event delegation for dynamically added "重新生成" and "检查规则" buttons
+
+    // Event delegation for dynamically added buttons
     document.getElementById('ssq_random_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-random-btn')) {
-            generateRandomNumbers(e.target.dataset.lotteryType); 
+            const index = parseInt(e.target.dataset.index);
+            generateRandomNumbers(e.target.dataset.lotteryType, index); 
         }
         if (e.target.classList.contains('check-generated-rules-btn')) {
             checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+        if (e.target.classList.contains('share-to-social-btn')) {
+            shareToSocialMedia(e.target.dataset.shareText);
         }
     });
     document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-random-btn')) {
-            generateRandomNumbers(e.target.dataset.lotteryType);
+            const index = parseInt(e.target.dataset.index);
+            generateRandomNumbers(e.target.dataset.lotteryType, index);
         }
         if (e.target.classList.contains('check-generated-rules-btn')) {
             checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+        if (e.target.classList.contains('share-to-social-btn')) {
+            shareToSocialMedia(e.target.dataset.shareText);
         }
     });
 
     document.getElementById('ssq_predicted_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-predicted-btn')) {
-            generatePredictedNumbers(e.target.dataset.lotteryType);
+            const index = parseInt(e.target.dataset.index);
+            generatePredictedNumbers(e.target.dataset.lotteryType, index);
         }
         if (e.target.classList.contains('check-generated-rules-btn')) {
             checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+        if (e.target.classList.contains('share-to-social-btn')) {
+            shareToSocialMedia(e.target.dataset.shareText);
         }
     });
     document.getElementById('dlt_predicted_numbers_output').addEventListener('click', function(e) {
         if (e.target.classList.contains('regenerate-predicted-btn')) {
-            generatePredictedNumbers(e.target.dataset.lotteryType);
+            const index = parseInt(e.target.dataset.index);
+            generatePredictedNumbers(e.target.dataset.lotteryType, index);
         }
         if (e.target.classList.contains('check-generated-rules-btn')) {
             checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+        }
+        if (e.target.classList.contains('copy-to-clipboard-btn')) {
+            copyToClipboard(e.target.dataset.copyText);
+        }
+        if (e.target.classList.contains('share-to-social-btn')) {
+            shareToSocialMedia(e.target.dataset.shareText);
         }
     });
 

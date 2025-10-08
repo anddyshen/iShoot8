@@ -102,7 +102,7 @@ with app.app_context():
         func=update_latest_draws, 
         trigger="cron", 
         hour=3, 
-        minute=1, 
+        minute=16, 
         args=[app]  # <--- 在这里把 app 实例作为参数传进去
     )
     scheduler.start()
