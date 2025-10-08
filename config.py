@@ -46,9 +46,9 @@ DEFAULT_SETTINGS = {
     "ssq_red_area_min_count": 2,
     "ssq_red_prev_2_draws_max_repeat": 2,
     "ssq_red_max_consecutive_balls": 3, # 不出现连续4个及以上数字
-    "ssq_red_omit_12_prob": 0.015,
-    "ssq_red_omit_13_prob": 0.0,
-    "ssq_red_omit_14_prob": 0.0,
+    "ssq_red_omit_prob_threshold_1": 0.015, # 遗漏降概率阈值1对应的概率
+    "ssq_red_omit_prob_threshold_2": 0.0,   # 遗漏降概率阈值2对应的概率
+    "ssq_red_omit_prob_threshold_3": 0.0,   # 遗漏降概率阈值3对应的概率
     "dlt_blue_repeat_prob": 0.035,
     "dlt_blue_consecutive_5_prob": 0.25,
     "dlt_red_omit_1_weight": 0.01,
@@ -61,9 +61,9 @@ DEFAULT_SETTINGS = {
     "dlt_red_area_min_count": 2,
     "dlt_red_prev_2_draws_max_repeat": 2,
     "dlt_red_max_consecutive_balls": 3,
-    "dlt_red_omit_12_prob": 0.015,
-    "dlt_red_omit_13_prob": 0.0,
-    "dlt_red_omit_14_prob": 0.0,
+    "dlt_red_omit_prob_threshold_1": 0.015, # 遗漏降概率阈值1对应的概率
+    "dlt_red_omit_prob_threshold_2": 0.0,   # 遗漏降概率阈值2对应的概率
+    "dlt_red_omit_prob_threshold_3": 0.0,   # 遗漏降概率阈值3对应的概率
     # 新增：红球高遗漏降概率的阈值
     "ssq_red_omit_threshold_1": 12,
     "ssq_red_omit_threshold_2": 13,
@@ -192,9 +192,9 @@ SETTING_LABELS_CHINESE = {
     'ssq_red_area_min_count': "双色球红球：分区最小数量",
     'ssq_red_prev_2_draws_max_repeat': "双色球红球：近2期最大重复数",
     'ssq_red_max_consecutive_balls': "双色球红球：最大连号数量",
-    'ssq_red_omit_12_prob': "双色球红球：遗漏12期概率",
-    'ssq_red_omit_13_prob': "双色球红球：遗漏13期概率",
-    'ssq_red_omit_14_prob': "双色球红球：遗漏14期概率",
+    'ssq_red_omit_prob_threshold_1': "双色球红球：遗漏降概率阈值1对应的概率",
+    'ssq_red_omit_prob_threshold_2': "双色球红球：遗漏降概率阈值2对应的概率",
+    'ssq_red_omit_prob_threshold_3': "双色球红球：遗漏降概率阈值3对应的概率",
     # 新增：红球高遗漏降概率的阈值中文标签
     'ssq_red_omit_threshold_1': "双色球红球：遗漏降概率阈值1",
     'ssq_red_omit_threshold_2': "双色球红球：遗漏降概率阈值2",
@@ -213,9 +213,9 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_area_min_count': "大乐透红球：分区最小数量",
     'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
     'dlt_red_max_consecutive_balls': "大乐透红球：最大连号数量",
-    'dlt_red_omit_12_prob': "大乐透红球：遗漏12期概率",
-    'dlt_red_omit_13_prob': "大乐透红球：遗漏13期概率",
-    'dlt_red_omit_14_prob': "大乐透红球：遗漏14期概率",
+    'dlt_red_omit_prob_threshold_1': "大乐透红球：遗漏降概率阈值1对应的概率",
+    'dlt_red_omit_prob_threshold_2': "大乐透红球：遗漏降概率阈值2对应的概率",
+    'dlt_red_omit_prob_threshold_3': "大乐透红球：遗漏降概率阈值3对应的概率",
     # 新增：大乐透红球高遗漏降概率的阈值中文标签
     'dlt_red_omit_threshold_1': "大乐透红球：遗漏降概率阈值1",
     'dlt_red_omit_threshold_2': "大乐透红球：遗漏降概率阈值2",

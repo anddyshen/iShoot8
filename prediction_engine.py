@@ -609,9 +609,9 @@ def generate_predicted_balls(lottery_type):
                     red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
 
         # 规则 4.1.10 / 1.10 红球高遗漏降概率
-        ssq_red_omit_12_prob = CURRENT_SETTINGS.get('ssq_red_omit_12_prob', 0.015)
-        ssq_red_omit_13_prob = CURRENT_SETTINGS.get('ssq_red_omit_13_prob', 0.0)
-        ssq_red_omit_14_prob = CURRENT_SETTINGS.get('ssq_red_omit_14_prob', 0.0)
+        ssq_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_1', 0.015)
+        ssq_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_2', 0.0)
+        ssq_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_3', 0.0)
         
         ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
         ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
@@ -621,11 +621,11 @@ def generate_predicted_balls(lottery_type):
             ball = ball_data['ball']
             omission = ball_data['current_omission']
             if omission >= ssq_red_omit_threshold_3:
-                red_probabilities[ball] = ssq_red_omit_14_prob
+                red_probabilities[ball] = ssq_red_omit_prob_threshold_3
             elif omission >= ssq_red_omit_threshold_2:
-                red_probabilities[ball] = ssq_red_omit_13_prob
+                red_probabilities[ball] = ssq_red_omit_prob_threshold_2
             elif omission >= ssq_red_omit_threshold_1:
-                red_probabilities[ball] = ssq_red_omit_12_prob
+                red_probabilities[ball] = ssq_red_omit_prob_threshold_1
         
         # 归一化红球概率
         total_red_prob = sum(red_probabilities.values())
@@ -760,9 +760,9 @@ def generate_predicted_balls(lottery_type):
                     red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
 
         # 规则 4.2.10 / 2.10 红球高遗漏降概率
-        dlt_red_omit_12_prob = CURRENT_SETTINGS.get('dlt_red_omit_12_prob', 0.015)
-        dlt_red_omit_13_prob = CURRENT_SETTINGS.get('dlt_red_omit_13_prob', 0.0)
-        dlt_red_omit_14_prob = CURRENT_SETTINGS.get('dlt_red_omit_14_prob', 0.0)
+        dlt_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_1', 0.015)
+        dlt_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_2', 0.0)
+        dlt_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_3', 0.0)
 
         dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
         dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
@@ -772,11 +772,11 @@ def generate_predicted_balls(lottery_type):
             ball = ball_data['ball']
             omission = ball_data['current_omission']
             if omission >= dlt_red_omit_threshold_3:
-                red_probabilities[ball] = dlt_red_omit_14_prob
+                red_probabilities[ball] = dlt_red_omit_prob_threshold_3
             elif omission >= dlt_red_omit_threshold_2:
-                red_probabilities[ball] = dlt_red_omit_13_prob
+                red_probabilities[ball] = dlt_red_omit_prob_threshold_2
             elif omission >= dlt_red_omit_threshold_1:
-                red_probabilities[ball] = dlt_red_omit_12_prob
+                red_probabilities[ball] = dlt_red_omit_prob_threshold_1
         
         # 归一化红球概率
         total_red_prob = sum(red_probabilities.values())

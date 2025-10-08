@@ -130,7 +130,7 @@
                     <p><strong>4.1.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-33]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.ssq_red_area_min_count }}个数字区间。</p>
                     <p><strong>4.1.5 红球重复限制:</strong> 红球预测的号码中的数字与前2期的开奖结果重复的号码加起来不超过{{ settings.ssq_red_prev_2_draws_max_repeat }}个。</p>
                     <p><strong>4.1.6 红球连号限制:</strong> 红球球不出现连续{{ settings.ssq_red_max_consecutive_balls + 1 }}个及以上数字的号码。</p>
-                    <p><strong>4.1.10 红球遗漏降权:</strong> 红球若遗漏超过12期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_12_prob * 100 }}%，红球若遗漏超过13期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_13_prob * 100 }}%，红球若遗漏超过14期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_14_prob * 100 }}%。</p>
+                    <p><strong>4.1.10 红球遗漏降权:</strong> 红球若遗漏超过{{ settings.ssq_red_omit_threshold_1 }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_prob_threshold_1 * 100 }}%，红球若遗漏超过{{ settings.ssq_red_omit_threshold_2 }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_prob_threshold_2 * 100 }}%，红球若遗漏超过{{ settings.ssq_red_omit_threshold_3 }}期，则该号码在整个组合中出现的概率降至{{ settings.ssq_red_omit_prob_threshold_3 * 100 }}%。</p>
                     <p><strong>4.5 规则冲突优先级:</strong> 所有规则如果产生冲突，则按照顺序作为优先级，在先的优先考虑，舍弃后一条规则。</p>
                 </div>
             </div>
@@ -262,7 +262,7 @@
                     <p><strong>4.2.4 红球区域分布:</strong> 将数字区间[1-8]、[9-16]、[17-24]、[25-35]作为4个区域，候选红球的数字区域分布大于等于 {{ settings.dlt_red_area_min_count }}个数字区间。</p>
                     <p><strong>4.2.5 红球重复限制:</strong> 红球预测的号码中的数字与前2期的开奖结果重复的号码加起来不超过{{ settings.dlt_red_prev_2_draws_max_repeat }}个。</p>
                     <p><strong>4.2.6 红球连号限制:</strong> 红球球不出现连续{{ settings.dlt_red_max_consecutive_balls + 1 }}个及以上数字的号码。</p>
-                    <p><strong>4.2.10 红球遗漏降权:</strong> 红球若遗漏超过12期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_12_prob * 100 }}%，红球若遗漏超过13期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_13_prob * 100 }}%，红球若遗漏超过14期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_14_prob * 100 }}%。</p>
+                    <p><strong>4.2.10 红球遗漏降权:</strong> 红球若遗漏超过{{ settings.dlt_red_omit_threshold_1 }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_prob_threshold_1 * 100 }}%，红球若遗漏超过{{ settings.dlt_red_omit_threshold_2 }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_prob_threshold_2 * 100 }}%，红球若遗漏超过{{ settings.dlt_red_omit_threshold_3 }}期，则该号码在整个组合中出现的概率降至{{ settings.dlt_red_omit_prob_threshold_3 * 100 }}%。</p>
                     <p><strong>4.5 规则冲突优先级:</strong> 所有规则如果产生冲突，则按照顺序作为优先级，在先的优先考虑，舍弃后一条规则。</p>
                 </div>
             </div>
