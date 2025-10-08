@@ -70,29 +70,30 @@ def _check_ssq_rule_4_1_1_blue_consecutive(draw: SSQDraw):
     """
     规则 4.1.1 蓝球连续开出检查
     检查当前期开出的蓝球，是否在当前期及之前的连续N期中都出现。
+    修改为：未连续3期及以上。并显示连续开了几期，如之前没开过就是0期。
     """
     blue_ball = draw.get_blue_balls_list()[0]
-    recent_draws_including_current = SSQDraw.query.filter(SSQDraw.issue <= draw.issue)\
-                                .order_by(SSQDraw.issue.desc())\
-                                .limit(5).all() 
+    
+    # 获取所有期号小于或等于当前期的开奖数据，按期号降序排列
+    all_previous_draws = SSQDraw.query.filter(SSQDraw.issue <= draw.issue)\
+                                .order_by(SSQDraw.issue.desc()).all()
 
     current_app.logger.debug(f"Rule 4.1.1: Checking blue ball {blue_ball} for issue {draw.issue}.")
-    current_app.logger.debug(f"Recent draws (newest to oldest, including current): {[d.issue for d in recent_draws_including_current]}")
+    current_app.logger.debug(f"All previous draws (newest to oldest, including current): {[d.issue for d in all_previous_draws]}")
 
     consecutive_count = 0
-    for d in recent_draws_including_current:
+    for d in all_previous_draws:
         if d.get_blue_balls_list() and blue_ball == d.get_blue_balls_list()[0]:
             consecutive_count += 1
             current_app.logger.debug(f"  Issue {d.issue} has blue ball {d.get_blue_balls_list()[0]}. Consecutive count: {consecutive_count}")
         else:
             current_app.logger.debug(f"  Issue {d.issue} has blue ball {d.get_blue_balls_list()[0] if d.get_blue_balls_list() else 'N/A'}. Break consecutive check.")
             break
-
-    if consecutive_count >= 5:
-        return {'passed': False, 'message': f'规则4.1.1: 蓝球 {blue_ball} 连续开出 {consecutive_count} 期 (>=5期)。'}
-    elif consecutive_count >= 3:
-        return {'passed': False, 'message': f'规则4.1.1: 蓝球 {blue_ball} 连续开出 {consecutive_count} 期 (>=3期)。'}
-    return {'passed': True, 'message': f'规则4.1.1: 蓝球 {blue_ball} 未连续开出3或5期。'}
+    
+    if consecutive_count >= 3:
+        return {'passed': False, 'message': f'蓝球 {blue_ball} 连续开出 {consecutive_count} 期。'}
+    else:
+        return {'passed': True, 'message': f'蓝球 {blue_ball} 连续开出 {consecutive_count} 期。'}
 
 def _check_ssq_rule_4_1_3_red_consecutive_repeat(draw: SSQDraw):
     """
@@ -108,7 +109,7 @@ def _check_ssq_rule_4_1_3_red_consecutive_repeat(draw: SSQDraw):
     current_app.logger.debug(f"Recent draws (newest to oldest, including current): {[d.issue for d in recent_draws_including_current]}")
 
     if len(recent_draws_including_current) < 3:
-        return {'passed': True, 'message': '规则4.1.3: 无足够前期数据进行红球连续重复检查。'}
+        return {'passed': True, 'message': '1: 无足够前期数据进行红球连续重复检查。'}
 
     for ball in current_red_balls:
         is_consecutive_3 = True
@@ -121,9 +122,9 @@ def _check_ssq_rule_4_1_3_red_consecutive_repeat(draw: SSQDraw):
             else:
                 current_app.logger.debug(f"    Ball {ball} found in issue {d.issue}'s red balls {d.get_red_balls_list()}.")
         if is_consecutive_3:
-            return {'passed': False, 'message': f'规则4.1.3: 红球 {ball} 连续3期及以上开出。'}
+            return {'passed': False, 'message': f'1: 红球 {ball} 连续3期及以上开出。'}
             
-    return {'passed': True, 'message': '规则4.1.3: 红球未出现连续3期及以上重复。'}
+    return {'passed': True, 'message': '1: 红球未出现连续3期及以上重复。'}
 
 
 def _check_ssq_rule_4_1_4_red_area_distribution(red_balls):
@@ -145,9 +146,9 @@ def _check_ssq_rule_4_1_4_red_area_distribution(red_balls):
     
     distributed_areas = len(areas)
     if distributed_areas >= 2:
-        return {'passed': True, 'message': f'规则4.1.4: 红球分布在 {distributed_areas} 个区域 (>=2个)。'}
+        return {'passed': True, 'message': f'2: 红球分布在 {distributed_areas} 个区域 (>=2个)。'}
     else:
-        return {'passed': False, 'message': f'规则4.1.4: 红球仅分布在 {distributed_areas} 个区域 (<2个)。'}
+        return {'passed': False, 'message': f'2: 红球仅分布在 {distributed_areas} 个区域 (<2个)。'}
 
 def _check_ssq_rule_4_1_5_red_repeat_previous_2(draw: SSQDraw):
     """
@@ -175,10 +176,10 @@ def _check_ssq_rule_4_1_5_red_repeat_previous_2(draw: SSQDraw):
 
     if repeated_count <= 2:
         # current_app.logger.debug(f"  Rule 4.1.5 result: PASSED (repeated count {repeated_count} <= 2)")
-        return {'passed': True, 'message': f'规则4.1.5: 红球与前2期重复号码 {repeated_count} 个 (<=2个)。'}
+        return {'passed': True, 'message': f'3: 红球与前2期重复号码 {repeated_count} 个 (<=2个)。'}
     else:
         # current_app.logger.debug(f"  Rule 4.1.5 result: FAILED (repeated count {repeated_count} > 2)")
-        return {'passed': False, 'message': f'规则4.1.5: 红球与前2期重复号码 {repeated_count} 个 (>2个)。'}
+        return {'passed': False, 'message': f'3: 红球与前2期重复号码 {repeated_count} 个 (>2个)。'}
 
 def _check_ssq_rule_4_1_6_red_consecutive_4_plus(red_balls):
     """
@@ -188,8 +189,8 @@ def _check_ssq_rule_4_1_6_red_consecutive_4_plus(red_balls):
     current_app.logger.debug(f"Rule 4.1.6: Checking red balls {red_balls} for consecutive groups. Groups: {consecutive_groups}")
     for group in consecutive_groups:
         if len(group) >= 4:
-            return {'passed': False, 'message': f'规则4.1.6: 红球出现连续 {len(group)} 个号码: {group} (>=4个)。'}
-    return {'passed': True, 'message': '规则4.1.6: 红球未出现连续4个及以上号码。'}
+            return {'passed': False, 'message': f'4: 红球出现连续 {len(group)} 个号码: {group} (>=4个)。'}
+    return {'passed': True, 'message': '4: 红球未出现连续4个及以上号码。'}
 
 # --- 大乐透规则检查函数 (针对历史开奖数据) ---
 # (这部分保持不变，因为这些是检查历史数据的规则)

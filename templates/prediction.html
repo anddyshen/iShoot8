@@ -501,7 +501,6 @@
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
-                                <button class="btn btn-sm btn-outline-success share-to-social-btn" data-share-text="${fullNumberStr}">分享到</button>
                                 <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
                             </div>`;
                 });
@@ -593,7 +592,6 @@
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
-                                <button class="btn btn-sm btn-outline-success share-to-social-btn" data-share-text="${fullNumberStr}">分享到</button>
                                 <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
                             </div>`;
                 });
@@ -708,27 +706,6 @@
         }
     }
 
-    // Share to Social Media function
-    function shareToSocialMedia(text) {
-        if (navigator.share) {
-            navigator.share({
-                title: '我的彩票预测号码',
-                text: text,
-                url: window.location.href
-            }).then(() => {
-                console.log('成功分享');
-            }).catch((error) => {
-                console.error('分享失败:', error);
-                alert('分享失败，请手动复制。'); // Web Share API 失败时回退到复制
-                copyToClipboard(text);
-            });
-        } else {
-            // Fallback for browsers that do not support Web Share API
-            alert('您的浏览器不支持分享功能。号码已复制到剪贴板，请手动分享。');
-            copyToClipboard(text); // 回退到复制
-        }
-    }
-
     // Clear Generated Numbers
     function clearGeneratedNumbers(lotteryType) {
         document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
@@ -795,7 +772,7 @@
             copyToClipboard(e.target.dataset.copyText);
         }
         if (e.target.classList.contains('share-to-social-btn')) {
-            shareToSocialMedia(e.target.dataset.shareText);
+            // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
         }
     });
     document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
@@ -810,7 +787,7 @@
             copyToClipboard(e.target.dataset.copyText);
         }
         if (e.target.classList.contains('share-to-social-btn')) {
-            shareToSocialMedia(e.target.dataset.shareText);
+            // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
         }
     });
 
@@ -826,7 +803,7 @@
             copyToClipboard(e.target.dataset.copyText);
         }
         if (e.target.classList.contains('share-to-social-btn')) {
-            shareToSocialMedia(e.target.dataset.shareText);
+            // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
         }
     });
     document.getElementById('dlt_predicted_numbers_output').addEventListener('click', function(e) {
@@ -841,7 +818,7 @@
             copyToClipboard(e.target.dataset.copyText);
         }
         if (e.target.classList.contains('share-to-social-btn')) {
-            shareToSocialMedia(e.target.dataset.shareText);
+            // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
         }
     });
 
