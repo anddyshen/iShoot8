@@ -7,7 +7,7 @@ from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE # 导入中奖�
 from models import SSQDraw, DLTDraw, db # 新增导入
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.2" # 更新版本号
+__version__ = "1.2.0" # 更新版本号
 
 def format_lottery_numbers(numbers_str):
     """将逗号分隔的数字字符串转换为整数列表并排序"""

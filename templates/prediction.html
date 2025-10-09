@@ -572,6 +572,8 @@
     // Generate Random Numbers
     async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
         const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
+        const redOddEvenRatio = document.getElementById(`${lotteryType}_red_odd_even_ratio`).value;
+        const redSizeRatio = document.getElementById(`${lotteryType}_red_size_ratio`).value;
         const outputDiv = document.getElementById(`${lotteryType}_random_numbers_output`);
         
         if (indexToRegenerate === null) { // Only clear if generating all
@@ -584,12 +586,17 @@
             }
         }
 
-        console.log(`Frontend: Generating random numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
+        console.log(`Frontend: Generating random numbers for ${lotteryType}, count=${numGenerate}, odd/even=${redOddEvenRatio}, size=${redSizeRatio}, index=${indexToRegenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_random', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lottery_type: lotteryType, count: parseInt(numGenerate) })
+                body: JSON.stringify({ 
+                    lottery_type: lotteryType, 
+                    count: parseInt(numGenerate),
+                    red_odd_even_ratio: redOddEvenRatio,
+                    red_size_ratio: redSizeRatio
+                })
             });
             const data = await response.json();
 
@@ -686,6 +693,8 @@
     // Generate Predicted Numbers (now "规则号码")
     async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
         const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
+        const redOddEvenRatio = document.getElementById(`${lotteryType}_red_odd_even_ratio`).value;
+        const redSizeRatio = document.getElementById(`${lotteryType}_red_size_ratio`).value;
         const outputDiv = document.getElementById(`${lotteryType}_predicted_numbers_output`);
 
         if (indexToRegenerate === null) { // Only clear if generating all
@@ -698,12 +707,17 @@
             }
         }
 
-        console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
+        console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count=${numGenerate}, odd/even=${redOddEvenRatio}, size=${redSizeRatio}, index=${indexToRegenerate}...`);
         try {
             const response = await fetch('/api/prediction/generate_predicted', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lottery_type: lotteryType, count: parseInt(numGenerate) })
+                body: JSON.stringify({ 
+                    lottery_type: lotteryType, 
+                    count: parseInt(numGenerate),
+                    red_odd_even_ratio: redOddEvenRatio,
+                    red_size_ratio: redSizeRatio
+                })
             });
             const data = await response.json();
 

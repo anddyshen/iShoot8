@@ -211,9 +211,11 @@ def api_prediction_omitted_balls():
 def api_generate_random_numbers():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    # 修正：dict.get() 不接受 type 关键字参数
     count = int(data.get('count', 1)) 
-    current_app.logger.info(f"API call: /api/prediction/generate_random for {lottery_type}, count={count}")
+    red_odd_even_ratio = data.get('red_odd_even_ratio')
+    red_size_ratio = data.get('red_size_ratio')
+
+    current_app.logger.info(f"API call: /api/prediction/generate_random for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
     if not lottery_type:
         current_app.logger.warning("API call: Missing lottery_type for generate_random.")
@@ -231,8 +233,13 @@ def api_generate_random_numbers():
 
     generated_numbers = []
     for _ in range(count):
-        result = generate_random_balls(lottery_type, num_red, num_blue)
-        # generate_random_balls now returns a dictionary or None
+        result = generate_random_balls(
+            lottery_type, 
+            num_red, 
+            num_blue, 
+            red_odd_even_ratio=red_odd_even_ratio, 
+            red_size_ratio=red_size_ratio
+        )
         if result is None: 
             current_app.logger.error(f"API call: Failed to generate random numbers for {lottery_type} due to internal error or invalid ranges.")
             return jsonify({'error': 'Failed to generate random numbers due to internal error or invalid ranges.'}), 500
@@ -240,7 +247,7 @@ def api_generate_random_numbers():
         generated_numbers.append({
             'red_balls': ','.join(map(str, result['red_balls'])),
             'blue_balls': ','.join(map(str, result['blue_balls'])),
-            'stats': result['stats'] # Include the statistics
+            'stats': result['stats']
         })
     
     current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} random numbers for {lottery_type}.")
@@ -250,16 +257,16 @@ def api_generate_random_numbers():
 def api_generate_predicted_numbers():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    # 修正：dict.get() 不接受 type 关键字参数
     count = int(data.get('count', 1))
-    current_app.logger.info(f"API call: /api/prediction/generate_predicted for {lottery_type}, count={count}")
+    red_odd_even_ratio = data.get('red_odd_even_ratio')
+    red_size_ratio = data.get('red_size_ratio')
+
+    current_app.logger.info(f"API call: /api/prediction/generate_predicted for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
     if not lottery_type:
         current_app.logger.warning("API call: Missing lottery_type for generate_predicted.")
         return jsonify({'error': 'Missing lottery_type'}), 400
     
-    # TODO: Implement actual prediction logic here
-    # For now, return random numbers as a placeholder
     if lottery_type == 'ssq':
         num_red = 6
         num_blue = 1
@@ -275,8 +282,11 @@ def api_generate_predicted_numbers():
     total_filtered_count = 0
 
     for _ in range(count):
-        result = generate_predicted_balls(lottery_type)
-        # generate_predicted_balls now returns a dictionary or None
+        result = generate_predicted_balls(
+            lottery_type, 
+            red_odd_even_ratio=red_odd_even_ratio, 
+            red_size_ratio=red_size_ratio
+        )
         if result is None:
             current_app.logger.error(f"API call: Failed to generate predicted numbers for {lottery_type} due to internal error.")
             return jsonify({'error': 'Failed to generate predicted numbers due to internal error.'}), 500
@@ -284,12 +294,11 @@ def api_generate_predicted_numbers():
         generated_numbers.append({
             'red_balls': ','.join(map(str, result['red_balls'])),
             'blue_balls': ','.join(map(str, result['blue_balls'])),
-            'stats': result['stats'] # Include the statistics
+            'stats': result['stats']
         })
         total_attempts += result['attempts_made']
         total_filtered_count += result['filtered_count']
 
-    # 计算总组合数和未筛选中奖概率
     total_combinations = calculate_total_lottery_combinations(lottery_type)
     unfiltered_winning_chance = 1 / total_combinations if total_combinations > 0 else 0
 
@@ -298,7 +307,7 @@ def api_generate_predicted_numbers():
         'numbers': generated_numbers,
         'total_combinations': total_combinations,
         'unfiltered_winning_chance': unfiltered_winning_chance,
-        'filtered_by_rules_count': total_filtered_count # 实际生成过程中过滤掉的组合数
+        'filtered_by_rules_count': total_filtered_count
     })
 
 @bp.route('/api/prediction/generate_complex', methods=['POST'])

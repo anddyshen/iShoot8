@@ -465,11 +465,11 @@ def check_dlt_rules_for_balls(front_balls: list, blue_balls: list):
 
 # --- 号码生成逻辑 ---
 
-def generate_random_balls(lottery_type, num_red, num_blue):
+def generate_random_balls(lottery_type, num_red, num_blue, red_odd_even_ratio=None, red_size_ratio=None):
     """
-    生成一组完全随机的号码。
+    生成一组完全随机的号码，并根据奇偶比和大小比进行筛选。
     """
-    current_app.logger.info(f"Attempting to generate random balls for {lottery_type}: num_red={num_red}, num_blue={num_blue}")
+    current_app.logger.info(f"Attempting to generate random balls for {lottery_type}: num_red={num_red}, num_blue={num_blue}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
     if lottery_type == 'ssq':
         red_range = PRIZE_RULES['ssq']['red_range']
@@ -479,412 +479,306 @@ def generate_random_balls(lottery_type, num_red, num_blue):
         blue_range = PRIZE_RULES['dlt']['blue_range']
     else:
         current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_random_balls.")
-        return None, None
+        return None
 
     current_app.logger.info(f"Ranges for {lottery_type}: red_range={red_range}, blue_range={blue_range}")
 
     if num_red > red_range or num_blue > blue_range:
         current_app.logger.error(f"Attempted to generate too many balls for {lottery_type}: red={num_red}/{red_range}, blue={num_blue}/{blue_range}. This will cause random.sample to fail.")
-        # 返回 None, None 表示生成失败，而不是空列表，以便上层函数可以区分是参数错误还是数据不足
-        return None, None 
+        return None
 
-    try:
-        red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
-        blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue))
-        current_app.logger.info(f"Successfully generated random balls: Red={red_balls}, Blue={blue_balls}")
+    max_attempts = 1000 # 增加尝试次数以找到符合条件的号码
+    attempts_made = 0
+    filtered_count = 0
 
-        # 计算统计数据
-        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
-        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+    while attempts_made < max_attempts:
+        attempts_made += 1
+        try:
+            red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
+            blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue))
 
-        stats = {
-            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(red_balls),
-            'red_sum': calculate_sum_per_draw(red_balls),
-            'red_span': calculate_span_per_draw(red_balls),
-            'red_size_ratio': calculate_size_ratio_per_draw(red_balls, red_size_midpoint),
-            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(blue_balls),
-            'blue_sum': calculate_sum_per_draw(blue_balls),
-            'blue_span': calculate_span_per_draw(blue_balls),
-            'blue_size_ratio': calculate_size_ratio_per_draw(blue_balls, blue_size_midpoint),
-        }
+            # 计算统计数据
+            red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+            blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
 
-        return {'red_balls': red_balls, 'blue_balls': blue_balls, 'stats': stats}
-    except ValueError as e:
-        current_app.logger.error(f"Error generating random balls for {lottery_type}: {e}")
-        return None # 返回 None 表示生成失败
+            current_red_odd_even_ratio = calculate_odd_even_ratio_per_draw(red_balls)
+            current_red_size_ratio = calculate_size_ratio_per_draw(red_balls, red_size_midpoint)
 
-def generate_predicted_balls(lottery_type):
+            # 应用筛选条件
+            if red_odd_even_ratio and red_odd_even_ratio != "" and current_red_odd_even_ratio != red_odd_even_ratio:
+                filtered_count += 1
+                continue
+            if red_size_ratio and red_size_ratio != "" and current_red_size_ratio != red_size_ratio:
+                filtered_count += 1
+                continue
+
+            # 如果通过所有筛选，则返回结果
+            stats = {
+                'red_odd_even_ratio': current_red_odd_even_ratio,
+                'red_sum': calculate_sum_per_draw(red_balls),
+                'red_span': calculate_span_per_draw(red_balls),
+                'red_size_ratio': current_red_size_ratio,
+                'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(blue_balls),
+                'blue_sum': calculate_sum_per_draw(blue_balls),
+                'blue_span': calculate_span_per_draw(blue_balls),
+                'blue_size_ratio': calculate_size_ratio_per_draw(blue_balls, blue_size_midpoint),
+            }
+            current_app.logger.info(f"Successfully generated random balls after {attempts_made} attempts: Red={red_balls}, Blue={blue_balls}")
+            return {'red_balls': red_balls, 'blue_balls': blue_balls, 'stats': stats, 'attempts_made': attempts_made, 'filtered_count': filtered_count}
+
+        except ValueError as e:
+            current_app.logger.error(f"Error generating random balls for {lottery_type}: {e}")
+            return None
+
+    current_app.logger.warning(f"Max attempts ({max_attempts}) reached for random ball generation with filters. No suitable combination found.")
+    return None # 达到最大尝试次数仍未找到符合条件的组合
+
+def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_ratio=None):
     """
-    根据预测规则生成一组号码。
+    根据预测规则生成一组号码，并根据奇偶比和大小比进行筛选。
     这部分将是核心逻辑，需要根据 config.py 中的规则进行复杂的加权和筛选。
     """
-    current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type}.")
+    current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type}, odd/even={red_odd_even_ratio}, size={red_size_ratio}.")
     
-
     red_range = PRIZE_RULES[lottery_type]['red_range']
     blue_range = PRIZE_RULES[lottery_type]['blue_range']
 
-    predicted_red_balls = []
-    predicted_blue_balls = []
+    num_red = 6 if lottery_type == 'ssq' else 5
+    num_blue = 1 if lottery_type == 'ssq' else 2
 
-    if lottery_type == 'ssq':
-        # 获取所有历史开奖数据
-        all_ssq_draws = SSQDraw.query.order_by(SSQDraw.issue.desc()).all()
-        if not all_ssq_draws:
-            current_app.logger.warning("No historical SSQ data available for prediction.")
-            return generate_random_balls('ssq', 6, 1) # 如果没有历史数据，则返回随机号码
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    
+    if not all_draws:
+        current_app.logger.warning(f"No historical {lottery_type.upper()} data available for prediction. Returning random balls.")
+        # 如果没有历史数据，则返回随机号码，并传递筛选条件
+        random_result = generate_random_balls(lottery_type, num_red, num_blue, red_odd_even_ratio, red_size_ratio)
+        if random_result:
+            return {**random_result, 'attempts_made': 0, 'filtered_count': 0}
+        return None
 
-        latest_ssq_draw = all_ssq_draws[0]
+    latest_draw = all_draws[0]
+    dummy_draw_issue = int(latest_draw.issue) + 1
+    dummy_draw_date = date.today()
+
+    max_attempts = 1000 # 增加尝试次数以找到符合条件的号码
+    attempts_made = 0
+    filtered_count = 0
+
+    while attempts_made < max_attempts:
+        attempts_made += 1
         
         # --- 蓝球预测逻辑 ---
-        blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)} # 初始均匀概率
+        blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
 
-        # 规则 4.1.1 / 1.1 蓝球避免最近重复与连续开出概率调整
-        # 排除最新 N 期开出的蓝球
-        num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
-        excluded_blue_balls = set()
-        for i in range(min(num_omit_latest_blue, len(all_ssq_draws))):
-            excluded_blue_balls.update(all_ssq_draws[i].get_blue_balls_list())
-        
-        for ball in excluded_blue_balls:
-            if ball in blue_probabilities:
-                blue_probabilities[ball] = 0.0 # 将排除的蓝球概率设为0
+        if lottery_type == 'ssq':
+            num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
+            excluded_blue_balls = set()
+            for i in range(min(num_omit_latest_blue, len(all_draws))):
+                excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
+            for ball in excluded_blue_balls:
+                if ball in blue_probabilities:
+                    blue_probabilities[ball] = 0.0
 
-        # 蓝球连续开出概率调整
-        ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
-        ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
+            ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
+            ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
+            for ball in range(1, blue_range + 1):
+                if blue_probabilities[ball] > 0:
+                    consecutive_count = 0
+                    for draw in all_draws:
+                        if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
+                            consecutive_count += 1
+                        else:
+                            break
+                    if consecutive_count >= 5:
+                        blue_probabilities[ball] = ssq_blue_consecutive_5_prob
+                    elif consecutive_count >= 3:
+                        blue_probabilities[ball] = ssq_blue_consecutive_3_prob
+        elif lottery_type == 'dlt':
+            dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
+            if latest_draw:
+                latest_blue_balls = set(latest_draw.get_blue_balls_list())
+                for ball in latest_blue_balls:
+                    if ball in blue_probabilities:
+                        blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_repeat_prob)
 
-        for ball in range(1, blue_range + 1):
-            if blue_probabilities[ball] > 0: # 只考虑未被排除的蓝球
+            dlt_blue_consecutive_5_prob = CURRENT_SETTINGS.get('dlt_blue_consecutive_5_prob', 0.25)
+            for ball in range(1, blue_range + 1):
                 consecutive_count = 0
-                for draw in all_ssq_draws:
-                    if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
+                for draw in all_draws:
+                    if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
                         consecutive_count += 1
                     else:
-                        break # 不连续则中断
-                
+                        break
                 if consecutive_count >= 5:
-                    blue_probabilities[ball] = ssq_blue_consecutive_5_prob
-                elif consecutive_count >= 3:
-                    blue_probabilities[ball] = ssq_blue_consecutive_3_prob
+                    blue_probabilities[ball] = dlt_blue_consecutive_5_prob
         
-        # 归一化蓝球概率
-        total_blue_prob = sum(blue_probabilities.values())
-        if total_blue_prob == 0: # 如果所有蓝球都被排除或概率为0，则恢复均匀分布
-            current_app.logger.warning("All blue balls have 0 probability. Resetting to uniform distribution.")
-            blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
-            total_blue_prob = sum(blue_probabilities.values())
-        
-        normalized_blue_probabilities = {ball: prob / total_blue_prob for ball, prob in blue_probabilities.items()}
-        
-        # 采样蓝球
-        predicted_blue_balls = sorted(random.choices(list(normalized_blue_probabilities.keys()), 
-                                                     weights=list(normalized_blue_probabilities.values()), 
-                                                     k=1))
-
-        # --- 红球预测逻辑 ---
-        red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)} # 初始均匀概率
-
-        # 规则 4.1.2 / 1.2 红球遗漏优先权重
-        red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_ssq_draws, red_range, 'red')
-        sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
-        
-        omit_weights = {
-            1: CURRENT_SETTINGS.get('ssq_red_omit_1_weight', 0.01),
-            2: CURRENT_SETTINGS.get('ssq_red_omit_2_weight', 0.015),
-            3: CURRENT_SETTINGS.get('ssq_red_omit_3_weight', 0.02),
-            4: CURRENT_SETTINGS.get('ssq_red_omit_4_weight', 0.03),
-            5: CURRENT_SETTINGS.get('ssq_red_omit_5_weight', 0.03),
-            6: CURRENT_SETTINGS.get('ssq_red_omit_6_weight', 0.03),
-        }
-        
-        total_assigned_weight = 0
-        for i, ball_data in enumerate(sorted_red_omissions[:6]): # 前6个遗漏最多的红球
-            rank = i + 1
-            weight = omit_weights.get(rank, 0)
-            red_probabilities[ball_data['ball']] += weight # 增加权重
-            total_assigned_weight += weight
-        
-        # 剩余权重平分给其他号码 (这里简化处理，直接在现有概率上增加，后续归一化会处理)
-        # 规则描述是“其他所有号码数字占比加起来平分剩下的百分比”，这里需要更精细的实现
-        # 暂时先不实现剩余平分，因为会与后续规则冲突，先让所有规则独立调整，最后归一化
-
-        # 规则 4.1.3 / 1.3 红球重复高概率
-        ssq_red_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_prob', 0.35)
-        ssq_red_consecutive_3_second_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_second_prob', 0.0)
-
-        latest_3_draws = all_ssq_draws[:3]
-        if len(latest_3_draws) >= 3:
-            red_ball_counts = Counter()
-            for draw in latest_3_draws:
-                red_ball_counts.update(draw.get_red_balls_list())
-            
-            consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
-            
-            if consecutive_repeat_balls:
-                # 规则冲突优先级：先的优先考虑
-                # 如果一个球同时是遗漏最多的和连续重复的，这里会叠加概率
-                if len(consecutive_repeat_balls) >= 1:
-                    red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
-                if len(consecutive_repeat_balls) >= 2:
-                    red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
-
-        # 规则 4.1.10 / 1.10 红球高遗漏降概率
-        ssq_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_1', 0.015)
-        ssq_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_2', 0.0)
-        ssq_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_3', 0.0)
-        
-        ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
-        ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
-        ssq_red_omit_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_3', 14)
-
-        for ball_data in red_omission_stats:
-            ball = ball_data['ball']
-            omission = ball_data['current_omission']
-            if omission >= ssq_red_omit_threshold_3:
-                red_probabilities[ball] = ssq_red_omit_prob_threshold_3
-            elif omission >= ssq_red_omit_threshold_2:
-                red_probabilities[ball] = ssq_red_omit_prob_threshold_2
-            elif omission >= ssq_red_omit_threshold_1:
-                red_probabilities[ball] = ssq_red_omit_prob_threshold_1
-        
-        # 归一化红球概率
-        total_red_prob = sum(red_probabilities.values())
-        if total_red_prob == 0: # 如果所有红球都被排除或概率为0，则恢复均匀分布
-            current_app.logger.warning("All red balls have 0 probability. Resetting to uniform distribution.")
-            red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
-            total_red_prob = sum(red_probabilities.values())
-
-        normalized_red_probabilities = {ball: prob / total_red_prob for ball, prob in red_probabilities.items()}
-
-        # 加权随机采样红球，并检查结构性约束
-        max_attempts = 200 # 增加尝试次数，避免因约束严格而无法找到组合
-        for attempt in range(max_attempts):
-            try:
-                predicted_red_balls = weighted_random_sample_without_replacement(
-                    list(normalized_red_probabilities.keys()), 
-                    list(normalized_red_probabilities.values()), 
-                    k=6
-                )
-            except ValueError as e:
-                current_app.logger.error(f"Error during weighted_random_sample_without_replacement for SSQ red balls: {e}")
-                # 如果采样失败，可能是因为 k > len(population)，这不应该发生，但作为回退
-                predicted_red_balls = sorted(random.sample(range(1, red_range + 1), 6))
-            
-            # 检查规则 4.1.4 红球区域分布
-            rule_4_1_4_passed = _check_ssq_rule_4_1_4_red_area_distribution(predicted_red_balls)['passed']
-            
-            # 检查规则 4.1.5 红球限重复数量
-            # 需要模拟一个 Draw 对象来调用 _check_ssq_rule_4_1_5_red_repeat_previous_2
-            dummy_draw_issue = int(latest_ssq_draw.issue) + 1 if latest_ssq_draw else 2023001
-            dummy_draw_date = date.today()
-            dummy_draw = SSQDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
-                                 red_balls=','.join(map(str, predicted_red_balls)), 
-                                 blue_balls='1') # 蓝球随便给一个，不影响红球规则检查
-            rule_4_1_5_passed = _check_ssq_rule_4_1_5_red_repeat_previous_2(dummy_draw)['passed']
-
-            # 检查规则 4.1.6 红球禁连续数字
-            rule_4_1_6_passed = _check_ssq_rule_4_1_6_red_consecutive_4_plus(predicted_red_balls)['passed']
-
-            if rule_4_1_4_passed and rule_4_1_5_passed and rule_4_1_6_passed:
-                break
-            elif attempt == max_attempts - 1:
-                current_app.logger.warning("Max attempts reached for SSQ red ball generation, some structural rules might not be met. Returning None.")
-                # 返回 None, None, attempts + 1, attempts 表示生成失败
-                return None, None, attempts + 1, attempts 
-        
-        predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
-
-        # 计算统计数据
-        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
-        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
-
-        stats = {
-            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
-            'red_sum': calculate_sum_per_draw(predicted_red_balls),
-            'red_span': calculate_span_per_draw(predicted_red_balls),
-            'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
-            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
-            'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
-            'blue_span': calculate_span_per_draw(predicted_blue_balls),
-            'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
-        }
-        
-        current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}, Stats={stats}")
-        return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats, 'attempts_made': attempt + 1, 'filtered_count': attempt}
-
-    elif lottery_type == 'dlt':
-        # 获取所有历史开奖数据
-        all_dlt_draws = DLTDraw.query.order_by(DLTDraw.issue.desc()).all()
-        if not all_dlt_draws:
-            current_app.logger.warning("No historical DLT data available for prediction.")
-            # generate_random_balls now returns a dict, so handle it
-            random_result = generate_random_balls('dlt', 5, 2)
-            if random_result:
-                return {**random_result, 'attempts_made': 0, 'filtered_count': 0} # Add dummy attempt/filtered counts
-            return None, None, 0, 0 # Fallback if random generation also fails
-
-        latest_dlt_draw = all_dlt_draws[0]
-
-        # --- 蓝球预测逻辑 ---
-        blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)} # 初始均匀概率
-
-        # 规则 4.2.1 / 2.1 蓝球限重复概率与连续开出概率调整
-        # 如果与最新一期的蓝球重复，则重复的每个号码数字在候选池中的出现概率不超过 dlt_blue_repeat_prob
-        dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
-        if latest_dlt_draw:
-            latest_blue_balls = set(latest_dlt_draw.get_blue_balls_list())
-            for ball in latest_blue_balls:
-                if ball in blue_probabilities:
-                    blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_repeat_prob) # 限制概率
-
-        # 如果任何一个蓝球号码连续5期开出，则此号码候选池内的出现的概率为25%。
-        dlt_blue_consecutive_5_prob = CURRENT_SETTINGS.get('dlt_blue_consecutive_5_prob', 0.25)
-        for ball in range(1, blue_range + 1):
-            consecutive_count = 0
-            for draw in all_dlt_draws:
-                if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
-                    consecutive_count += 1
-                else:
-                    break # 不连续则中断
-            
-            if consecutive_count >= 5:
-                blue_probabilities[ball] = dlt_blue_consecutive_5_prob
-        
-        # 归一化蓝球概率
         total_blue_prob = sum(blue_probabilities.values())
         if total_blue_prob == 0:
-            current_app.logger.warning("All DLT blue balls have 0 probability. Resetting to uniform distribution.")
+            current_app.logger.warning(f"All {lottery_type.upper()} blue balls have 0 probability. Resetting to uniform distribution.")
             blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
             total_blue_prob = sum(blue_probabilities.values())
-        
         normalized_blue_probabilities = {ball: prob / total_blue_prob for ball, prob in blue_probabilities.items()}
         
-        # 采样蓝球
         predicted_blue_balls = sorted(random.choices(list(normalized_blue_probabilities.keys()), 
                                                      weights=list(normalized_blue_probabilities.values()), 
-                                                     k=2)) # 大乐透选2个蓝球
+                                                     k=num_blue))
 
         # --- 红球预测逻辑 ---
-        red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)} # 初始均匀概率
+        red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
 
-        # 规则 4.2.2 / 2.2 红球遗漏优先权重
-        red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_dlt_draws, red_range, 'red')
+        red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
         sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+
+        if lottery_type == 'ssq':
+            omit_weights = {
+                1: CURRENT_SETTINGS.get('ssq_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('ssq_red_omit_2_weight', 0.015),
+                3: CURRENT_SETTINGS.get('ssq_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('ssq_red_omit_4_weight', 0.03),
+                5: CURRENT_SETTINGS.get('ssq_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('ssq_red_omit_6_weight', 0.03),
+            }
+            for i, ball_data in enumerate(sorted_red_omissions[:6]):
+                rank = i + 1
+                weight = omit_weights.get(rank, 0)
+                red_probabilities[ball_data['ball']] += weight
+
+            ssq_red_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_prob', 0.35)
+            ssq_red_consecutive_3_second_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_second_prob', 0.0)
+            latest_3_draws = all_draws[:3]
+            if len(latest_3_draws) >= 3:
+                red_ball_counts = Counter()
+                for draw in latest_3_draws:
+                    red_ball_counts.update(draw.get_red_balls_list())
+                consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+                if consecutive_repeat_balls:
+                    if len(consecutive_repeat_balls) >= 1:
+                        red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
+                    if len(consecutive_repeat_balls) >= 2:
+                        red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
+
+            ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
+            ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
+            ssq_red_omit_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_3', 14)
+            ssq_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_1', 0.015)
+            ssq_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_2', 0.0)
+            ssq_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_3', 0.0)
+
+            for ball_data in red_omission_stats:
+                ball = ball_data['ball']
+                omission = ball_data['current_omission']
+                if omission >= ssq_red_omit_threshold_3:
+                    red_probabilities[ball] = ssq_red_omit_prob_threshold_3
+                elif omission >= ssq_red_omit_threshold_2:
+                    red_probabilities[ball] = ssq_red_omit_prob_threshold_2
+                elif omission >= ssq_red_omit_threshold_1:
+                    red_probabilities[ball] = ssq_red_omit_prob_threshold_1
+
+        elif lottery_type == 'dlt':
+            omit_weights = {
+                1: CURRENT_SETTINGS.get('dlt_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('dlt_red_omit_2_weight', 0.015),
+                3: CURRENT_SETTINGS.get('dlt_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('dlt_red_omit_4_weight', 0.03),
+                5: CURRENT_SETTINGS.get('dlt_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('dlt_red_omit_6_weight', 0.03),
+            }
+            for i, ball_data in enumerate(sorted_red_omissions[:6]):
+                rank = i + 1
+                weight = omit_weights.get(rank, 0)
+                red_probabilities[ball_data['ball']] += weight
+
+            dlt_red_consecutive_3_prob = CURRENT_SETTINGS.get('dlt_red_consecutive_3_prob', 0.35)
+            latest_3_draws = all_draws[:3]
+            if len(latest_3_draws) >= 3:
+                red_ball_counts = Counter()
+                for draw in latest_3_draws:
+                    red_ball_counts.update(draw.get_red_balls_list())
+                consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+                if consecutive_repeat_balls:
+                    if len(consecutive_repeat_balls) >= 1:
+                        red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
+
+            dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
+            dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
+            dlt_red_omit_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_3', 14)
+            dlt_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_1', 0.015)
+            dlt_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_2', 0.0)
+            dlt_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_3', 0.0)
+
+            for ball_data in red_omission_stats:
+                ball = ball_data['ball']
+                omission = ball_data['current_omission']
+                if omission >= dlt_red_omit_threshold_3:
+                    red_probabilities[ball] = dlt_red_omit_prob_threshold_3
+                elif omission >= dlt_red_omit_threshold_2:
+                    red_probabilities[ball] = dlt_red_omit_prob_threshold_2
+                elif omission >= dlt_red_omit_threshold_1:
+                    red_probabilities[ball] = dlt_red_omit_prob_threshold_1
         
-        omit_weights = {
-            1: CURRENT_SETTINGS.get('dlt_red_omit_1_weight', 0.01),
-            2: CURRENT_SETTINGS.get('dlt_red_omit_2_weight', 0.015),
-            3: CURRENT_SETTINGS.get('dlt_red_omit_3_weight', 0.02),
-            4: CURRENT_SETTINGS.get('dlt_red_omit_4_weight', 0.03),
-            5: CURRENT_SETTINGS.get('dlt_red_omit_5_weight', 0.03),
-            6: CURRENT_SETTINGS.get('dlt_red_omit_6_weight', 0.03), # 大乐透规则描述是前5个，但config有6个，这里取前6个
-        }
-        
-        for i, ball_data in enumerate(sorted_red_omissions[:6]): # 前6个遗漏最多的红球
-            rank = i + 1
-            weight = omit_weights.get(rank, 0)
-            red_probabilities[ball_data['ball']] += weight # 增加权重
-
-        # 规则 4.2.3 / 2.3 红球重复高概率
-        dlt_red_consecutive_3_prob = CURRENT_SETTINGS.get('dlt_red_consecutive_3_prob', 0.35)
-
-        latest_3_draws = all_dlt_draws[:3]
-        if len(latest_3_draws) >= 3:
-            red_ball_counts = Counter()
-            for draw in latest_3_draws:
-                red_ball_counts.update(draw.get_red_balls_list())
-            
-            consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
-            
-            if consecutive_repeat_balls:
-                # 规则冲突优先级：先的优先考虑
-                if len(consecutive_repeat_balls) >= 1:
-                    red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
-
-        # 规则 4.2.10 / 2.10 红球高遗漏降概率
-        dlt_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_1', 0.015)
-        dlt_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_2', 0.0)
-        dlt_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_3', 0.0)
-
-        dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
-        dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
-        dlt_red_omit_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_3', 14)
-
-        for ball_data in red_omission_stats:
-            ball = ball_data['ball']
-            omission = ball_data['current_omission']
-            if omission >= dlt_red_omit_threshold_3:
-                red_probabilities[ball] = dlt_red_omit_prob_threshold_3
-            elif omission >= dlt_red_omit_threshold_2:
-                red_probabilities[ball] = dlt_red_omit_prob_threshold_2
-            elif omission >= dlt_red_omit_threshold_1:
-                red_probabilities[ball] = dlt_red_omit_prob_threshold_1
-        
-        # 归一化红球概率
         total_red_prob = sum(red_probabilities.values())
         if total_red_prob == 0:
-            current_app.logger.warning("All DLT red balls have 0 probability. Resetting to uniform distribution.")
+            current_app.logger.warning(f"All {lottery_type.upper()} red balls have 0 probability. Resetting to uniform distribution.")
             red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
             total_red_prob = sum(red_probabilities.values())
-
         normalized_red_probabilities = {ball: prob / total_red_prob for ball, prob in red_probabilities.items()}
 
-        # 加权随机采样红球，并检查结构性约束
-        max_attempts = 200 # 增加尝试次数
-        for attempt in range(max_attempts):
-            try:
-                predicted_red_balls = weighted_random_sample_without_replacement(
-                    list(normalized_red_probabilities.keys()), 
-                    list(normalized_red_probabilities.values()), 
-                    k=5
-                ) # 大乐透选5个红球
-            except ValueError as e:
-                current_app.logger.error(f"Error during weighted_random_sample_without_replacement for DLT red balls: {e}")
-                predicted_red_balls = sorted(random.sample(range(1, red_range + 1), 5))
-            
-            # 检查规则 4.2.4 红球区域分布
-            rule_4_2_4_passed = _check_dlt_rule_4_2_4_red_area_distribution(predicted_red_balls)['passed']
-            
-            # 检查规则 4.2.5 红球限重复数量
-            dummy_draw_issue = int(latest_dlt_draw.issue) + 1 if latest_dlt_draw else 2023001
-            dummy_draw_date = date.today()
-            dummy_draw = DLTDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
+        # 加权随机采样红球，并检查结构性约束和用户筛选条件
+        try:
+            predicted_red_balls = weighted_random_sample_without_replacement(
+                list(normalized_red_probabilities.keys()), 
+                list(normalized_red_probabilities.values()), 
+                k=num_red
+            )
+        except ValueError as e:
+            current_app.logger.error(f"Error during weighted_random_sample_without_replacement for {lottery_type.upper()} red balls: {e}")
+            predicted_red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
+        
+        # 检查规则 4.1.4/4.2.4 红球区域分布
+        area_check_func = _check_ssq_rule_4_1_4_red_area_distribution if lottery_type == 'ssq' else _check_dlt_rule_4_2_4_red_area_distribution
+        rule_area_passed = area_check_func(predicted_red_balls)['passed']
+        
+        # 检查规则 4.1.5/4.2.5 红球限重复数量
+        repeat_check_func = _check_ssq_rule_4_1_5_red_repeat_previous_2 if lottery_type == 'ssq' else _check_dlt_rule_4_2_5_red_repeat_previous_2
+        dummy_draw = model_class(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
                                  red_balls=','.join(map(str, predicted_red_balls)), 
-                                 blue_balls='1,2') # 蓝球随便给两个，不影响红球规则检查
-            rule_4_2_5_passed = _check_dlt_rule_4_2_5_red_repeat_previous_2(dummy_draw)['passed']
+                                 blue_balls=','.join(map(str, predicted_blue_balls)))
+        rule_repeat_passed = repeat_check_func(dummy_draw)['passed']
 
-            # 检查规则 4.2.6 红球禁连续数字
-            rule_4_2_6_passed = _check_dlt_rule_4_2_6_red_consecutive_4_plus(predicted_red_balls)['passed']
+        # 检查规则 4.1.6/4.2.6 红球禁连续数字
+        consecutive_check_func = _check_ssq_rule_4_1_6_red_consecutive_4_plus if lottery_type == 'ssq' else _check_dlt_rule_4_2_6_red_consecutive_4_plus
+        rule_consecutive_passed = consecutive_check_func(predicted_red_balls)['passed']
 
-            if rule_4_2_4_passed and rule_4_2_5_passed and rule_4_2_6_passed:
-                break
-            elif attempt == max_attempts - 1:
-                current_app.logger.warning("Max attempts reached for DLT red ball generation, some structural rules might not be met.")
-        
-        predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
+        # 计算当前红球的奇偶比和大小比
+        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+        current_red_odd_even_ratio = calculate_odd_even_ratio_per_draw(predicted_red_balls)
+        current_red_size_ratio = calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint)
 
-        # 计算统计数据
-        red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
-        blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+        # 应用用户筛选条件
+        user_filters_passed = True
+        if red_odd_even_ratio and red_odd_even_ratio != "" and current_red_odd_even_ratio != red_odd_even_ratio:
+            user_filters_passed = False
+        if red_size_ratio and red_size_ratio != "" and current_red_size_ratio != red_size_ratio:
+            user_filters_passed = False
 
-        stats = {
-            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
-            'red_sum': calculate_sum_per_draw(predicted_red_balls),
-            'red_span': calculate_span_per_draw(predicted_red_balls),
-            'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
-            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
-            'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
-            'blue_span': calculate_span_per_draw(predicted_blue_balls),
-            'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
-        }
-        
-        current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}, Stats={stats}")
-        return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats, 'attempts_made': attempt + 1, 'filtered_count': attempt}
+        if rule_area_passed and rule_repeat_passed and rule_consecutive_passed and user_filters_passed:
+            predicted_red_balls = sorted(predicted_red_balls)
+            predicted_blue_balls = sorted(predicted_blue_balls)
 
-    else:
-        current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_predicted_balls.")
-        return None # 返回 None 表示生成失败
+            # 计算统计数据
+            blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+            stats = {
+                'red_odd_even_ratio': current_red_odd_even_ratio,
+                'red_sum': calculate_sum_per_draw(predicted_red_balls),
+                'red_span': calculate_span_per_draw(predicted_red_balls),
+                'red_size_ratio': current_red_size_ratio,
+                'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
+                'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
+                'blue_span': calculate_span_per_draw(predicted_blue_balls),
+                'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
+            }
+            current_app.logger.info(f"Successfully generated predicted balls after {attempts_made} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}, Stats={stats}")
+            return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats, 'attempts_made': attempts_made, 'filtered_count': filtered_count}
+        else:
+            filtered_count += 1 # 记录被规则或用户筛选掉的组合
+
+    current_app.logger.warning(f"Max attempts ({max_attempts}) reached for predicted ball generation with filters. No suitable combination found.")
+    return None # 达到最大尝试次数仍未找到符合条件的组合
 
 def get_omitted_balls_for_prediction(lottery_type):
     """
