@@ -7,7 +7,7 @@
         {% if ball in consecutive_map %}
             {% set consecutive_class = 'ball-consecutive-' ~ consecutive_map[ball] %}
         {% endif %}
-        <span class="lottery-ball ball-{{ ball_type }} {{ consecutive_class }}">
+        <span class="lottery-ball ball-{{ ball_type }} {{ consecutive_class }}" data-number="{{ ball }}" data-type="{{ ball_type }}">
             {{ '%02d' | format(ball) }}
         </span>
     {% endfor %}

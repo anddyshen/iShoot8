@@ -1,86 +1,41 @@
-/* static/css/style.css */
-/* 版本: 1.0.0 */
-
-body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-.footer {
-    margin-top: auto;
-}
-
-/* 彩票号码球样式 */
+/* Base styles for lottery balls */
 .lottery-ball {
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    width: 30px; /* 默认大小 */
-    height: 30px;
+    width: 30px; /* Adjust size as needed */
+    height: 30px; /* Adjust size as needed */
     border-radius: 50%;
-    font-size: 0.85em; /* 比普通字体小 */
     font-weight: bold;
-    color: white;
+    color: #fff; /* Default text color */
     margin: 2px;
-    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
-    flex-shrink: 0; /* 防止在小屏幕上缩小 */
+    box-sizing: border-box;
+    border: 1px solid transparent; /* Default border */
+    transition: all 0.2s ease-in-out;
 }
 
 .ball-red {
-    background-color: #dc3545; /* Bootstrap danger red */
+    background-color: #dc3545; /* Bootstrap red */
 }
 
 .ball-blue {
-    background-color: #0d6efd; /* Bootstrap primary blue */
+    background-color: #0d6efd; /* Bootstrap blue */
 }
 
-/* 连续号码的特殊颜色 */
-.ball-consecutive-0 {
-    background-color: #ffc107; /* Yellow */
-    color: #343a40; /* Dark text */
-    border: 1px solid #e0a800;
-}
-
+/* Styles for consecutive balls (example, adjust as per actual implementation) */
 .ball-consecutive-1 {
-    background-color: #28a745; /* Green */
-    color: white;
-    border: 1px solid #218838;
+    background-color: #fd7e14; /* Orange */
 }
-
 .ball-consecutive-2 {
-    background-color: #add8e6; /* Light Blue */
-    color: #343a40; /* Dark text */
-    border: 1px solid #87ceeb;
+    background-color: #6f42c1; /* Purple */
 }
+/* Add more .ball-consecutive-X classes if needed */
 
-/* 预测号码和随机号码的背景色 */
-.prediction-result-card.rule-based {
-    background-color: #e6ffe6; /* 淡绿色 */
-}
-
-.prediction-result-card.random-generated {
-    background-color: #fffacd; /* 淡黄色 */
-}
-
-/* 适配手机浏览器页面 */
-@media (max-width: 768px) {
-    .lottery-ball {
-        width: 25px;
-        height: 25px;
-        font-size: 0.75em;
-    }
-    .navbar-brand {
-        font-size: 1.2em;
-    }
-    .navbar-text {
-        font-size: 0.75em;
-    }
-}
-
-/* 首页新闻图片 */
-.news-card-img {
-    width: 100%;
-    height: 180px; /* 固定高度 */
-    object-fit: cover; /* 裁剪图片以适应 */
+/* Highlight class for lottery balls */
+.lottery-ball.highlighted {
+    background-color: #ffc107; /* Bootstrap yellow */
+    color: #212529; /* Dark text for contrast during highlight */
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.8);
+    transform: scale(1.1);
+    /* transition: all 0.2s ease-in-out; */ /* Transition is already on base .lottery-ball */
 }
