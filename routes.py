@@ -10,7 +10,8 @@ from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRI
 from utils import (
     format_lottery_numbers, calculate_odd_even_sum, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
-    calculate_combination_cost, calculate_prize_details, simulate_fun_game, calculate_total_lottery_combinations
+    calculate_combination_cost, calculate_prize_details, simulate_fun_game, calculate_total_lottery_combinations,
+    get_consecutive_groups # Import the new function
 )
 from prediction_engine import (
     check_lottery_rules, generate_random_balls, get_omitted_balls_for_prediction, 
@@ -24,10 +25,27 @@ def index():
     latest_ssq = get_latest_draws(SSQDraw, 1)
     latest_dlt = get_latest_draws(DLTDraw, 1)
     homepage_news = News.query.filter_by(is_homepage_display=True, is_public=True).order_by(News.created_at.desc()).limit(3).all()
+
+    ssq_red_consecutive_map = {}
+    ssq_blue_consecutive_map = {}
+    dlt_red_consecutive_map = {}
+    dlt_blue_consecutive_map = {}
+
+    if latest_ssq:
+        _, ssq_red_consecutive_map = get_consecutive_groups(latest_ssq[0].get_red_balls_list())
+        _, ssq_blue_consecutive_map = get_consecutive_groups(latest_ssq[0].get_blue_balls_list())
+    if latest_dlt:
+        _, dlt_red_consecutive_map = get_consecutive_groups(latest_dlt[0].get_red_balls_list())
+        _, dlt_blue_consecutive_map = get_consecutive_groups(latest_dlt[0].get_blue_balls_list())
+
     return render_template('index.html',
                            latest_ssq=latest_ssq[0] if latest_ssq else None,
                            latest_dlt=latest_dlt[0] if latest_dlt else None,
-                           homepage_news=homepage_news)
+                           homepage_news=homepage_news,
+                           ssq_red_consecutive_map=ssq_red_consecutive_map,
+                           ssq_blue_consecutive_map=ssq_blue_consecutive_map,
+                           dlt_red_consecutive_map=dlt_red_consecutive_map,
+                           dlt_blue_consecutive_map=dlt_blue_consecutive_map)
 
 @bp.route('/history')
 def history():
@@ -73,7 +91,8 @@ def history():
                            lottery_type=lottery_type,
                            per_page=per_page,
                            start_date=start_date_str,
-                           end_date=end_date_str
+                           end_date=end_date_str,
+                           get_consecutive_groups=get_consecutive_groups # Pass the function to the template
                            )
 
 @bp.route('/statistics')
@@ -155,7 +174,7 @@ def prediction():
     return render_template('prediction.html',
                            latest_ssq_draws=latest_ssq_draws,
                            latest_dlt_draws=latest_dlt_draws,
-                           # settings is already injected via context processor
+                           get_consecutive_groups=get_consecutive_groups # Pass the function to the template
                            )
 
 @bp.route('/api/prediction/omitted_balls', methods=['GET'])

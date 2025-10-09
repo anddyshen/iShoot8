@@ -65,10 +65,12 @@
                 <td>{{ draw.issue }}</td>
                 <td>{{ draw.draw_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    {{ display_balls(draw.get_red_balls_list(), 'red') }}
+                    {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
+                    {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
                 </td>
                 <td>
-                    {{ display_balls(draw.get_blue_balls_list(), 'blue') }}
+                    {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
+                    {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
                 </td>
                 <td>{{ "{:,.0f}".format(draw.sales_amount) }}</td>
                 <td>{{ "{:,.0f}".format(draw.prize_pool) }}</td>

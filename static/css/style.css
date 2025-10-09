@@ -36,10 +36,22 @@ body {
 }
 
 /* 连续号码的特殊颜色 */
-.ball-consecutive {
-    background-color: #ffc107; /* Bootstrap warning yellow */
-    color: #343a40; /* 深色字体 */
+.ball-consecutive-0 {
+    background-color: #ffc107; /* Yellow */
+    color: #343a40; /* Dark text */
     border: 1px solid #e0a800;
+}
+
+.ball-consecutive-1 {
+    background-color: #28a745; /* Green */
+    color: white;
+    border: 1px solid #218838;
+}
+
+.ball-consecutive-2 {
+    background-color: #add8e6; /* Light Blue */
+    color: #343a40; /* Dark text */
+    border: 1px solid #87ceeb;
 }
 
 /* 预测号码和随机号码的背景色 */

@@ -35,14 +35,15 @@ def get_consecutive_groups(numbers):
             groups.append(current_group)
             current_group = [sorted_numbers[i]]
     groups.append(current_group)
-    return groups
+    
+    # 创建一个字典，将每个连续的球映射到其组索引
+    consecutive_map = {}
+    for idx, group in enumerate(groups):
+        if len(group) > 1: # 只对长度大于1的连续组进行标记
+            for ball in group:
+                consecutive_map[ball] = idx % 3 # 使用模3来循环分配三种颜色
 
-def is_consecutive_ball(ball, all_balls_list):
-    """检查一个球是否是连续号码组的一部分"""
-    if not all_balls_list:
-        return False
-    # 检查前一个或后一个是否存在且连续
-    return (ball - 1 in all_balls_list) or (ball + 1 in all_balls_list)
+    return groups, consecutive_map
 
 def calculate_omissions(all_draws, ball_range, ball_type='red'):
     """

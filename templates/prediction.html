@@ -108,8 +108,10 @@
                 {% for draw in latest_ssq_draws %}
                 <p class="mb-1">
                     <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
-                    红球: {{ display_balls(draw.get_red_balls_list(), 'red') }}
-                    蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue') }}
+                    {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
+                    红球: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
+                    {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
+                    蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
                 </p>
                 {% endfor %}
             {% else %}
@@ -240,8 +242,10 @@
                 {% for draw in latest_dlt_draws %}
                 <p class="mb-1">
                     <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
-                    红球: {{ display_balls(draw.get_red_balls_list(), 'red') }}
-                    蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue') }}
+                    {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
+                    红球: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
+                    {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
+                    蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
                 </p>
                 {% endfor %}
             {% else %}
@@ -387,12 +391,46 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    // Helper function to get consecutive groups in JavaScript
+    function getConsecutiveGroupsJS(numbers) {
+        if (!numbers || numbers.length === 0) {
+            return {};
+        }
+        const sortedNumbers = [...new Set(numbers)].sort((a, b) => a - b);
+        const groups = [];
+        let currentGroup = [sortedNumbers[0]];
+
+        for (let i = 1; i < sortedNumbers.length; i++) {
+            if (sortedNumbers[i] === sortedNumbers[i - 1] + 1) {
+                currentGroup.push(sortedNumbers[i]);
+            } else {
+                groups.push(currentGroup);
+                currentGroup = [sortedNumbers[i]];
+            }
+        }
+        groups.push(currentGroup);
+
+        const consecutiveMap = {};
+        groups.forEach((group, idx) => {
+            if (group.length > 1) {
+                group.forEach(ball => {
+                    consecutiveMap[ball] = idx % 3; // Cycle through 3 colors
+                });
+            }
+        });
+        return consecutiveMap;
+    }
+
     // Function to render lottery balls (replicated from Jinja macro for JS use)
-    function renderBalls(balls, ballType) {
+    function renderBalls(balls, ballType, consecutiveMap = {}) {
         let html = '';
         const sortedBalls = [...balls].sort((a, b) => a - b);
         for (const ball of sortedBalls) {
-            html += `<span class="lottery-ball ball-${ballType}">${String(ball).padStart(2, '0')}</span>`;
+            let consecutiveClass = '';
+            if (ball in consecutiveMap) {
+                consecutiveClass = `ball-consecutive-${consecutiveMap[ball]}`;
+            }
+            html += `<span class="lottery-ball ball-${ballType} ${consecutiveClass}">${String(ball).padStart(2, '0')}</span>`;
         }
         return html;
     }
@@ -403,9 +441,7 @@
     // New function to render balls with omission count
     function renderBallsWithOmission(ballsWithOmission, ballType) {
         let html = '';
-        // 移除前端的二次排序，因为后端已经按遗漏期数降序排列
-        // const sortedBalls = [...ballsWithOmission].sort((a, b) => a.ball - b.ball); 
-        for (const ballData of ballsWithOmission) { // 直接使用后端返回的已排序数据
+        for (const ballData of ballsWithOmission) {
             html += `
                 <div class="lottery-ball-with-omission">
                     <span class="lottery-ball ball-${ballType}">${String(ballData.ball).padStart(2, '0')}</span>
@@ -519,8 +555,8 @@
 
                     html += `<div class="prediction-result-card random-generated">
                                 <p class="card-title">随机号码 ${index + 1}:</p>
-                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
-                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
+                                <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
@@ -537,13 +573,16 @@
 
                 const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
                 if (card) {
+                    const redBallsList = redBallsStr.split(',').map(Number);
+                    const blueBallsList = blueBallsStr.split(',').map(Number);
+
                     card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}:`;
-                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}`;
-                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}`;
+                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
+                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
                     card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                     card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                     card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
-                    card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr;
+                    // card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr; // Removed as per user request
                     // Clear previous rule check results if any
                     card.querySelector('.rule-check-results').innerHTML = '';
                 }
@@ -610,8 +649,8 @@
 
                     html += `<div class="prediction-result-card rule-based">
                                 <p class="card-title">规则预测号码 ${index + 1}:</p>
-                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
-                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
+                                <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
@@ -628,13 +667,16 @@
 
                 const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
                 if (card) {
+                    const redBallsList = redBallsStr.split(',').map(Number);
+                    const blueBallsList = blueBallsStr.split(',').map(Number);
+
                     card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}:`;
-                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}`;
-                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}`;
+                    card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
+                    card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
                     card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                     card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                     card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
-                    card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr;
+                    // card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr; // Removed as per user request
                     // Clear previous rule check results if any
                     card.querySelector('.rule-check-results').innerHTML = '';
                 }
@@ -828,8 +870,8 @@
 
                     html += `<div class="prediction-result-card complex-generated">
                                 <p class="card-title">复式号码 ${index + 1}: (${combinationText}, ${priceText})</p>
-                                <p>红球: ${renderBalls(redBallsStr.split(',').map(Number), 'red')}</p>
-                                <p>蓝球: ${renderBalls(blueBallsStr.split(',').map(Number), 'blue')}</p>
+                                <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
+                                <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             </div>`;

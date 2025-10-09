@@ -1,16 +1,13 @@
 <!-- templates/components/lottery_balls.html -->
 <!-- 版本: 1.0.0 -->
-{% macro display_balls(balls, ball_type) %}
+{% macro display_balls(balls, ball_type, consecutive_map={}) %}
     {% set sorted_balls = balls | map('int') | sort | list %}
-    {% for i in range(sorted_balls | length) %}
-        {% set ball = sorted_balls[i] %}
-        {% set is_consecutive = false %}
-        {% if i > 0 and sorted_balls[i-1] == ball - 1 %}
-            {% set is_consecutive = true %}
-        {% elif i < sorted_balls | length - 1 and sorted_balls[i+1] == ball + 1 %}
-            {% set is_consecutive = true %}
+    {% for ball in sorted_balls %}
+        {% set consecutive_class = '' %}
+        {% if ball in consecutive_map %}
+            {% set consecutive_class = 'ball-consecutive-' ~ consecutive_map[ball] %}
         {% endif %}
-        <span class="lottery-ball ball-{{ ball_type }} {% if is_consecutive %}ball-consecutive{% endif %}">
+        <span class="lottery-ball ball-{{ ball_type }} {{ consecutive_class }}">
             {{ '%02d' | format(ball) }}
         </span>
     {% endfor %}

@@ -185,7 +185,7 @@ def _check_ssq_rule_4_1_6_red_consecutive_4_plus(red_balls):
     """
     规则 4.1.6 红球不出现连续[4]个及以上数字的号码。
     """
-    consecutive_groups = get_consecutive_groups(red_balls)
+    consecutive_groups, _ = get_consecutive_groups(red_balls) # Unpack the tuple
     current_app.logger.debug(f"Rule 4.1.6: Checking red balls {red_balls} for consecutive groups. Groups: {consecutive_groups}")
     for group in consecutive_groups:
         if len(group) >= 4:
@@ -324,7 +324,7 @@ def _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls):
     """
     规则 4.2.6 大乐透前区不出现连续[4]个及以上数字的号码。
     """
-    consecutive_groups = get_consecutive_groups(front_balls)
+    consecutive_groups, _ = get_consecutive_groups(front_balls) # Unpack the tuple
     current_app.logger.debug(f"Rule 4.2.6: Checking DLT front balls {front_balls} for consecutive groups. Groups: {consecutive_groups}")
     for group in consecutive_groups:
         if len(group) >= 4:
