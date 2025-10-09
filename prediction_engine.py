@@ -5,10 +5,15 @@ from datetime import date
 from flask import current_app
 from models import SSQDraw, DLTDraw, db # 确保 db 已导入
 from config import CURRENT_SETTINGS, PRIZE_RULES
-from utils import format_lottery_numbers, calculate_omissions, get_consecutive_groups, calculate_odd_even_sum, calculate_frequency_and_omissions_for_balls
+from utils import (
+    format_lottery_numbers, calculate_omissions, get_consecutive_groups, 
+    calculate_frequency_and_omissions_for_balls,
+    calculate_odd_even_ratio_per_draw, calculate_sum_per_draw, 
+    calculate_span_per_draw, calculate_size_ratio_per_draw # 新增导入统计函数
+)
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.10" # 更新版本号
+__version__ = "1.0.11" # 更新版本号
 
 # --- 辅助函数：加权随机采样 (不重复) ---
 def weighted_random_sample_without_replacement(population, weights, k):
@@ -487,10 +492,26 @@ def generate_random_balls(lottery_type, num_red, num_blue):
         red_balls = sorted(random.sample(range(1, red_range + 1), num_red))
         blue_balls = sorted(random.sample(range(1, blue_range + 1), num_blue))
         current_app.logger.info(f"Successfully generated random balls: Red={red_balls}, Blue={blue_balls}")
-        return red_balls, blue_balls
+
+        # 计算统计数据
+        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9) if lottery_type == 'ssq' else CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+
+        stats = {
+            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(red_balls),
+            'red_sum': calculate_sum_per_draw(red_balls),
+            'red_span': calculate_span_per_draw(red_balls),
+            'red_size_ratio': calculate_size_ratio_per_draw(red_balls, red_size_midpoint),
+            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(blue_balls),
+            'blue_sum': calculate_sum_per_draw(blue_balls),
+            'blue_span': calculate_span_per_draw(blue_balls),
+            'blue_size_ratio': calculate_size_ratio_per_draw(blue_balls, blue_size_midpoint),
+        }
+
+        return {'red_balls': red_balls, 'blue_balls': blue_balls, 'stats': stats}
     except ValueError as e:
         current_app.logger.error(f"Error generating random balls for {lottery_type}: {e}")
-        return None, None # 返回 None, None 表示生成失败
+        return None # 返回 None 表示生成失败
 
 def generate_predicted_balls(lottery_type):
     """
@@ -674,12 +695,34 @@ def generate_predicted_balls(lottery_type):
         
         predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
 
+        # 计算统计数据
+        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
+        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
+
+        stats = {
+            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
+            'red_sum': calculate_sum_per_draw(predicted_red_balls),
+            'red_span': calculate_span_per_draw(predicted_red_balls),
+            'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
+            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
+            'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
+            'blue_span': calculate_span_per_draw(predicted_blue_balls),
+            'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
+        }
+        
+        current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}, Stats={stats}")
+        return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats, 'attempts_made': attempt + 1, 'filtered_count': attempt}
+
     elif lottery_type == 'dlt':
         # 获取所有历史开奖数据
         all_dlt_draws = DLTDraw.query.order_by(DLTDraw.issue.desc()).all()
         if not all_dlt_draws:
             current_app.logger.warning("No historical DLT data available for prediction.")
-            return generate_random_balls('dlt', 5, 2) # 如果没有历史数据，则返回随机号码
+            # generate_random_balls now returns a dict, so handle it
+            random_result = generate_random_balls('dlt', 5, 2)
+            if random_result:
+                return {**random_result, 'attempts_made': 0, 'filtered_count': 0} # Add dummy attempt/filtered counts
+            return None, None, 0, 0 # Fallback if random generation also fails
 
         latest_dlt_draw = all_dlt_draws[0]
 
@@ -820,14 +863,28 @@ def generate_predicted_balls(lottery_type):
                 current_app.logger.warning("Max attempts reached for DLT red ball generation, some structural rules might not be met.")
         
         predicted_red_balls = sorted(predicted_red_balls) # 确保最终红球是排序的
-        return predicted_red_balls, predicted_blue_balls, attempt + 1, attempt # 返回成功生成的号码，尝试次数，以及过滤掉的次数
+
+        # 计算统计数据
+        red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+        blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+
+        stats = {
+            'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
+            'red_sum': calculate_sum_per_draw(predicted_red_balls),
+            'red_span': calculate_span_per_draw(predicted_red_balls),
+            'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
+            'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
+            'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
+            'blue_span': calculate_span_per_draw(predicted_blue_balls),
+            'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
+        }
+        
+        current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}, Stats={stats}")
+        return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats, 'attempts_made': attempt + 1, 'filtered_count': attempt}
 
     else:
         current_app.logger.error(f"Invalid lottery type '{lottery_type}' provided to generate_predicted_balls.")
-        return None, None
-    
-    current_app.logger.info(f"Generated predicted balls: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
-    return predicted_red_balls, predicted_blue_balls, attempt + 1, attempt
+        return None # 返回 None 表示生成失败
 
 def get_omitted_balls_for_prediction(lottery_type):
     """
@@ -1104,7 +1161,22 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
                 predicted_red_balls = sorted(sampled_red_balls)
                 predicted_blue_balls = sorted(sampled_blue_balls)
                 current_app.logger.info(f"Successfully generated complex SSQ balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
-                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls}
+                
+                # 计算统计数据
+                red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
+                blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
+
+                stats = {
+                    'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
+                    'red_sum': calculate_sum_per_draw(predicted_red_balls),
+                    'red_span': calculate_span_per_draw(predicted_red_balls),
+                    'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
+                    'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
+                    'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
+                    'blue_span': calculate_span_per_draw(predicted_blue_balls),
+                    'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
+                }
+                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats}
 
         elif lottery_type == 'dlt':
             dummy_draw = DLTDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
@@ -1122,7 +1194,22 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
                 predicted_red_balls = sorted(sampled_red_balls)
                 predicted_blue_balls = sorted(sampled_blue_balls)
                 current_app.logger.info(f"Successfully generated complex DLT balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
-                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls}
+                
+                # 计算统计数据
+                red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+                blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+
+                stats = {
+                    'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_red_balls),
+                    'red_sum': calculate_sum_per_draw(predicted_red_balls),
+                    'red_span': calculate_span_per_draw(predicted_red_balls),
+                    'red_size_ratio': calculate_size_ratio_per_draw(predicted_red_balls, red_size_midpoint),
+                    'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(predicted_blue_balls),
+                    'blue_sum': calculate_sum_per_draw(predicted_blue_balls),
+                    'blue_span': calculate_span_per_draw(predicted_blue_balls),
+                    'blue_size_ratio': calculate_size_ratio_per_draw(predicted_blue_balls, blue_size_midpoint),
+                }
+                return {'red_balls': predicted_red_balls, 'blue_balls': predicted_blue_balls, 'stats': stats}
         
         if attempt == max_attempts - 1:
             current_app.logger.warning(f"Max attempts reached for {lottery_type.upper()} complex ball generation, some structural rules might not be met. Returning None.")

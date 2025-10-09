@@ -75,10 +75,8 @@
                 <td>{{ "{:,.0f}".format(draw.sales_amount) }}</td>
                 <td>{{ "{:,.0f}".format(draw.prize_pool) }}</td>
                 <td>{{ draw.first_prize_count }} 注 / {{ "{:,.0f}".format(draw.first_prize_amount) }} 元</td>
-                {# 修正这里：传递红球列表，而不是整个 draw 对象 #}
-                {% set odd_count, even_count, red_sum = calculate_odd_even_sum(draw.get_red_balls_list()) %}
-                <td>{{ odd_count }}:{{ even_count }}</td>
-                <td>{{ red_sum }}</td>
+                <td>{{ calculate_odd_even_ratio_per_draw(draw.get_red_balls_list()) }}</td>
+                <td>{{ calculate_sum_per_draw(draw.get_red_balls_list()) }}</td>
                 <td>
                     <button class="btn btn-sm btn-info check-rule-btn" data-lottery-type="{{ lottery_type }}" data-issue="{{ draw.issue }}">
                         检查规则

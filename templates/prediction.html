@@ -557,6 +557,10 @@
                                 <p class="card-title">随机号码 ${index + 1}:</p>
                                 <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
                                 <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
+                                <div class="number-stats mt-2">
+                                    <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
+                                    <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
+                                </div>
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
@@ -579,6 +583,19 @@
                     card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}:`;
                     card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
                     card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
+                    
+                    // Update statistics
+                    let statsDiv = card.querySelector('.number-stats');
+                    if (!statsDiv) {
+                        statsDiv = document.createElement('div');
+                        statsDiv.classList.add('number-stats', 'mt-2');
+                        card.insertBefore(statsDiv, card.querySelector('.regenerate-random-btn')); // Insert before buttons
+                    }
+                    statsDiv.innerHTML = `
+                        <small>红球: 奇偶比 ${newCombo.stats.red_odd_even_ratio}, 和值 ${newCombo.stats.red_sum}, 跨度 ${newCombo.stats.red_span}, 大小比 ${newCombo.stats.red_size_ratio}</small><br>
+                        <small>蓝球: 奇偶比 ${newCombo.stats.blue_odd_even_ratio}, 和值 ${newCombo.stats.blue_sum}, 跨度 ${newCombo.stats.blue_span}, 大小比 ${newCombo.stats.blue_size_ratio}</small>
+                    `;
+
                     card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                     card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                     card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
@@ -597,6 +614,9 @@
                 const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
                 if (card) {
                     card.querySelector('.card-title').innerHTML = `随机号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                    // Clear stats on error
+                    const statsDiv = card.querySelector('.number-stats');
+                    if (statsDiv) statsDiv.innerHTML = '';
                 }
             }
         }
@@ -651,6 +671,10 @@
                                 <p class="card-title">规则预测号码 ${index + 1}:</p>
                                 <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
                                 <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
+                                <div class="number-stats mt-2">
+                                    <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
+                                    <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
+                                </div>
                                 <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
@@ -673,6 +697,19 @@
                     card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}:`;
                     card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
                     card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
+                    
+                    // Update statistics
+                    let statsDiv = card.querySelector('.number-stats');
+                    if (!statsDiv) {
+                        statsDiv = document.createElement('div');
+                        statsDiv.classList.add('number-stats', 'mt-2');
+                        card.insertBefore(statsDiv, card.querySelector('.regenerate-predicted-btn')); // Insert before buttons
+                    }
+                    statsDiv.innerHTML = `
+                        <small>红球: 奇偶比 ${newCombo.stats.red_odd_even_ratio}, 和值 ${newCombo.stats.red_sum}, 跨度 ${newCombo.stats.red_span}, 大小比 ${newCombo.stats.red_size_ratio}</small><br>
+                        <small>蓝球: 奇偶比 ${newCombo.stats.blue_odd_even_ratio}, 和值 ${newCombo.stats.blue_sum}, 跨度 ${newCombo.stats.blue_span}, 大小比 ${newCombo.stats.blue_size_ratio}</small>
+                    `;
+
                     card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                     card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                     card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
@@ -695,6 +732,9 @@
                 const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
                 if (card) {
                     card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                    // Clear stats on error
+                    const statsDiv = card.querySelector('.number-stats');
+                    if (statsDiv) statsDiv.innerHTML = '';
                 }
             }
             updateFilterStatsDisplay(lotteryType, null); // Clear stats on error
@@ -872,6 +912,10 @@
                                 <p class="card-title">复式号码 ${index + 1}: (${combinationText}, ${priceText})</p>
                                 <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
                                 <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
+                                <div class="number-stats mt-2">
+                                    <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
+                                    <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
+                                </div>
                                 <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             </div>`;

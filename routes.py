@@ -8,10 +8,11 @@ import uuid
 from time import sleep
 from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE
 from utils import (
-    format_lottery_numbers, calculate_odd_even_sum, 
+    format_lottery_numbers, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,
     calculate_combination_cost, calculate_prize_details, simulate_fun_game, calculate_total_lottery_combinations,
-    get_consecutive_groups # Import the new function
+    get_consecutive_groups, # Import the new function
+    calculate_odd_even_ratio_per_draw, calculate_sum_per_draw # 新增导入统计函数
 )
 from prediction_engine import (
     check_lottery_rules, generate_random_balls, get_omitted_balls_for_prediction, 
@@ -92,7 +93,9 @@ def history():
                            per_page=per_page,
                            start_date=start_date_str,
                            end_date=end_date_str,
-                           get_consecutive_groups=get_consecutive_groups # Pass the function to the template
+                           get_consecutive_groups=get_consecutive_groups, # Pass the function to the template
+                           calculate_odd_even_ratio_per_draw=calculate_odd_even_ratio_per_draw, # Pass new function
+                           calculate_sum_per_draw=calculate_sum_per_draw # Pass new function
                            )
 
 @bp.route('/statistics')
@@ -228,14 +231,16 @@ def api_generate_random_numbers():
 
     generated_numbers = []
     for _ in range(count):
-        red_balls, blue_balls = generate_random_balls(lottery_type, num_red, num_blue)
-        # 检查 generate_random_balls 是否返回了 None, None 表示生成失败
-        if red_balls is None or blue_balls is None: 
+        result = generate_random_balls(lottery_type, num_red, num_blue)
+        # generate_random_balls now returns a dictionary or None
+        if result is None: 
             current_app.logger.error(f"API call: Failed to generate random numbers for {lottery_type} due to internal error or invalid ranges.")
             return jsonify({'error': 'Failed to generate random numbers due to internal error or invalid ranges.'}), 500
+        
         generated_numbers.append({
-            'red_balls': ','.join(map(str, red_balls)),
-            'blue_balls': ','.join(map(str, blue_balls))
+            'red_balls': ','.join(map(str, result['red_balls'])),
+            'blue_balls': ','.join(map(str, result['blue_balls'])),
+            'stats': result['stats'] # Include the statistics
         })
     
     current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} random numbers for {lottery_type}.")
@@ -270,17 +275,19 @@ def api_generate_predicted_numbers():
     total_filtered_count = 0
 
     for _ in range(count):
-        red_balls, blue_balls, attempts_made, filtered_count = generate_predicted_balls(lottery_type)
-        # 检查 generate_predicted_balls 是否返回了 None, None 表示生成失败
-        if red_balls is None or blue_balls is None:
+        result = generate_predicted_balls(lottery_type)
+        # generate_predicted_balls now returns a dictionary or None
+        if result is None:
             current_app.logger.error(f"API call: Failed to generate predicted numbers for {lottery_type} due to internal error.")
             return jsonify({'error': 'Failed to generate predicted numbers due to internal error.'}), 500
+        
         generated_numbers.append({
-            'red_balls': ','.join(map(str, red_balls)),
-            'blue_balls': ','.join(map(str, blue_balls))
+            'red_balls': ','.join(map(str, result['red_balls'])),
+            'blue_balls': ','.join(map(str, result['blue_balls'])),
+            'stats': result['stats'] # Include the statistics
         })
-        total_attempts += attempts_made
-        total_filtered_count += filtered_count
+        total_attempts += result['attempts_made']
+        total_filtered_count += result['filtered_count']
 
     # 计算总组合数和未筛选中奖概率
     total_combinations = calculate_total_lottery_combinations(lottery_type)
@@ -328,7 +335,8 @@ def api_generate_complex_prediction():
                 'blue_balls': ','.join(map(str, complex_balls_result['blue_balls'])),
                 'red_count': red_count,
                 'blue_count': blue_count,
-                'total_cost': cost_details['total_cost']
+                'total_cost': cost_details['total_cost'],
+                'stats': complex_balls_result['stats'] # Include the statistics
             })
         except ValueError as e:
             current_app.logger.warning(f"API call: Invalid parameters for complex prediction: {e}")

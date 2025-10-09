@@ -105,16 +105,19 @@ def calculate_frequency(all_draws, ball_range, ball_type='red'):
                 frequency[ball] += 1
     return frequency
 
-def calculate_odd_even_sum(draw_balls_list): # 接收的是列表，不是draw对象
-    """计算数字列表的奇偶比和总和"""
-    numbers = sorted([int(x) for x in draw_balls_list if x is not None]) # 确保是数字列表
-    if not numbers:
-        return 0, 0, 0 # 默认值
+def calculate_odd_even_ratio_per_draw(balls):
+    """计算单期号码的奇偶比"""
+    if not balls:
+        return "0:0"
+    odd_count = sum(1 for n in balls if n % 2 != 0)
+    even_count = len(balls) - odd_count
+    return f"{odd_count}:{even_count}"
 
-    odd_count = sum(1 for n in numbers if n % 2 != 0)
-    even_count = len(numbers) - odd_count
-    total_sum = sum(numbers)
-    return odd_count, even_count, total_sum # 返回一个元组
+def calculate_sum_per_draw(balls):
+    """计算单期号码的总和"""
+    if not balls:
+        return 0
+    return sum(balls)
 
 def calculate_frequency_and_omissions_for_balls(draws_list, ball_range, ball_type):
     """

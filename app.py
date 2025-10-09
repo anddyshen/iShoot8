@@ -10,7 +10,7 @@ import time
 import random
 import string
 from dotenv import load_dotenv
-from utils import format_lottery_numbers, calculate_odd_even_sum # 导入 utils 中的函数
+from utils import format_lottery_numbers # 导入 utils 中的函数
 from prediction_engine import check_lottery_rules # 导入规则检查函数
 from data_manager import save_draw_data, get_latest_draws, update_latest_draws
 
@@ -61,7 +61,7 @@ def inject_global_data():
         'per_bet_price': PER_BET_PRICE,
         'settings': CURRENT_SETTINGS, # 将网站设置注入模板
         'format_lottery_numbers': format_lottery_numbers, # 确保这个也在这里，或者在routes.py中传递
-        'calculate_odd_even_sum': calculate_odd_even_sum # 将函数传递给模板
+        # 'calculate_odd_even_sum': calculate_odd_even_sum # 将函数传递给模板
     }
 
 # 数据库初始化和定时任务启动
@@ -112,5 +112,3 @@ with app.app_context():
 if __name__ == '__main__':
     print(f"下一次数据更新时间:  {job.next_run_time}")
     app.run(debug=True, host='0.0.0.0', port=5000) # 生产环境请关闭 debug
-    
-
