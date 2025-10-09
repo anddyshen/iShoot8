@@ -15,21 +15,53 @@
 }
 
 .ball-red {
-    background-color: #dc3545; /* Bootstrap red */
+    background-color: #d11717; /* Bootstrap red */
 }
 
 .ball-blue {
-    background-color: #0d6efd; /* Bootstrap blue */
+    background-color: #084bb1; /* Bootstrap blue */
 }
 
 /* Styles for consecutive balls (example, adjust as per actual implementation) */
+.ball-consecutive-0 {
+    background-color: #168163; /* Deeper Teal/Green */
+}
 .ball-consecutive-1 {
-    background-color: #fd7e14; /* Orange */
+    background-color: #bdac16e8; /* Deeper Orange */
 }
 .ball-consecutive-2 {
-    background-color: #6f42c1; /* Purple */
+    background-color: #4e2b91; /* Deeper Purple */
 }
-/* Add more .ball-consecutive-X classes if needed */
+
+/* Styles for the prediction tab buttons */
+.lottery-section-tabs .btn {
+    border: 1px solid; /* Add a border to match the text color when unselected */
+    transition: all 0.3s ease;
+}
+
+.lottery-section-tabs .btn-danger.active {
+    background-color: #dc3545; /* Bootstrap red */
+    color: #fff;
+    border-color: #dc3545;
+}
+
+.lottery-section-tabs .btn-danger:not(.active) {
+    background-color: transparent;
+    color: #dc3545; /* Red text */
+    border-color: #dc3545;
+}
+
+.lottery-section-tabs .btn-primary.active {
+    background-color: #0d6efd; /* Bootstrap blue */
+    color: #fff;
+    border-color: #0d6efd;
+}
+
+.lottery-section-tabs .btn-primary:not(.active) {
+    background-color: transparent;
+    color: #0d6efd; /* Blue text */
+    border-color: #0d6efd;
+}
 
 /* Highlight class for lottery balls */
 .lottery-ball.highlighted {
