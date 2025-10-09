@@ -723,6 +723,10 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
                     first_prize_won = True
                     first_prize_draw_count = draw_count
                     estimated_first_prize_date = _calculate_future_draw_date(lottery_type, date.today(), draw_count)
+        
+        # 如果已经中了一等奖，则中止模拟
+        if first_prize_won:
+            break
     
     # 获取奖项的固定顺序 (从 config.py 中定义，通常是从高到低)
     prize_level_order = [p['level'] for p in rules['prizes']]
@@ -743,7 +747,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
         else:
             ordered_total_prize_level_amounts[level] = 0.0 # 确保所有奖项都显示，即使金额为0
 
-    total_cost_for_simulations = max_simulations * cost_per_draw
+    total_cost_for_simulations = draw_count * cost_per_draw # 修正：总花费应为实际模拟的期数 * 单次投注花费
     
     message = ""
     if first_prize_won:
@@ -754,7 +758,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     return {
         'input_red_balls': user_red_balls,
         'input_blue_balls': user_blue_balls,
-        'total_simulations': max_simulations,
+        'total_simulations': draw_count, # 修正：返回实际模拟的期数
         'total_prizes': ordered_total_prizes, # 各奖项中奖次数
         'total_prize_level_amounts': ordered_total_prize_level_amounts, # 各奖项总中奖金额
         'total_winning_amount': total_winning_amount, # 所有奖项总金额
