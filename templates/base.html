@@ -30,7 +30,7 @@
                         <a class="nav-link {% if request.endpoint == 'routes.statistics' %}active{% endif %}" href="{{ url_for('routes.statistics') }}">统计数据</a> {# <-- 新增统计数据链接 #}
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.prediction' %}active{% endif %}" href="{{ url_for('routes.prediction') }}">号码预测</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.prediction' %}active{% endif %}" href="{{ url_for('routes.prediction') }}">号码筛选</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'routes.prize_check' %}active{% endif %}" href="{{ url_for('routes.prize_check') }}">对奖中心</a>

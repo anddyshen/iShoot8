@@ -3,7 +3,7 @@
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
-{% block title %}号码预测{% endblock %}
+{% block title %}号码筛选{% endblock %}
 
 {% block head %}
 <style>
@@ -86,19 +86,19 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-4">号码预测</h1>
+<h1 class="mb-4">号码筛选</h1>
 
 <div class="alert alert-info text-center" role="alert">
     本页面提供的号码预测仅供娱乐参考，不构成任何投注建议。
 </div>
 
 <div class="mb-3 lottery-section-tabs">
-    <a href="#" class="btn btn-danger active me-2" id="ssq_prediction_tab">双色球预测</a>
-    <a href="#" class="btn btn-primary" id="dlt_prediction_tab">大乐透预测</a>
+    <a href="#" class="btn btn-danger active me-2" id="ssq_prediction_tab">双色球筛选</a>
+    <a href="#" class="btn btn-primary" id="dlt_prediction_tab">大乐透筛选</a>
 </div>
 
 <div id="ssq_prediction_section" class="lottery-section">
-    <h2 class="mb-3">双色球预测</h2>
+<h2 class="mb-3">双色球筛选</h2>
 
     <!-- 最新开奖号码 -->
     <div class="card mb-4">
@@ -124,7 +124,7 @@
         <div class="col-md-6">
             <!-- 预测规则文字 -->
             <div class="card mb-4">
-                <div class="card-header">双色球预测规则</div>
+<div class="card-header">双色球筛选规则</div>
                 <div class="card-body rule-list">
                     <p><strong>4.1.1 蓝球规则:</strong> 蓝球如最新一期开出过的号码就不作为本期的预测候选号码，蓝球连续3期开出此号码则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_3_prob * 100 }}%，如果连续5期开出同样的蓝球号码，则此号码候选池内的出现的概率为{{ settings.ssq_blue_consecutive_5_prob * 100 }}%。</p>
                     <p><strong>4.1.2 红球遗漏权重:</strong> 红球最近未开出号码连续遗漏次数的第1多的号码数字作为候选球池中的一员，权重占 {{ settings.ssq_red_omit_1_weight * 100 }}%，第2多占{{ settings.ssq_red_omit_2_weight * 100 }}%，第3多占{{ settings.ssq_red_omit_3_weight * 100 }}%，第4多占{{ settings.ssq_red_omit_4_weight * 100 }}%，第5多占{{ settings.ssq_red_omit_5_weight * 100 }}%，第6多占{{ settings.ssq_red_omit_6_weight * 100 }}%。其他所有号码数字占比加起来平分剩下的百分比。</p>
@@ -157,7 +157,7 @@
 
     <!-- 生成号码区域 -->
     <div class="card mb-4">
-        <div class="card-header">生成预测号码</div>
+<div class="card-header">生成筛选号码</div>
         <div class="card-body">
             <div class="mb-3 row align-items-center">
                 <label for="ssq_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
@@ -166,18 +166,18 @@
                 </div>
                 <div class="col-sm-6">
                     <button class="btn btn-success me-2" id="generate_ssq_prediction">生成规则号码</button>
-                    <button class="btn btn-info me-2" id="generate_ssq_random">生成真随机号码</button>
-                    <button class="btn btn-secondary me-2" id="clear_ssq_generated_numbers">清除生成的号码</button>
+                    <button class="btn btn-info me-2" id="generate_ssq_random">生成随机号码</button>
+                    <button class="btn btn-secondary me-2" id="clear_ssq_generated_numbers">清除生成号码</button>
                     <button class="btn btn-dark" id="copy_all_ssq_numbers">复制所有号码</button> <!-- 新增总按钮 -->
                 </div>
             </div>
 
             <hr>
 
-            <h5>规则预测号码 (单式)</h5> <!-- 标题修改 -->
+<h5>规则筛选号码 (单式)</h5> <!-- 标题修改 -->
             <div id="ssq_predicted_numbers_output">
                 <!-- 预测号码将在此处动态生成 -->
-                <p class="text-muted">点击“生成规则号码”按钮。</p>
+<p class="text-muted">点击“生成规则号码”按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
@@ -189,7 +189,7 @@
             <hr>
 
             <!-- 复式预测功能 (4.3) -->
-            <h5 class="mt-4">双色球复式预测 (4.3)</h5>
+<h5 class="mt-4">双色球复式筛选 (4.3)</h5>
             <div class="mb-3 row align-items-center">
                 <label for="ssq_complex_red_count" class="col-sm-3 col-form-label">红球数量 (7-20):</label>
                 <div class="col-sm-2">
@@ -232,7 +232,7 @@
 </div>
 
 <div id="dlt_prediction_section" class="lottery-section" style="display: none;">
-    <h2 class="mb-3">大乐透预测</h2>
+<h2 class="mb-3">大乐透筛选</h2>
 
     <!-- 最新开奖号码 -->
     <div class="card mb-4">
@@ -258,7 +258,7 @@
         <div class="col-md-6">
             <!-- 预测规则文字 -->
             <div class="card mb-4">
-                <div class="card-header">大乐透预测规则</div>
+<div class="card-header">大乐透筛选规则</div>
                 <div class="card-body rule-list">
                     <p><strong>4.2.1 蓝球规则:</strong> 如果与最新一期的蓝球重复，则重复的每个号码数字在候选池中的出现概率不超过{{ settings.dlt_blue_repeat_prob * 100 }}%。如果任何一个蓝球号码连续5期开出，则此号码候选池内的出现的概率为{{ settings.dlt_blue_consecutive_5_prob * 100 }}%。</p>
                     <p><strong>4.2.2 红球遗漏优先权重:</strong> 在整个红球号码池中，红球未开出的连续遗漏次数的第[1]多的号码数字作为候选球池中的一员，权重占 [1%] ，连续遗漏数字第[2]的号码多占[1.5]% ，连续遗漏第[3]多的占 [2%]，连续遗漏第[4]多的占 [3%]，连续遗漏第[5]多的占 [3%]，其他所有号码数字占比加起来平分剩下的百分比 。因为大乐透红球中奖信息为5+2所以只统计前5多的号码，如果有重复造成大于5则把多出的当第6或第7个数字进行计算，以此类推。比如红球连续遗漏期数最多的前6个号码，权重分别为1%、1.5%、2%、3%、3%、3%（总计13.5%），剩余86.5%平分给33-6=27个球（每球≈3.2%）。</p>
@@ -291,7 +291,7 @@
 
     <!-- 生成号码区域 -->
     <div class="card mb-4">
-        <div class="card-header">生成预测号码</div>
+<div class="card-header">生成筛选号码</div>
         <div class="card-body">
             <div class="mb-3 row align-items-center">
                 <label for="dlt_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
@@ -300,18 +300,18 @@
                 </div>
                 <div class="col-sm-6">
                     <button class="btn btn-success me-2" id="generate_dlt_prediction">生成规则号码</button>
-                    <button class="btn btn-info me-2" id="generate_dlt_random">生成真随机号码</button>
-                    <button class="btn btn-secondary me-2" id="clear_dlt_generated_numbers">清除生成的号码</button>
+                    <button class="btn btn-info me-2" id="generate_dlt_random">生成随机号码</button>
+                    <button class="btn btn-secondary me-2" id="clear_dlt_generated_numbers">清除生成号码</button>
                     <button class="btn btn-dark" id="copy_all_dlt_numbers">复制所有号码</button> <!-- 新增总按钮 -->
                 </div>
             </div>
 
             <hr>
 
-            <h5>规则预测号码 (单式)</h5> <!-- 标题修改 -->
+<h5>规则筛选号码 (单式)</h5> <!-- 标题修改 -->
             <div id="dlt_predicted_numbers_output">
                 <!-- 预测号码将在此处动态生成 -->
-                <p class="text-muted">点击“生成规则号码”按钮。</p>
+<p class="text-muted">点击“生成规则号码”按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
@@ -323,7 +323,7 @@
             <hr>
 
             <!-- 复式预测功能 (4.3) -->
-            <h5 class="mt-4">大乐透复式预测 (4.3)</h5>
+<h5 class="mt-4">大乐透复式筛选 (4.3)</h5>
             <div class="mb-3 row align-items-center">
                 <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">红球数量 (6-20):</label>
                 <div class="col-sm-2">
