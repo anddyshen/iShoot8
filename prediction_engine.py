@@ -366,7 +366,7 @@ def check_dlt_rules_for_draw(draw: DLTDraw):
     
     # 应用大乐透规则
     results['rule_4_2_1_blue_repeat_latest'] = _check_dlt_rule_4_2_1_blue_repeat_latest(draw)
-    results['rule_4_2_3_red_consecutive_repeat'] = _check_dlt_rule_4_2_3_red_consecutive_3_repeat(draw)
+    results['rule_4_2_3_red_consecutive_repeat'] = _check_dlt_rule_4_2_3_red_consecutive_repeat(draw)
     results['rule_4_2_4_red_area_distribution'] = _check_dlt_rule_4_2_4_red_area_distribution(front_balls)
     results['rule_4_2_5_red_repeat_previous_2'] = _check_dlt_rule_4_2_5_red_repeat_previous_2(draw)
     results['rule_4_2_6_red_consecutive_4_plus'] = _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls)
