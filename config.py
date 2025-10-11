@@ -3,7 +3,7 @@ import os
 import json
 
 # 项目版本号
-__version__ = "1.2.0" # 更新版本号
+__version__ = "1.2.2" # 更新版本号
 
 # 网站基本信息
 SITE_NAME = "iShoot"
@@ -90,6 +90,10 @@ DEFAULT_SETTINGS = {
     'dlt_blue_recent_occurrence_threshold': 8,   # 出现8次以上
     'dlt_blue_recent_occurrence_weight': 0.40,   # 概率变为40%
 
+    # 趣味游戏消息设置
+    'fun_game_no_prize_message': "哇哦，看样子在这个世界里的未来{simulation_years}年没有命中一等奖了，让我们赶紧再次按动 大奖时光机 按钮，穿梭到其他的平行时空，看看能不能中到大奖。",
+    'fun_game_prize_message': "恭喜你！在时光机中成功命中一等奖！预计在 {estimated_date} 左右中奖。",
+
     # 历史数据统计范围设置
     'history_stats_range_default': 100, # 默认统计最近100期
     'history_stats_range_options': [50, 100, 200, 500, 1000, 0], # 0 表示所有历史数据
@@ -116,6 +120,13 @@ def load_settings():
         for key, value in DEFAULT_SETTINGS.items():
             if key not in settings:
                 settings[key] = value
+        
+        # 确保所有百分比相关的设置项在加载时都转换为小数形式
+        percentage_keys = ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_blue_consecutive_5_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']
+        for key in percentage_keys:
+            if key in settings and isinstance(settings[key], (int, float)) and settings[key] > 1:
+                settings[key] = settings[key] / 100
+        
         return settings
 
 def save_settings(settings):
@@ -238,6 +249,10 @@ SETTING_LABELS_CHINESE = {
     'dlt_blue_recent_occurrence_draws': "大乐透蓝球：近期出现分析期数",
     'dlt_blue_recent_occurrence_threshold': "大乐透蓝球：近期出现频率阈值",
     'dlt_blue_recent_occurrence_weight': "大乐透蓝球：近期出现频率权重",
+
+    # 趣味游戏消息中文标签
+    'fun_game_no_prize_message': "趣味游戏：未中奖消息",
+    'fun_game_prize_message': "趣味游戏：中奖消息",
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
@@ -254,6 +269,13 @@ def load_settings():
         for key, value in DEFAULT_SETTINGS.items():
             if key not in settings:
                 settings[key] = value
+        
+        # 确保所有百分比相关的设置项在加载时都转换为小数形式
+        percentage_keys = ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_blue_consecutive_5_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']
+        for key in percentage_keys:
+            if key in settings and isinstance(settings[key], (int, float)) and settings[key] > 1:
+                settings[key] = settings[key] / 100
+        
         return settings
 
 def save_settings(settings):

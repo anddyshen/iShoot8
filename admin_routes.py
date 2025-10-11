@@ -13,7 +13,7 @@ from models import db, SSQDraw, DLTDraw, News
 from data_manager import update_latest_draws, add_manual_draw, validate_ssq_format, validate_dlt_format
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 bp = Blueprint('admin_routes', __name__)
 
@@ -58,6 +58,9 @@ def admin_settings():
     if request.method == 'POST':
         # 更新设置
         for key, value in request.form.items():
+            current_app.logger.debug(f"Processing setting: key='{key}', value='{value}', type(value)='{type(value)}'")
+            default_type = type(DEFAULT_SETTINGS.get(key))
+            current_app.logger.debug(f"  Default setting type for '{key}': '{default_type}'")
             if key in CURRENT_SETTINGS:
                 # 特殊处理 admin_password：如果输入框为空，则不更新密码
                 if key == 'admin_password':
@@ -75,7 +78,16 @@ def admin_settings():
                         return redirect(url_for('admin_routes.admin_settings'))
                 elif isinstance(DEFAULT_SETTINGS.get(key), float):
                     try:
-                        CURRENT_SETTINGS[key] = float(value)
+                        # 检查是否是百分比相关的key，如果是，则除以100
+                        if key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']:
+                            # 将用户输入的百分数转换为小数形式保存
+                            processed_value = float(value) / 100
+                            CURRENT_SETTINGS[key] = processed_value
+                            current_app.logger.debug(f"  Processed percentage value for '{key}': '{processed_value}'")
+                        else:
+                            processed_value = float(value)
+                            CURRENT_SETTINGS[key] = processed_value
+                            current_app.logger.debug(f"  Processed float value for '{key}': '{processed_value}'")
                     except (ValueError, TypeError):
                         # 使用中文标题显示错误信息
                         flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是浮点数。", 'danger')
@@ -223,5 +235,3 @@ def admin_news_manage():
             flash('新闻删除成功！', 'success')
         return redirect(url_for('admin_routes.admin_news_manage'))
     return render_template('admin/news_manage.html', news_list=news_list)
-
-

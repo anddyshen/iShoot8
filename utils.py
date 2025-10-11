@@ -7,13 +7,28 @@ from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE # 导入中奖�
 from models import SSQDraw, DLTDraw, db # 新增导入
 
 # 版本号，每次生成文件时更新
-__version__ = "1.2.0" # 更新版本号
+__version__ = "1.2.2" # 更新版本号
+
+from flask import current_app # Import current_app for logging
 
 def format_lottery_numbers(numbers_str):
     """将逗号分隔的数字字符串转换为整数列表并排序"""
+    if not isinstance(numbers_str, str):
+        current_app.logger.error(f"format_lottery_numbers received non-string input: {numbers_str} (type: {type(numbers_str)})")
+        return []
     try:
-        return sorted([int(x) for x in numbers_str.split(',') if x.strip()]) # 确保处理空字符串
-    except (ValueError, AttributeError):
+        # 过滤掉空字符串和非数字字符，并转换为整数
+        parsed_numbers = []
+        for x in numbers_str.split(','):
+            stripped_x = x.strip()
+            if stripped_x:
+                try:
+                    parsed_numbers.append(int(stripped_x))
+                except ValueError:
+                    current_app.logger.warning(f"Skipping non-integer part in lottery numbers string: '{stripped_x}' from '{numbers_str}'")
+        return sorted(parsed_numbers)
+    except Exception as e:
+        current_app.logger.error(f"Error formatting lottery numbers string '{numbers_str}': {e}")
         return []
 
 def get_consecutive_groups(numbers):
@@ -754,9 +769,11 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     
     message = ""
     if first_prize_won:
-        message = f"恭喜你！在时光机中成功命中一等奖！预计在 {estimated_first_prize_date.strftime('%Y年%m月%d日')} 左右中奖。"
+        message_template = CURRENT_SETTINGS.get('fun_game_prize_message', "恭喜你！在时光机中成功命中一等奖！预计在 {estimated_date} 左右中奖。")
+        message = message_template.format(estimated_date=estimated_first_prize_date.strftime('%Y年%m月%d日'))
     else:
-        message = f"哇哦，看样子在这个世界里的未来{simulation_years}年没有命中一等奖了，让我们赶紧再次按动 大奖时光机 按钮，穿梭到其他的平行时空，看看能不能中到大奖。"
+        message_template = CURRENT_SETTINGS.get('fun_game_no_prize_message', "哇哦，看样子在这个世界里的未来{simulation_years}年没有命中一等奖了，让我们赶紧再次按动 大奖时光机 按钮，穿梭到其他的平行时空，看看能不能中到大奖。")
+        message = message_template.format(simulation_years=simulation_years)
 
     return {
         'input_red_balls': user_red_balls,

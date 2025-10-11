@@ -13,7 +13,7 @@ from utils import (
 )
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.11" # 更新版本号
+__version__ = "1.0.12" # 更新版本号
 
 # --- 辅助函数：加权随机采样 (不重复) ---
 def weighted_random_sample_without_replacement(population, weights, k):
@@ -620,9 +620,11 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
             total_blue_prob = sum(blue_probabilities.values())
         normalized_blue_probabilities = {ball: prob / total_blue_prob for ball, prob in blue_probabilities.items()}
         
-        predicted_blue_balls = sorted(random.choices(list(normalized_blue_probabilities.keys()), 
-                                                     weights=list(normalized_blue_probabilities.values()), 
-                                                     k=num_blue))
+        predicted_blue_balls = sorted(weighted_random_sample_without_replacement(
+            list(normalized_blue_probabilities.keys()), 
+            list(normalized_blue_probabilities.values()), 
+            k=num_blue
+        ))
 
         # --- 红球预测逻辑 ---
         red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}

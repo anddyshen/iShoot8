@@ -242,25 +242,10 @@ def api_generate_random_numbers():
         current_app.logger.warning(f"API call: Invalid count '{count_str}' for generate_random.")
         return jsonify({'error': 'Invalid count parameter, must be an integer between 1 and 100.'}), 400
 
-    red_odd_even_ratio = None
-    if red_odd_even_ratio_str is not None:
-        try:
-            red_odd_even_ratio = float(red_odd_even_ratio_str)
-            if not (0 <= red_odd_even_ratio <= 1):
-                raise ValueError("Red odd/even ratio must be between 0 and 1.")
-        except (ValueError, TypeError):
-            current_app.logger.warning(f"API call: Invalid red_odd_even_ratio '{red_odd_even_ratio_str}' for generate_random.")
-            return jsonify({'error': 'Invalid red_odd_even_ratio parameter, must be a float between 0 and 1.'}), 400
-
-    red_size_ratio = None
-    if red_size_ratio_str is not None:
-        try:
-            red_size_ratio = float(red_size_ratio_str)
-            if not (0 <= red_size_ratio <= 1):
-                raise ValueError("Red size ratio must be between 0 and 1.")
-        except (ValueError, TypeError):
-            current_app.logger.warning(f"API call: Invalid red_size_ratio '{red_size_ratio_str}' for generate_random.")
-            return jsonify({'error': 'Invalid red_size_ratio parameter, must be a float between 0 and 1.'}), 400
+    # red_odd_even_ratio 和 red_size_ratio 应该作为字符串传递，因为它们是 "odd:even" 格式
+    # 移除浮点数转换和范围验证
+    red_odd_even_ratio = red_odd_even_ratio_str if red_odd_even_ratio_str else None
+    red_size_ratio = red_size_ratio_str if red_size_ratio_str else None
 
     current_app.logger.info(f"API call: /api/prediction/generate_random for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
@@ -314,25 +299,10 @@ def api_generate_predicted_numbers():
         current_app.logger.warning(f"API call: Invalid count '{count_str}' for generate_predicted.")
         return jsonify({'error': 'Invalid count parameter, must be an integer between 1 and 100.'}), 400
 
-    red_odd_even_ratio = None
-    if red_odd_even_ratio_str is not None:
-        try:
-            red_odd_even_ratio = float(red_odd_even_ratio_str)
-            if not (0 <= red_odd_even_ratio <= 1):
-                raise ValueError("Red odd/even ratio must be between 0 and 1.")
-        except (ValueError, TypeError):
-            current_app.logger.warning(f"API call: Invalid red_odd_even_ratio '{red_odd_even_ratio_str}' for generate_predicted.")
-            return jsonify({'error': 'Invalid red_odd_even_ratio parameter, must be a float between 0 and 1.'}), 400
-
-    red_size_ratio = None
-    if red_size_ratio_str is not None:
-        try:
-            red_size_ratio = float(red_size_ratio_str)
-            if not (0 <= red_size_ratio <= 1):
-                raise ValueError("Red size ratio must be between 0 and 1.")
-        except (ValueError, TypeError):
-            current_app.logger.warning(f"API call: Invalid red_size_ratio '{red_size_ratio_str}' for generate_predicted.")
-            return jsonify({'error': 'Invalid red_size_ratio parameter, must be a float between 0 and 1.'}), 400
+    # red_odd_even_ratio 和 red_size_ratio 应该作为字符串传递，因为它们是 "odd:even" 格式
+    # 移除浮点数转换和范围验证
+    red_odd_even_ratio = red_odd_even_ratio_str if red_odd_even_ratio_str else None
+    red_size_ratio = red_size_ratio_str if red_size_ratio_str else None
 
     current_app.logger.info(f"API call: /api/prediction/generate_predicted for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
@@ -650,15 +620,17 @@ def api_check_generated_rules():
 
         # 添加更严格的号码验证
         if lottery_type == 'ssq':
-            if not (len(red_balls) == 6 and all(1 <= b <= 33 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
-                raise ValueError("SSQ red balls must be 6 unique numbers between 1 and 33.")
-            if not (len(blue_balls) == 1 and all(1 <= b <= 16 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
-                raise ValueError("SSQ blue balls must be 1 unique number between 1 and 16.")
+            # 允许复式号码的范围
+            if not (len(red_balls) >= 6 and len(red_balls) <= 16 and all(1 <= b <= 33 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
+                raise ValueError("SSQ red balls must be 6-16 unique numbers between 1 and 33.")
+            if not (len(blue_balls) >= 1 and len(blue_balls) <= 16 and all(1 <= b <= 16 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
+                raise ValueError("SSQ blue balls must be 1-16 unique numbers between 1 and 16.")
         elif lottery_type == 'dlt':
-            if not (len(red_balls) == 5 and all(1 <= b <= 35 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
-                raise ValueError("DLT red balls must be 5 unique numbers between 1 and 35.")
-            if not (len(blue_balls) == 2 and all(1 <= b <= 12 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
-                raise ValueError("DLT blue balls must be 2 unique numbers between 1 and 12.")
+            # 允许复式号码的范围
+            if not (len(red_balls) >= 5 and len(red_balls) <= 16 and all(1 <= b <= 35 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
+                raise ValueError("DLT red balls must be 5-16 unique numbers between 1 and 35.")
+            if not (len(blue_balls) >= 2 and len(blue_balls) <= 12 and all(1 <= b <= 12 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
+                raise ValueError("DLT blue balls must be 2-12 unique numbers between 1 and 12.")
 
     except ValueError as e:
         return jsonify({'error': f'Invalid lottery balls format or range: {e}'}), 400
@@ -800,15 +772,16 @@ def api_fun_game_start():
 
         # 添加更严格的号码验证 (趣味游戏通常是单式投注，所以数量是固定的)
         if lottery_type == 'ssq':
-            if not (len(user_red_balls) == 6 and all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
-                raise ValueError("SSQ red balls must be 6 unique numbers between 1 and 33.")
-            if not (len(user_blue_balls) == 1 and all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
-                raise ValueError("SSQ blue balls must be 1 unique number between 1 and 16.")
+            # 允许用户输入任意数量的红球和蓝球，只要它们在有效范围内且唯一
+            if not (len(user_red_balls) >= 1 and all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                raise ValueError("SSQ red balls must be unique numbers between 1 and 33.")
+            if not (len(user_blue_balls) >= 1 and all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                raise ValueError("SSQ blue balls must be unique numbers between 1 and 16.")
         elif lottery_type == 'dlt':
-            if not (len(user_red_balls) == 5 and all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
-                raise ValueError("DLT red balls must be 5 unique numbers between 1 and 35.")
-            if not (len(user_blue_balls) == 2 and all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
-                raise ValueError("DLT blue balls must be 2 unique numbers between 1 and 12.")
+            if not (len(user_red_balls) >= 1 and all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                raise ValueError("DLT red balls must be unique numbers between 1 and 35.")
+            if not (len(user_blue_balls) >= 1 and all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                raise ValueError("DLT blue balls must be unique numbers between 1 and 12.")
 
     except ValueError as e:
         return jsonify({'error': f'Invalid lottery balls format or range in combination: {e}'}), 400
