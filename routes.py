@@ -50,9 +50,18 @@ def index():
 
 @bp.route('/history')
 def history():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', CURRENT_SETTINGS['history_page_size'], type=int)
     lottery_type = request.args.get('lottery_type', 'ssq')
+    if lottery_type not in ['ssq', 'dlt']:
+        flash('无效的彩票类型。', 'danger')
+        return redirect(url_for('routes.index'))
+
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1 # 确保页码不小于1
+
+    per_page = request.args.get('per_page', CURRENT_SETTINGS['history_page_size'], type=int)
+    if per_page < 1 or per_page > 100: # 限制每页显示数量在合理范围
+        per_page = CURRENT_SETTINGS['history_page_size']
 
     # 获取日期筛选参数
     start_date_str = request.args.get('start_date')
@@ -101,6 +110,10 @@ def history():
 @bp.route('/statistics')
 def statistics():
     lottery_type = request.args.get('lottery_type', 'ssq')
+    if lottery_type not in ['ssq', 'dlt']:
+        flash('无效的彩票类型。', 'danger')
+        return redirect(url_for('routes.index'))
+
 
     # 获取日期筛选参数
     start_date_str = request.args.get('start_date')
@@ -122,6 +135,8 @@ def statistics():
 
     # 获取统计范围参数
     stats_range = request.args.get('stats_range', CURRENT_SETTINGS['history_stats_range_default'], type=int)
+    if stats_range < 0: # 0 表示所有历史数据，所以允许0
+        stats_range = CURRENT_SETTINGS['history_stats_range_default']
 
     # 构建查询
     if lottery_type == 'ssq':
@@ -185,9 +200,9 @@ def api_prediction_omitted_balls():
     lottery_type = request.args.get('lottery_type')
     current_app.logger.info(f"API call: /api/prediction/omitted_balls for {lottery_type}")
 
-    if not lottery_type:
-        current_app.logger.warning("API call: Missing lottery_type for omitted_balls.")
-        return jsonify({'error': 'Missing lottery_type'}), 400
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        current_app.logger.warning("API call: Invalid or missing lottery_type for omitted_balls.")
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
     
     # 获取遗漏数据，包括遗漏期数
     omitted_data_raw = get_omitted_balls_for_prediction(lottery_type)
@@ -211,25 +226,51 @@ def api_prediction_omitted_balls():
 def api_generate_random_numbers():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    count = int(data.get('count', 1)) 
-    red_odd_even_ratio = data.get('red_odd_even_ratio')
-    red_size_ratio = data.get('red_size_ratio')
+    count_str = data.get('count', '1') # 先作为字符串获取
+    red_odd_even_ratio_str = data.get('red_odd_even_ratio')
+    red_size_ratio_str = data.get('red_size_ratio')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        current_app.logger.warning("API call: Invalid or missing lottery_type for generate_random.")
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        count = int(count_str)
+        if count < 1 or count > 100: # 限制生成组数在合理范围
+            raise ValueError("Count must be between 1 and 100.")
+    except (ValueError, TypeError):
+        current_app.logger.warning(f"API call: Invalid count '{count_str}' for generate_random.")
+        return jsonify({'error': 'Invalid count parameter, must be an integer between 1 and 100.'}), 400
+
+    red_odd_even_ratio = None
+    if red_odd_even_ratio_str is not None:
+        try:
+            red_odd_even_ratio = float(red_odd_even_ratio_str)
+            if not (0 <= red_odd_even_ratio <= 1):
+                raise ValueError("Red odd/even ratio must be between 0 and 1.")
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"API call: Invalid red_odd_even_ratio '{red_odd_even_ratio_str}' for generate_random.")
+            return jsonify({'error': 'Invalid red_odd_even_ratio parameter, must be a float between 0 and 1.'}), 400
+
+    red_size_ratio = None
+    if red_size_ratio_str is not None:
+        try:
+            red_size_ratio = float(red_size_ratio_str)
+            if not (0 <= red_size_ratio <= 1):
+                raise ValueError("Red size ratio must be between 0 and 1.")
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"API call: Invalid red_size_ratio '{red_size_ratio_str}' for generate_random.")
+            return jsonify({'error': 'Invalid red_size_ratio parameter, must be a float between 0 and 1.'}), 400
 
     current_app.logger.info(f"API call: /api/prediction/generate_random for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
-    if not lottery_type:
-        current_app.logger.warning("API call: Missing lottery_type for generate_random.")
-        return jsonify({'error': 'Missing lottery_type'}), 400
-    
     if lottery_type == 'ssq':
         num_red = 6
         num_blue = 1
     elif lottery_type == 'dlt':
         num_red = 5
         num_blue = 2
-    else:
-        current_app.logger.warning(f"API call: Invalid lottery type '{lottery_type}' for generate_random.")
-        return jsonify({'error': 'Invalid lottery type'}), 400
+    # else 块不再需要，因为 lottery_type 已经在前面验证过了
 
     generated_numbers = []
     for _ in range(count):
@@ -257,25 +298,51 @@ def api_generate_random_numbers():
 def api_generate_predicted_numbers():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    count = int(data.get('count', 1))
-    red_odd_even_ratio = data.get('red_odd_even_ratio')
-    red_size_ratio = data.get('red_size_ratio')
+    count_str = data.get('count', '1')
+    red_odd_even_ratio_str = data.get('red_odd_even_ratio')
+    red_size_ratio_str = data.get('red_size_ratio')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        current_app.logger.warning("API call: Invalid or missing lottery_type for generate_predicted.")
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        count = int(count_str)
+        if count < 1 or count > 100: # 限制生成组数在合理范围
+            raise ValueError("Count must be between 1 and 100.")
+    except (ValueError, TypeError):
+        current_app.logger.warning(f"API call: Invalid count '{count_str}' for generate_predicted.")
+        return jsonify({'error': 'Invalid count parameter, must be an integer between 1 and 100.'}), 400
+
+    red_odd_even_ratio = None
+    if red_odd_even_ratio_str is not None:
+        try:
+            red_odd_even_ratio = float(red_odd_even_ratio_str)
+            if not (0 <= red_odd_even_ratio <= 1):
+                raise ValueError("Red odd/even ratio must be between 0 and 1.")
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"API call: Invalid red_odd_even_ratio '{red_odd_even_ratio_str}' for generate_predicted.")
+            return jsonify({'error': 'Invalid red_odd_even_ratio parameter, must be a float between 0 and 1.'}), 400
+
+    red_size_ratio = None
+    if red_size_ratio_str is not None:
+        try:
+            red_size_ratio = float(red_size_ratio_str)
+            if not (0 <= red_size_ratio <= 1):
+                raise ValueError("Red size ratio must be between 0 and 1.")
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"API call: Invalid red_size_ratio '{red_size_ratio_str}' for generate_predicted.")
+            return jsonify({'error': 'Invalid red_size_ratio parameter, must be a float between 0 and 1.'}), 400
 
     current_app.logger.info(f"API call: /api/prediction/generate_predicted for {lottery_type}, count={count}, odd/even={red_odd_even_ratio}, size={red_size_ratio}")
 
-    if not lottery_type:
-        current_app.logger.warning("API call: Missing lottery_type for generate_predicted.")
-        return jsonify({'error': 'Missing lottery_type'}), 400
-    
     if lottery_type == 'ssq':
         num_red = 6
         num_blue = 1
     elif lottery_type == 'dlt':
         num_red = 5
         num_blue = 2
-    else:
-        current_app.logger.warning(f"API call: Invalid lottery type '{lottery_type}' for generate_predicted.")
-        return jsonify({'error': 'Invalid lottery type'}), 400
+    # else 块不再需要，因为 lottery_type 已经在前面验证过了
 
     generated_numbers = []
     total_attempts = 0
@@ -314,15 +381,34 @@ def api_generate_predicted_numbers():
 def api_generate_complex_prediction():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    red_count = data.get('red_count')
-    blue_count = data.get('blue_count')
-    count = int(data.get('count', 1)) # 获取生成组数，默认为1
+    red_count_str = data.get('red_count')
+    blue_count_str = data.get('blue_count')
+    count_str = data.get('count', '1')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        current_app.logger.warning("API call: Invalid or missing lottery_type for generate_complex.")
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        red_count = int(red_count_str)
+        blue_count = int(blue_count_str)
+        count = int(count_str)
+
+        if count < 1 or count > 100: # 限制生成组数在合理范围
+            raise ValueError("Count must be between 1 and 100.")
+
+        if lottery_type == 'ssq':
+            if not (6 <= red_count <= 16) or not (1 <= blue_count <= 16):
+                raise ValueError("SSQ red_count must be between 6 and 16, blue_count between 1 and 16.")
+        elif lottery_type == 'dlt':
+            if not (5 <= red_count <= 16) or not (2 <= blue_count <= 12):
+                raise ValueError("DLT red_count must be between 5 and 16, blue_count between 2 and 12.")
+
+    except (ValueError, TypeError) as e:
+        current_app.logger.warning(f"API call: Invalid parameters for generate_complex: {e}")
+        return jsonify({'error': f'Invalid parameter: {e}'}), 400
 
     current_app.logger.info(f"API call: /api/prediction/generate_complex for {lottery_type}, red_count={red_count}, blue_count={blue_count}, count={count}")
-
-    if not lottery_type or red_count is None or blue_count is None or count is None:
-        current_app.logger.warning("API call: Missing lottery_type, red_count, blue_count, or count for generate_complex.")
-        return jsonify({'error': 'Missing lottery_type, red_count, blue_count, or count'}), 400
 
     # 调用 prediction_engine 中的复式号码生成逻辑
     from prediction_engine import generate_complex_prediction_balls # 局部导入以避免循环依赖
@@ -400,14 +486,20 @@ def api_check_prizes():
     lottery_type = data.get('lottery_type')
     combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
     
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    if not isinstance(combinations, list) or not combinations:
+        return jsonify({'error': 'Missing or invalid combinations data'}), 400
+
     check_range_val = data.get('check_range', CURRENT_SETTINGS.get('prize_check_range', 10))
     try:
         check_range = int(check_range_val)
+        if check_range < 0: # 允许0表示所有历史数据
+            raise ValueError("Check range cannot be negative.")
     except (ValueError, TypeError):
         check_range = CURRENT_SETTINGS.get('prize_check_range', 10) # Fallback to default if conversion fails
-
-    if not lottery_type or not combinations:
-        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+        current_app.logger.warning(f"API call: Invalid check_range '{check_range_val}', falling back to default {check_range}.")
 
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
     
@@ -428,8 +520,34 @@ def api_check_prizes():
         user_red_balls_str = combo.get('red_balls')
         user_blue_balls_str = combo.get('blue_balls')
 
-        user_red_balls = format_lottery_numbers(user_red_balls_str)
-        user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+        if not user_red_balls_str or not user_blue_balls_str:
+            return jsonify({'error': 'Each combination must contain red_balls and blue_balls'}), 400
+
+        try:
+            user_red_balls = format_lottery_numbers(user_red_balls_str)
+            user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+
+            # 添加更严格的号码验证
+            if lottery_type == 'ssq':
+                if not (len(user_red_balls) >= 6 and len(user_red_balls) <= 16 and 
+                        all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("SSQ red balls must be 6-16 unique numbers between 1 and 33.")
+                if not (len(user_blue_balls) >= 1 and len(user_blue_balls) <= 16 and 
+                        all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                    raise ValueError("SSQ blue balls must be 1-16 unique numbers between 1 and 16.")
+            elif lottery_type == 'dlt':
+                if not (len(user_red_balls) >= 5 and len(user_red_balls) <= 16 and 
+                        all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("DLT red balls must be 5-16 unique numbers between 1 and 35.")
+                if not (len(user_blue_balls) >= 2 and len(user_blue_balls) <= 12 and 
+                        all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                    raise ValueError("DLT blue balls must be 2-12 unique numbers between 1 and 12.")
+
+        except ValueError as e:
+            return jsonify({'error': f'Invalid lottery balls format or range: {e}'}), 400
+        except Exception as e:
+            current_app.logger.error(f"Error processing combination: {combo}. Error: {e}")
+            return jsonify({'error': 'Error processing lottery combination.'}), 500
 
         # 计算该组合的投注花费
         cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type)
@@ -520,18 +638,39 @@ def api_check_generated_rules():
 
     current_app.logger.info(f"API call: /api/prediction/check_generated_rules for {lottery_type}. Red: {red_balls_str}, Blue: {blue_balls_str}")
 
-    if not lottery_type or not red_balls_str or not blue_balls_str:
-        return jsonify({'error': 'Missing lottery_type or balls data'}), 400
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+    
+    if not red_balls_str or not blue_balls_str:
+        return jsonify({'error': 'Missing red_balls or blue_balls data'}), 400
 
-    red_balls = format_lottery_numbers(red_balls_str)
-    blue_balls = format_lottery_numbers(blue_balls_str)
+    try:
+        red_balls = format_lottery_numbers(red_balls_str)
+        blue_balls = format_lottery_numbers(blue_balls_str)
+
+        # 添加更严格的号码验证
+        if lottery_type == 'ssq':
+            if not (len(red_balls) == 6 and all(1 <= b <= 33 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
+                raise ValueError("SSQ red balls must be 6 unique numbers between 1 and 33.")
+            if not (len(blue_balls) == 1 and all(1 <= b <= 16 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
+                raise ValueError("SSQ blue balls must be 1 unique number between 1 and 16.")
+        elif lottery_type == 'dlt':
+            if not (len(red_balls) == 5 and all(1 <= b <= 35 for b in red_balls) and len(set(red_balls)) == len(red_balls)):
+                raise ValueError("DLT red balls must be 5 unique numbers between 1 and 35.")
+            if not (len(blue_balls) == 2 and all(1 <= b <= 12 for b in blue_balls) and len(set(blue_balls)) == len(blue_balls)):
+                raise ValueError("DLT blue balls must be 2 unique numbers between 1 and 12.")
+
+    except ValueError as e:
+        return jsonify({'error': f'Invalid lottery balls format or range: {e}'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error processing balls for rule check: Red: {red_balls_str}, Blue: {blue_balls_str}. Error: {e}")
+        return jsonify({'error': 'Error processing lottery balls for rule check.'}), 500
 
     if lottery_type == 'ssq':
         results = check_ssq_rules_for_balls(red_balls, blue_balls)
     elif lottery_type == 'dlt':
         results = check_dlt_rules_for_balls(red_balls, blue_balls) # DLT uses red_balls for front_balls
-    else:
-        return jsonify({'error': 'Invalid lottery type'}), 400
+    # else 块不再需要，因为 lottery_type 已经在前面验证过了
     
     current_app.logger.info(f"API call: Successfully checked generated rules for {lottery_type}.")
     return jsonify(results)
@@ -569,6 +708,9 @@ def api_check_generated_rules():
 
 @bp.route('/news/<int:news_id>')
 def news_detail(news_id):
+    if news_id < 1:
+        flash('无效的新闻ID。', 'danger')
+        return redirect(url_for('routes.index'))
     news_item = News.query.get_or_404(news_id)
     if not news_item.is_public and not session.get('logged_in_admin'):
         flash('该文章不公开或您没有权限访问。', 'danger')
@@ -583,10 +725,20 @@ def news_detail(news_id):
 @bp.route('/api/check_rules', methods=['GET']) # 保持GET请求，用于检查历史期号
 def api_check_rules_historical(): # 重命名以避免与新的POST路由冲突
     lottery_type = request.args.get('lottery_type')
-    issue = request.args.get('issue')
+    issue_str = request.args.get('issue')
 
-    if not lottery_type or not issue:
-        return jsonify({'error': 'Missing lottery_type or issue'}), 400
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+    
+    if not issue_str:
+        return jsonify({'error': 'Missing issue'}), 400
+
+    try:
+        issue = int(issue_str)
+        if issue < 1:
+            raise ValueError("Issue number must be a positive integer.")
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid issue parameter, must be a positive integer.'}), 400
 
     results = check_lottery_rules(lottery_type, issue)
 
@@ -629,12 +781,41 @@ def api_fun_game_start():
     lottery_type = data.get('lottery_type')
     combinations = data.get('combinations')
 
-    if not lottery_type or not combinations:
-        return jsonify({'error': '缺少彩票类型或号码组合'}), 400
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    if not isinstance(combinations, list) or not combinations:
+        return jsonify({'error': 'Missing or invalid combinations data'}), 400
 
     first_combo = combinations[0]
-    user_red_balls = format_lottery_numbers(first_combo.get('red_balls'))
-    user_blue_balls = format_lottery_numbers(first_combo.get('blue_balls'))
+    user_red_balls_str = first_combo.get('red_balls')
+    user_blue_balls_str = first_combo.get('blue_balls')
+
+    if not user_red_balls_str or not user_blue_balls_str:
+        return jsonify({'error': 'The first combination must contain red_balls and blue_balls'}), 400
+
+    try:
+        user_red_balls = format_lottery_numbers(user_red_balls_str)
+        user_blue_balls = format_lottery_numbers(user_blue_balls_str)
+
+        # 添加更严格的号码验证 (趣味游戏通常是单式投注，所以数量是固定的)
+        if lottery_type == 'ssq':
+            if not (len(user_red_balls) == 6 and all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                raise ValueError("SSQ red balls must be 6 unique numbers between 1 and 33.")
+            if not (len(user_blue_balls) == 1 and all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                raise ValueError("SSQ blue balls must be 1 unique number between 1 and 16.")
+        elif lottery_type == 'dlt':
+            if not (len(user_red_balls) == 5 and all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                raise ValueError("DLT red balls must be 5 unique numbers between 1 and 35.")
+            if not (len(user_blue_balls) == 2 and all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                raise ValueError("DLT blue balls must be 2 unique numbers between 1 and 12.")
+
+    except ValueError as e:
+        return jsonify({'error': f'Invalid lottery balls format or range in combination: {e}'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error processing combination for fun game: Red: {user_red_balls_str}, Blue: {user_blue_balls_str}. Error: {e}")
+        return jsonify({'error': 'Error processing lottery combination for fun game.'}), 500
+
     # max_simulations 不再需要，因为 simulate_fun_game 会根据配置自行计算
     # max_simulations = int(data.get('max_simulations', CURRENT_SETTINGS.get('fun_game_max_simulations')))
 

@@ -19,6 +19,10 @@
                 {% endif %}
 
                 <div class="news-content mb-4">
+                    {# WARNING: 使用 |safe 过滤器可能存在 XSS 风险。
+                       请确保 news_item.content 的来源是完全受信任的，
+                       或者在后端对内容进行严格的 HTML 清理（例如使用 Bleach 库）
+                       以允许安全的 HTML 标签并移除恶意脚本。 #}
                     {{ news_item.content | safe }} {# 使用 safe 过滤器以渲染HTML内容 #}
                 </div>
 
