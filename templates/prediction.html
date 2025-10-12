@@ -847,8 +847,10 @@
             for (const ruleKey in data) {
                 const ruleResult = data[ruleKey];
                 const statusClass = ruleResult.passed ? 'passed' : 'failed';
+                // Remove all leading English text, numbers, underscores, colons, and whitespace
+                const displayRuleKey = ruleKey.replace(/^[a-zA-Z0-9_:\s]+/, '').trim();
                 html += `<div class="rule-item ${statusClass}">
-                            <strong>${ruleKey}:</strong> ${ruleResult.message}
+                            <strong>${displayRuleKey}</strong> ${ruleResult.message}
                         </div>`;
             }
             modalBody.innerHTML = html;

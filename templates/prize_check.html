@@ -549,7 +549,7 @@
                     html += '</ul>';
                     if (result.matches.length > MAX_DISPLAY_MATCHES) {
                         html += `<button class="btn btn-sm btn-outline-info mt-2 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}">显示更多记录 (${result.matches.length - MAX_DISPLAY_MATCHES} 条)</button>`;
-                        html += `<button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收   起</button>`; // <-- 修正这里：按钮文本
+                        html += `<button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收   起</button>`;
                     }
                 } else {
                     html += '<p>在指定期数范围内未中奖。</p>';
@@ -566,8 +566,8 @@
                     targetList.querySelectorAll('.hidden-matches').forEach(item => {
                         item.style.display = 'list-item'; // 显示隐藏的记录
                     });
-                    this.style.display = 'none'; // <-- 修正这里：移除多余的 .style
-                    this.nextElementSibling.style.display = 'inline-block'; // 显示“收起”按钮
+                    this.style.display = 'none';
+                    this.nextElementSibling.style.display = 'inline-block';
                 });
             });
 

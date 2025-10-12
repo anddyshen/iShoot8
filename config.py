@@ -206,12 +206,10 @@ SETTING_LABELS_CHINESE = {
     'ssq_red_omit_prob_threshold_1': "双色球红球：遗漏降概率阈值1对应的概率",
     'ssq_red_omit_prob_threshold_2': "双色球红球：遗漏降概率阈值2对应的概率",
     'ssq_red_omit_prob_threshold_3': "双色球红球：遗漏降概率阈值3对应的概率",
-    # 新增：红球高遗漏降概率的阈值中文标签
     'ssq_red_omit_threshold_1': "双色球红球：遗漏降概率阈值1",
     'ssq_red_omit_threshold_2': "双色球红球：遗漏降概率阈值2",
     'ssq_red_omit_threshold_3': "双色球红球：遗漏降概率阈值3",
     
-    # 大乐透预测规则权重/概率
     'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
     'dlt_blue_consecutive_5_prob': "大乐透蓝球：连号5期概率",
     'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重，每球平均概率 2.857%",
@@ -219,7 +217,7 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_omit_3_weight': "大乐透红球：遗漏3期权重",
     'dlt_red_omit_4_weight': "大乐透红球：遗漏4期权重",
     'dlt_red_omit_5_weight': "大乐透红球：遗漏5期权重",
-    'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重", # 新增
+    'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重",
     'dlt_red_consecutive_3_prob': "大乐透红球：连号3期概率",
     'dlt_red_area_min_count': "大乐透红球：分区最小数量",
     'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
@@ -227,7 +225,6 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_omit_prob_threshold_1': "大乐透红球：遗漏降概率阈值1对应的概率",
     'dlt_red_omit_prob_threshold_2': "大乐透红球：遗漏降概率阈值2对应的概率",
     'dlt_red_omit_prob_threshold_3': "大乐透红球：遗漏降概率阈值3对应的概率",
-    # 新增：大乐透红球高遗漏降概率的阈值中文标签
     'dlt_red_omit_threshold_1': "大乐透红球：遗漏降概率阈值1",
     'dlt_red_omit_threshold_2': "大乐透红球：遗漏降概率阈值2",
     'dlt_red_omit_threshold_3': "大乐透红球：遗漏降概率阈值3",
