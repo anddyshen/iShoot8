@@ -138,7 +138,8 @@
                         return response.json();
                     })
                     .then(data => {
-                        let message = `检查 ${lotteryType} 第 ${issue} 期规则结果：\n\n`;
+                        let lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : (lotteryType === 'ssq' ? '双色球' : lotteryType);
+                        let message = `检查 ${lotteryTypeName} 第 ${issue} 期规则结果：\n\n`;
                         if (data.error) {
                             message += `错误: ${data.message || data.error}`;
                         } else {

@@ -215,7 +215,7 @@ def _check_dlt_rule_4_2_1_blue_repeat_latest(draw: DLTDraw):
         intersection = current_blue_balls.intersection(prev_blue_balls)
         if intersection:
             current_app.logger.debug(f"  Intersection with previous blue balls {prev_blue_balls}: {list(intersection)}")
-            return {'passed': False, 'message': f'规则4.2.1: 后区号码 {list(intersection)} 与前一期有重复。'}
+            return {'passed': False, 'message': f'1: 后区号码 {list(intersection)} 与前一期有重复。'}
     
     # Part 2: Check for 5 consecutive appearances of *any* blue ball in the current draw
     recent_draws_including_current = DLTDraw.query.filter(DLTDraw.issue <= draw.issue)\
@@ -235,9 +235,9 @@ def _check_dlt_rule_4_2_1_blue_repeat_latest(draw: DLTDraw):
                 break
         
         if consecutive_count >= 5:
-            return {'passed': False, 'message': f'规则4.2.1: 后区号码 {current_ball} 连续开出 {consecutive_count} 期 (>=5期)。'}
+            return {'passed': False, 'message': f'1: 后区号码 {current_ball} 连续开出 {consecutive_count} 期 (>=5期)。'}
 
-    return {'passed': True, 'message': '规则4.2.1: 后区号码与前一期无重复，且无号码连续开出5期。'}
+    return {'passed': True, 'message': '1: 后区号码与前一期无重复，且无号码连续开出5期。'}
 
 def _check_dlt_rule_4_2_3_red_consecutive_repeat(draw: DLTDraw):
     """
@@ -253,7 +253,7 @@ def _check_dlt_rule_4_2_3_red_consecutive_repeat(draw: DLTDraw):
     current_app.logger.debug(f"Recent DLT draws (newest to oldest, including current): {[d.issue for d in recent_draws_including_current]}")
 
     if len(recent_draws_including_current) < 3:
-        return {'passed': True, 'message': '规则4.2.3: 无足够前期数据进行前区连续重复检查。'}
+        return {'passed': True, 'message': '2: 无足够前期数据进行前区连续重复检查。'}
 
     for ball in current_front_balls:
         is_consecutive_3 = True
@@ -266,9 +266,9 @@ def _check_dlt_rule_4_2_3_red_consecutive_repeat(draw: DLTDraw):
             else:
                 current_app.logger.debug(f"    Ball {ball} found in issue {d.issue}'s front balls {d.get_red_balls_list()}.")
         if is_consecutive_3:
-            return {'passed': False, 'message': f'规则4.2.3: 前区号码 {ball} 连续3期及以上开出。'}
+            return {'passed': False, 'message': f'2: 前区号码 {ball} 连续3期及以上开出。'}
             
-    return {'passed': True, 'message': '规则4.2.3: 前区号码未出现连续3期及以上重复。'}
+    return {'passed': True, 'message': '2: 前区号码未出现连续3期及以上重复。'}
 
 
 def _check_dlt_rule_4_2_4_red_area_distribution(front_balls):
@@ -290,9 +290,9 @@ def _check_dlt_rule_4_2_4_red_area_distribution(front_balls):
     
     distributed_areas = len(areas)
     if distributed_areas >= 2:
-        return {'passed': True, 'message': f'规则4.2.4: 前区分布在 {distributed_areas} 个区域 (>=2个)。'}
+        return {'passed': True, 'message': f'3: 前区分布在 {distributed_areas} 个区域 (>=2个)。'}
     else:
-        return {'passed': False, 'message': f'规则4.2.4: 前区仅分布在 {distributed_areas} 个区域 (<2个)。'}
+        return {'passed': False, 'message': f'3: 前区仅分布在 {distributed_areas} 个区域 (<2个)。'}
 
 def _check_dlt_rule_4_2_5_red_repeat_previous_2(draw: DLTDraw):
     """
@@ -306,7 +306,7 @@ def _check_dlt_rule_4_2_5_red_repeat_previous_2(draw: DLTDraw):
 
     if len(previous_draws) < 2:
         # 如果前期数据不足2期，则认为没有超过2个重复号码，规则通过
-        return {'passed': True, 'message': '规则4.2.5: 无足够前期数据进行前区重复检查，默认规则通过。'}
+        return {'passed': True, 'message': '4: 无足够前期数据进行前区重复检查，默认规则通过。'}
 
     all_prev_front_balls = set()
     for prev_draw in previous_draws:
@@ -320,10 +320,10 @@ def _check_dlt_rule_4_2_5_red_repeat_previous_2(draw: DLTDraw):
     
     if repeated_count <= 2:
         # current_app.logger.debug(f"  Rule 4.2.5 result: PASSED (repeated count {repeated_count} <= 2)")
-        return {'passed': True, 'message': f'规则4.2.5: 前区与前2期重复号码 {repeated_count} 个 (<=2个)。'}
+        return {'passed': True, 'message': f'4: 前区与前2期重复号码 {repeated_count} 个 (<=2个)。'}
     else:
         # current_app.logger.debug(f"  Rule 4.2.5 result: FAILED (repeated count {repeated_count} > 2)")
-        return {'passed': False, 'message': f'规则4.2.5: 前区与前2期重复号码 {repeated_count} 个 (>2个)。'}
+        return {'passed': False, 'message': f'4: 前区与前2期重复号码 {repeated_count} 个 (>2个)。'}
 
 def _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls):
     """
@@ -333,8 +333,8 @@ def _check_dlt_rule_4_2_6_red_consecutive_4_plus(front_balls):
     current_app.logger.debug(f"Rule 4.2.6: Checking DLT front balls {front_balls} for consecutive groups. Groups: {consecutive_groups}")
     for group in consecutive_groups:
         if len(group) >= 4:
-            return {'passed': False, 'message': f'规则4.2.6: 前区出现连续 {len(group)} 个号码: {group} (>=4个)。'}
-    return {'passed': True, 'message': '规则4.2.6: 前区未出现连续4个及以上号码。'}
+            return {'passed': False, 'message': f'5: 前区出现连续 {len(group)} 个号码: {group} (>=4个)。'}
+    return {'passed': True, 'message': '5: 前区未出现连续4个及以上号码。'}
 
 
 # --- 主规则检查函数 (供API调用) ---
