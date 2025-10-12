@@ -252,7 +252,7 @@
     </div>
 
     <!-- 组合数及筛选饼状图 (移动到最下方) -->
-    <div class="card mb-4">
+    <div class="card mb-4" id="ssq_filter_overview_card" style="display: none;">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
             <p>总组合数: <span id="ssq_total_combinations_display">计算中...</span></p>
@@ -413,7 +413,7 @@
     </div>
 
     <!-- 组合数及筛选饼状图 (移动到最下方) -->
-    <div class="card mb-4">
+    <div class="card mb-4" id="dlt_filter_overview_card" style="display: none;">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
             <p>总组合数: <span id="dlt_total_combinations_display">计算中...</span></p>
@@ -522,6 +522,7 @@
         document.getElementById('dlt_prediction_tab').classList.remove('active');
         console.log("Switched to SSQ tab. Loading omitted balls for SSQ.");
         updateFilterStatsDisplay('ssq', null); // Clear stats when switching tabs
+        document.getElementById('dlt_filter_overview_card').style.display = 'none'; // Hide DLT overview when switching to SSQ
         loadOmittedBalls('ssq'); // Load data for SSQ when tab is clicked
     });
 
@@ -533,6 +534,7 @@
         document.getElementById('ssq_prediction_tab').classList.remove('active');
         console.log("Switched to DLT tab. Loading omitted balls for DLT.");
         updateFilterStatsDisplay('dlt', null); // Clear stats when switching tabs
+        document.getElementById('ssq_filter_overview_card').style.display = 'none'; // Hide SSQ overview when switching to DLT
         loadOmittedBalls('dlt'); // Load data for DLT when tab is clicked
     });
 
@@ -796,6 +798,7 @@
 
             // Update filter stats display
             updateFilterStatsDisplay(lotteryType, data);
+            document.getElementById(`${lotteryType}_filter_overview_card`).style.display = 'block'; // Show the overview card
 
             console.log(`Frontend: Successfully rendered predicted numbers for ${lotteryType}.`);
 
@@ -898,6 +901,7 @@
         document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
         document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击“生成真随机号码”按钮。</p>';
         updateFilterStatsDisplay(lotteryType, null); // Clear stats when clearing numbers
+        document.getElementById(`${lotteryType}_filter_overview_card`).style.display = 'none'; // Hide the overview card
         console.log(`Frontend: Cleared generated numbers for ${lotteryType}.`);
     }
 
