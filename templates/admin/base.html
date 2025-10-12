@@ -17,9 +17,21 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'admin_routes.admin_settings' %}active{% endif %}" href="{{ url_for('admin_routes.admin_settings') }}">
+                        <a class="nav-link {% if request.endpoint == 'admin_routes.admin_settings_general' %}active{% endif %}" href="{{ url_for('admin_routes.admin_settings_general') }}">
                             <i class="bi bi-gear-fill me-2"></i>
-                            网站设置
+                            综合参数设置
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin_routes.admin_settings_ssq' %}active{% endif %}" href="{{ url_for('admin_routes.admin_settings_ssq') }}">
+                            <i class="bi bi-gem me-2"></i> {# 使用不同的图标，例如 bi-gem #}
+                            双色球参数设置
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin_routes.admin_settings_dlt' %}active{% endif %}" href="{{ url_for('admin_routes.admin_settings_dlt') }}">
+                            <i class="bi bi-trophy me-2"></i> {# 使用不同的图标，例如 bi-trophy #}
+                            大乐透参数设置
                         </a>
                     </li>
                     <li class="nav-item">

@@ -106,6 +106,87 @@ DEFAULT_SETTINGS = {
 
 }
 
+# 双色球参数键
+SSQ_SETTINGS_KEYS = [
+    'ssq_data_source_url',
+    'ssq_blue_omit_latest_draws',
+    'ssq_blue_consecutive_3_prob',
+    'ssq_blue_consecutive_5_prob',
+    'ssq_red_omit_1_weight',
+    'ssq_red_omit_2_weight',
+    'ssq_red_omit_3_weight',
+    'ssq_red_omit_4_weight',
+    'ssq_red_omit_5_weight',
+    'ssq_red_omit_6_weight',
+    'ssq_red_consecutive_3_prob',
+    'ssq_red_consecutive_3_second_prob',
+    'ssq_red_area_min_count',
+    'ssq_red_prev_2_draws_max_repeat',
+    'ssq_red_max_consecutive_balls',
+    'ssq_red_omit_prob_threshold_1',
+    'ssq_red_omit_prob_threshold_2',
+    'ssq_red_omit_prob_threshold_3',
+    'ssq_red_omit_threshold_1',
+    'ssq_red_omit_threshold_2',
+    'ssq_red_omit_threshold_3',
+    'ssq_draw_days',
+    'ssq_blue_recent_occurrence_draws',
+    'ssq_blue_recent_occurrence_threshold',
+    'ssq_blue_recent_occurrence_weight',
+    'ssq_red_size_midpoint',
+    'ssq_blue_size_midpoint',
+]
+
+# 大乐透参数键
+DLT_SETTINGS_KEYS = [
+    'dlt_data_source_url',
+    'dlt_blue_repeat_prob',
+    'dlt_blue_consecutive_5_prob',
+    'dlt_red_omit_1_weight',
+    'dlt_red_omit_2_weight',
+    'dlt_red_omit_3_weight',
+    'dlt_red_omit_4_weight',
+    'dlt_red_omit_5_weight',
+    'dlt_red_omit_6_weight',
+    'dlt_red_consecutive_3_prob',
+    'dlt_red_area_min_count',
+    'dlt_red_prev_2_draws_max_repeat',
+    'dlt_red_max_consecutive_balls',
+    'dlt_red_omit_prob_threshold_1',
+    'dlt_red_omit_prob_threshold_2',
+    'dlt_red_omit_prob_threshold_3',
+    'dlt_red_omit_threshold_1',
+    'dlt_red_omit_threshold_2',
+    'dlt_red_omit_threshold_3',
+    'dlt_draw_days',
+    'dlt_blue_recent_occurrence_draws',
+    'dlt_blue_recent_occurrence_threshold',
+    'dlt_blue_recent_occurrence_weight',
+    'dlt_front_size_midpoint',
+    'dlt_back_size_midpoint',
+]
+
+# 综合参数键
+GENERAL_SETTINGS_KEYS = [
+    'history_page_size',
+    'prediction_latest_draws',
+    'prediction_omitted_red_balls',
+    'prediction_omitted_blue_balls',
+    'prediction_generated_count',
+    'prize_check_range',
+    'fun_game_max_simulations',
+    'fun_game_simulation_years',
+    'fun_game_no_prize_message',
+    'fun_game_prize_message',
+    'history_stats_range_default',
+    'history_stats_range_options',
+    'site_name',
+    'site_description',
+    'admin_username',
+    'admin_password',
+    'news_data_source_url',
+]
+
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
 
 def load_settings():

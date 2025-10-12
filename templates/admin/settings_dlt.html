@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% from "admin/macros.html" import render_setting_field %}
+
+{% block title %}大乐透参数设置 - 管理后台{% endblock %}
+
+{% block admin_content %}
+<h1 class="mb-4">大乐透参数设置</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card">
+    <div class="card-header">
+        编辑大乐透配置
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('admin_routes.admin_settings_dlt') }}">
+            {% for key in dlt_settings_keys %}
+                {% if key != 'annual_holidays' %}
+                    {{ render_setting_field(key, settings[key], default_settings.get(key), setting_labels.get(key, key)) }}
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">保存设置</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

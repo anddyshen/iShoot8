@@ -8,7 +8,7 @@ import io
 import random
 import string
 
-from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE 
+from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE, SSQ_SETTINGS_KEYS, DLT_SETTINGS_KEYS, GENERAL_SETTINGS_KEYS
 from models import db, SSQDraw, DLTDraw, News
 from data_manager import update_latest_draws, add_manual_draw, validate_ssq_format, validate_dlt_format
 
@@ -53,14 +53,30 @@ def admin_dashboard():
     return render_template('admin/dashboard.html')
 
 @bp.route('/settings', methods=['GET', 'POST'])
+@bp.route('/settings')
 @admin_required
 def admin_settings():
+    # 重定向到综合参数设置页面作为默认设置页面
+    return redirect(url_for('admin_routes.admin_settings_general'))
+
+def _process_settings_form(settings_keys, redirect_route):
+    """
+    处理设置表单提交的通用逻辑。
+    :param settings_keys: 当前页面需要处理的设置键列表。
+    :param redirect_route: 处理完成后重定向的路由名称。
+    """
     if request.method == 'POST':
-        # 更新设置
-        for key, value in request.form.items():
+        for key in settings_keys: # 只处理当前页面相关的设置
+            value = request.form.get(key)
+            if value is None: # 如果表单中没有这个key，可能是checkbox未选中
+                if isinstance(DEFAULT_SETTINGS.get(key), bool):
+                    CURRENT_SETTINGS[key] = False
+                continue
+
             current_app.logger.debug(f"Processing setting: key='{key}', value='{value}', type(value)='{type(value)}'")
             default_type = type(DEFAULT_SETTINGS.get(key))
             current_app.logger.debug(f"  Default setting type for '{key}': '{default_type}'")
+            
             if key in CURRENT_SETTINGS:
                 # 特殊处理 admin_password：如果输入框为空，则不更新密码
                 if key == 'admin_password':
@@ -73,14 +89,12 @@ def admin_settings():
                     try:
                         CURRENT_SETTINGS[key] = int(value)
                     except (ValueError, TypeError):
-                        # 使用中文标题显示错误信息
                         flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是整数。", 'danger')
-                        return redirect(url_for('admin_routes.admin_settings'))
+                        return redirect(url_for(redirect_route))
                 elif isinstance(DEFAULT_SETTINGS.get(key), float):
                     try:
                         # 检查是否是百分比相关的key，如果是，则除以100
                         if key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']:
-                            # 将用户输入的百分数转换为小数形式保存
                             processed_value = float(value) / 100
                             CURRENT_SETTINGS[key] = processed_value
                             current_app.logger.debug(f"  Processed percentage value for '{key}': '{processed_value}'")
@@ -89,30 +103,67 @@ def admin_settings():
                             CURRENT_SETTINGS[key] = processed_value
                             current_app.logger.debug(f"  Processed float value for '{key}': '{processed_value}'")
                     except (ValueError, TypeError):
-                        # 使用中文标题显示错误信息
                         flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是浮点数。", 'danger')
-                        return redirect(url_for('admin_routes.admin_settings'))
+                        return redirect(url_for(redirect_route))
                 elif isinstance(DEFAULT_SETTINGS.get(key), bool):
                     CURRENT_SETTINGS[key] = (value.lower() == 'true')
                 elif isinstance(DEFAULT_SETTINGS.get(key), list): # 假设列表是逗号分隔的数字
                     try:
                         CURRENT_SETTINGS[key] = [int(x.strip()) for x in value.split(',') if x.strip()]
                     except ValueError:
-                        # 使用中文标题显示错误信息
                         flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值 '{value}' 格式不正确，应为逗号分隔的数字。", 'danger')
-                        return redirect(url_for('admin_routes.admin_settings'))
+                        return redirect(url_for(redirect_route))
                 else:
                     CURRENT_SETTINGS[key] = value
         
-        save_settings(CURRENT_SETTINGS) # 保存更新后的设置到文件
+        save_settings(CURRENT_SETTINGS)
         flash('网站设置已更新！', 'success')
-        return redirect(url_for('admin_routes.admin_settings'))
+        return redirect(url_for(redirect_route))
+    return None # GET请求时返回None
+
+@bp.route('/settings/ssq', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_ssq():
+    response = _process_settings_form(SSQ_SETTINGS_KEYS, 'admin_routes.admin_settings_ssq')
+    if response:
+        return response
     
-    # GET 请求时，渲染设置页面并传递中文标题映射
-    return render_template('admin/settings.html', 
-                           settings=CURRENT_SETTINGS, 
+    ssq_settings = {key: CURRENT_SETTINGS[key] for key in SSQ_SETTINGS_KEYS if key in CURRENT_SETTINGS}
+    return render_template('admin/settings_ssq.html', 
+                           settings=ssq_settings, 
                            default_settings=DEFAULT_SETTINGS,
-                           setting_labels=SETTING_LABELS_CHINESE # <-- 确保这里传递了 setting_labels
+                           setting_labels=SETTING_LABELS_CHINESE,
+                           ssq_settings_keys=SSQ_SETTINGS_KEYS
+                           )
+
+@bp.route('/settings/dlt', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_dlt():
+    response = _process_settings_form(DLT_SETTINGS_KEYS, 'admin_routes.admin_settings_dlt')
+    if response:
+        return response
+    
+    dlt_settings = {key: CURRENT_SETTINGS[key] for key in DLT_SETTINGS_KEYS if key in CURRENT_SETTINGS}
+    return render_template('admin/settings_dlt.html', 
+                           settings=dlt_settings, 
+                           default_settings=DEFAULT_SETTINGS,
+                           setting_labels=SETTING_LABELS_CHINESE,
+                           dlt_settings_keys=DLT_SETTINGS_KEYS
+                           )
+
+@bp.route('/settings/general', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_general():
+    response = _process_settings_form(GENERAL_SETTINGS_KEYS, 'admin_routes.admin_settings_general')
+    if response:
+        return response
+    
+    general_settings = {key: CURRENT_SETTINGS[key] for key in GENERAL_SETTINGS_KEYS if key in CURRENT_SETTINGS}
+    return render_template('admin/settings_general.html', 
+                           settings=general_settings, 
+                           default_settings=DEFAULT_SETTINGS,
+                           setting_labels=SETTING_LABELS_CHINESE,
+                           general_settings_keys=GENERAL_SETTINGS_KEYS
                            )
 
 @bp.route('/settings/download')

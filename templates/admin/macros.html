@@ -1,0 +1,30 @@
+{% macro render_setting_field(key, value, default_value, label) %}
+<div class="mb-3">
+    <label for="{{ key }}" class="form-label">{{ label }}</label>
+    {% if key == 'admin_password' %}
+        <input type="password" class="form-control" id="{{ key }}" name="{{ key }}" placeholder="留空则不修改密码">
+    {% elif default_value is number and default_value is not float %} {# 整数类型 #}
+        <input type="number" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+    {% elif default_value is float %} {# 浮点数类型 #}
+        {% if key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight'] %}
+            <div class="input-group">
+                <input type="number" step="0.05" min="0" max="100" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ (value * 100) | round(2) }}">
+                <span class="input-group-text">%</span>
+            </div>
+        {% else %}
+            <input type="number" step="0.01" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+    {% elif default_value is boolean %} {# 布尔类型 #}
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="{{ key }}" name="{{ key }}" value="true" {% if value %}checked{% endif %}>
+            <label class="form-check-label" for="{{ key }}">启用</label>
+        </div>
+    {% elif default_value is iterable and default_value is not string %} {# 列表类型 #}
+        <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value | join(', ') }}">
+    {% elif 'url' in key %} {# URL类型 #}
+        <input type="url" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+    {% else %} {# 文本类型 #}
+        <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+    {% endif %}
+</div>
+{% endmacro %}
