@@ -16,7 +16,8 @@ from utils import (
 )
 from prediction_engine import (
     check_lottery_rules, generate_random_balls, get_omitted_balls_for_prediction, 
-    generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls # 导入新的规则检查函数
+    generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls, # 导入新的规则检查函数
+    get_draw_and_matched_omitted_balls_for_offset # 导入新的函数
 )
 
 bp = Blueprint('routes', __name__)
@@ -198,7 +199,7 @@ def prediction():
 @bp.route('/api/prediction/omitted_balls', methods=['GET'])
 def api_prediction_omitted_balls():
     lottery_type = request.args.get('lottery_type')
-    offset_str = request.args.get('offset', '0') # 获取 offset 参数，默认为 '0'
+    offset_str = request.args.get('offset', '0') # 重新接受 offset 参数
     current_app.logger.info(f"API call: /api/prediction/omitted_balls for {lottery_type} with offset {offset_str}")
 
     if not lottery_type or lottery_type not in ['ssq', 'dlt']:
@@ -213,22 +214,34 @@ def api_prediction_omitted_balls():
         current_app.logger.warning(f"API call: Invalid offset '{offset_str}' for omitted_balls.")
         return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
 
-    # 获取遗漏数据，包括遗漏期数、当前期号和最大偏移量
-    omitted_data_raw = get_omitted_balls_for_prediction(lottery_type, offset)
-    if 'error' in omitted_data_raw:
-        current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type} with offset {offset}: {omitted_data_raw['error']}")
-        return jsonify(omitted_data_raw), 500
+    # 1. 获取指定 offset 的遗漏数据 (用于可导航的“遗漏最多”部分)
+    omitted_data_for_offset = get_omitted_balls_for_prediction(lottery_type, offset)
+    if 'error' in omitted_data_for_offset:
+        current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type} with offset {offset}: {omitted_data_for_offset['error']}")
+        return jsonify(omitted_data_for_offset), 500
     
-    # 格式化数据以包含遗漏期数、当前期号和最大偏移量
-    formatted_omitted_data = {
-        'red_balls': omitted_data_raw['red_balls_with_omission'],
-        'blue_balls': omitted_data_raw['blue_balls_with_omission'],
-        'issue': omitted_data_raw['issue'], # 当前期号
-        'max_offset': omitted_data_raw['max_offset'] # 最大偏移量
+    # 2. 获取当前显示期号的开奖号码和匹配的遗漏号码 (这部分现在也受 offset 影响)
+    draw_and_matched_data = get_draw_and_matched_omitted_balls_for_offset(lottery_type, offset)
+    if 'error' in draw_and_matched_data:
+        current_app.logger.error(f"API call: Error getting draw and matched omitted balls for {lottery_type} with offset {offset}: {draw_and_matched_data['error']}")
+        return jsonify(draw_and_matched_data), 500
+
+    # 3. 合并两个结果
+    combined_data = {
+        'omitted_red_balls': omitted_data_for_offset['red_balls_with_omission'],
+        'omitted_blue_balls': omitted_data_for_offset['blue_balls_with_omission'],
+        'current_omission_issue': omitted_data_for_offset['issue'], # 当前遗漏数据对应的期号
+        'max_offset': omitted_data_for_offset['max_offset'], # 最大偏移量
+        
+        'display_red_balls': draw_and_matched_data['display_red_balls'],
+        'display_blue_balls': draw_and_matched_data['display_blue_balls'],
+        'matched_red_balls': draw_and_matched_data['matched_red_balls'],
+        'matched_blue_balls': draw_and_matched_data['matched_blue_balls'],
+        'display_issue': draw_and_matched_data['display_issue'] # 当前显示期号
     }
     
-    current_app.logger.info(f"API call: Successfully returned omitted balls for {lottery_type} with offset {offset}.")
-    return jsonify(formatted_omitted_data)
+    current_app.logger.info(f"API call: Successfully returned combined omitted and matched balls for {lottery_type} with offset {offset}.")
+    return jsonify(combined_data)
 
 
 @bp.route('/api/prediction/generate_random', methods=['POST'])

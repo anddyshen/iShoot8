@@ -782,6 +782,18 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
     current_app.logger.warning(f"Max attempts ({max_attempts}) reached for predicted ball generation with filters. No suitable combination found.")
     return None # 达到最大尝试次数仍未找到符合条件的组合
 
+def _get_latest_draw(model_class):
+    """
+    获取指定彩票类型的最新一期开奖数据。
+    """
+    return None # 达到最大尝试次数仍未找到符合条件的组合
+
+def _get_latest_draw(model_class):
+    """
+    获取指定彩票类型的最新一期开奖数据。
+    """
+    return model_class.query.order_by(model_class.issue.desc()).first()
+
 def get_omitted_balls_for_prediction(lottery_type, offset=0):
     """
     获取遗漏最多的红球和蓝球，并包含其遗漏期数，用于预测页面显示。
@@ -809,27 +821,13 @@ def get_omitted_balls_for_prediction(lottery_type, offset=0):
         offset = max_offset
     
     # 获取用于计算遗漏的“当前期”数据
-    # 如果 offset 为 0，则使用最新一期作为参考点
-    # 如果 offset > 0，则使用 all_draws[offset] 作为参考点，计算其“下一期”的遗漏
     # 实际上，我们是想看“在某一期开奖之后，哪些号码遗漏最多”
     # 所以，如果 offset=0，我们看最新一期开奖后的遗漏
     # 如果 offset=1，我们看倒数第二期开奖后的遗漏
     # 因此，用于计算遗漏的“历史数据”应该是从 all_draws[offset] 往后的所有数据
     
-    # 确定用于计算遗漏的参考期号
-    if offset == 0:
-        # 对于最新一期，我们计算的是“下一期”的遗漏，所以参考期号是最新一期的期号
-        # 并且，我们假设最新一期已经开奖，所以计算遗漏时，不包含最新一期
-        # 而是从最新一期往前推算
-        # 实际上，前端显示的是“遗漏最多期数”，这个是基于“当前最新开奖”来计算的
-        # 如果要看“上一期”的遗漏，意味着要看“倒数第二期开奖后”的遗漏
-        # 所以，用于计算遗漏的“历史数据”应该是从 all_draws[offset] 往后的所有数据
-        # 并且，当前显示的期号应该是 all_draws[offset] 的期号
-        current_draw_for_display = all_draws[offset]
-        draws_for_omission_calculation = all_draws[offset:]
-    else:
-        current_draw_for_display = all_draws[offset]
-        draws_for_omission_calculation = all_draws[offset:]
+    current_draw_for_display = all_draws[offset]
+    draws_for_omission_calculation = all_draws[offset:]
 
     current_issue = current_draw_for_display.issue
 
@@ -859,6 +857,66 @@ def get_omitted_balls_for_prediction(lottery_type, offset=0):
         'issue': current_issue,
         'max_offset': max_offset
     }
+
+def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_offset=0):
+    """
+    获取指定 offset 的开奖号码，以及该期开奖号码中与“其上一期”遗漏号码重合的号码。
+    current_display_offset: 0表示最新一期，1表示上一期，以此类推。
+    """
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    if not all_draws:
+        return {'error': 'No historical data available.'}
+
+    # 确保 offset 在有效范围内
+    if current_display_offset >= len(all_draws):
+        current_app.logger.warning(f"Requested current_display_offset {current_display_offset} exceeds available draws. Adjusting to latest.")
+        current_display_offset = 0 # 默认显示最新一期
+
+    # 1. 获取当前显示期号的开奖号码 (本期号码)
+    current_draw_for_display = all_draws[current_display_offset]
+    display_red_balls = set(current_draw_for_display.get_red_balls_list())
+    display_blue_balls = set(current_draw_for_display.get_blue_balls_list())
+
+    # 2. 获取“当前显示期号的上一期”的遗漏最多的号码 (offset = current_display_offset + 1)
+    # 确保有足够的数据来获取上一期的遗漏
+    previous_omitted_red_balls = []
+    previous_omitted_blue_balls = []
+    if (current_display_offset + 1) < len(all_draws):
+        previous_omitted_data = get_omitted_balls_for_prediction(lottery_type, offset=current_display_offset + 1)
+        if 'error' in previous_omitted_data:
+            current_app.logger.warning(f"Could not retrieve previous omitted balls for {lottery_type} at offset {current_display_offset + 1}: {previous_omitted_data['error']}")
+        else:
+            previous_omitted_red_balls_with_omission = previous_omitted_data['red_balls_with_omission']
+            previous_omitted_blue_balls_with_omission = previous_omitted_data['blue_balls_with_omission']
+            
+            # Create dictionaries for quick lookup of omission counts
+            previous_omitted_red_map = {item['ball']: item['current_omission'] for item in previous_omitted_red_balls_with_omission}
+            previous_omitted_blue_map = {item['ball']: item['current_omission'] for item in previous_omitted_blue_balls_with_omission}
+    else:
+        previous_omitted_red_map = {}
+        previous_omitted_blue_map = {}
+
+    # 3. 比较当前显示期号的号码与“其上一期”遗漏最多的号码，并包含遗漏期数
+    matched_red_balls_with_omission = []
+    for ball in sorted(list(display_red_balls)):
+        if ball in previous_omitted_red_map:
+            matched_red_balls_with_omission.append({'ball': ball, 'current_omission': previous_omitted_red_map[ball]})
+    
+    matched_blue_balls_with_omission = []
+    for ball in sorted(list(display_blue_balls)):
+        if ball in previous_omitted_blue_map:
+            matched_blue_balls_with_omission.append({'ball': ball, 'current_omission': previous_omitted_blue_map[ball]})
+
+    return {
+        'display_red_balls': sorted(list(display_red_balls)),
+        'display_blue_balls': sorted(list(display_blue_balls)),
+        'matched_red_balls': matched_red_balls_with_omission, # Now includes omission count
+        'matched_blue_balls': matched_blue_balls_with_omission, # Now includes omission count
+        'display_issue': current_draw_for_display.issue # 返回当前显示期号
+    }
+
 
 def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_count: int):
     """
