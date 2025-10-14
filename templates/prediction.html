@@ -145,7 +145,14 @@
         <div class="col-md-6">
             <!-- 遗漏期数最多的号码 -->
             <div class="card mb-4">
-                <div class="card-header">遗漏期数最多的号码</div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>遗漏期数最多的号码</span>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-secondary me-2" id="prev_omission_issue_btn">上一期</button>
+                        <span id="current_omission_issue_display" class="me-2">最新一期</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="next_omission_issue_btn">下一期</button>
+                    </div>
+                </div>
                 <div class="card-body">
                     <p><strong>红球 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></p>
                     <div class="ball-container" id="ssq_omitted_red_balls">

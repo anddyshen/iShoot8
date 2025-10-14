@@ -782,12 +782,13 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
     current_app.logger.warning(f"Max attempts ({max_attempts}) reached for predicted ball generation with filters. No suitable combination found.")
     return None # 达到最大尝试次数仍未找到符合条件的组合
 
-def get_omitted_balls_for_prediction(lottery_type):
+def get_omitted_balls_for_prediction(lottery_type, offset=0):
     """
     获取遗漏最多的红球和蓝球，并包含其遗漏期数，用于预测页面显示。
-    返回格式: {'red_balls_with_omission': [{'ball': 1, 'omission': 10}, ...], ...}
+    offset: 0表示最新一期，1表示上一期，以此类推。
+    返回格式: {'red_balls_with_omission': [{'ball': 1, 'omission': 10}, ...], 'issue': 2023123, 'max_offset': 5}
     """
-    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type}")
+    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type} with offset {offset}")
 
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
     red_ball_range = PRIZE_RULES[lottery_type]['red_range']
@@ -801,9 +802,39 @@ def get_omitted_balls_for_prediction(lottery_type):
         current_app.logger.warning(f"No historical data available for {lottery_type} to calculate omissions.")
         return {'error': 'No historical data available.'}
 
+    max_offset = len(all_draws) - 1 # 最大偏移量，对应最老的一期数据
+    
+    if offset > max_offset:
+        current_app.logger.warning(f"Requested offset {offset} exceeds max_offset {max_offset}. Adjusting to max_offset.")
+        offset = max_offset
+    
+    # 获取用于计算遗漏的“当前期”数据
+    # 如果 offset 为 0，则使用最新一期作为参考点
+    # 如果 offset > 0，则使用 all_draws[offset] 作为参考点，计算其“下一期”的遗漏
+    # 实际上，我们是想看“在某一期开奖之后，哪些号码遗漏最多”
+    # 所以，如果 offset=0，我们看最新一期开奖后的遗漏
+    # 如果 offset=1，我们看倒数第二期开奖后的遗漏
+    # 因此，用于计算遗漏的“历史数据”应该是从 all_draws[offset] 往后的所有数据
+    
+    # 确定用于计算遗漏的参考期号
+    if offset == 0:
+        # 对于最新一期，我们计算的是“下一期”的遗漏，所以参考期号是最新一期的期号
+        # 并且，我们假设最新一期已经开奖，所以计算遗漏时，不包含最新一期
+        # 而是从最新一期往前推算
+        # 实际上，前端显示的是“遗漏最多期数”，这个是基于“当前最新开奖”来计算的
+        # 如果要看“上一期”的遗漏，意味着要看“倒数第二期开奖后”的遗漏
+        # 所以，用于计算遗漏的“历史数据”应该是从 all_draws[offset] 往后的所有数据
+        # 并且，当前显示的期号应该是 all_draws[offset] 的期号
+        current_draw_for_display = all_draws[offset]
+        draws_for_omission_calculation = all_draws[offset:]
+    else:
+        current_draw_for_display = all_draws[offset]
+        draws_for_omission_calculation = all_draws[offset:]
+
+    current_issue = current_draw_for_display.issue
+
     # 计算红球遗漏
-    red_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_ball_range, 'red')
-    current_app.logger.debug(f"Raw red_stats_list for {lottery_type}: {red_stats_list[:5]}...") # 打印前5个，检查结构
+    red_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission_calculation, red_ball_range, 'red')
     # 按照当前遗漏期数降序排序
     sorted_red_omissions = sorted(red_stats_list, key=lambda x: x['current_omission'], reverse=True)
     
@@ -812,8 +843,7 @@ def get_omitted_balls_for_prediction(lottery_type):
     top_omitted_red_with_omission = sorted_red_omissions[:num_omitted_red]
 
     # 计算蓝球遗漏
-    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_ball_range, 'blue')
-    current_app.logger.debug(f"Raw blue_stats_list for {lottery_type}: {blue_stats_list[:5]}...") # 打印前5个，检查结构
+    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission_calculation, blue_ball_range, 'blue')
     # 按照当前遗漏期数降序排序
     sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
     
@@ -821,11 +851,13 @@ def get_omitted_balls_for_prediction(lottery_type):
     num_omitted_blue = CURRENT_SETTINGS.get('prediction_omitted_blue_balls', 7)
     top_omitted_blue_with_omission = sorted_blue_omissions[:num_omitted_blue]
 
-    current_app.logger.info(f"Omitted balls for {lottery_type}: Red={top_omitted_red_with_omission}, Blue={top_omitted_blue_with_omission}")
+    current_app.logger.info(f"Omitted balls for {lottery_type} (issue {current_issue}, offset {offset}): Red={top_omitted_red_with_omission}, Blue={top_omitted_blue_with_omission}")
 
     return {
         'red_balls_with_omission': top_omitted_red_with_omission,
-        'blue_balls_with_omission': top_omitted_blue_with_omission
+        'blue_balls_with_omission': top_omitted_blue_with_omission,
+        'issue': current_issue,
+        'max_offset': max_offset
     }
 
 def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_count: int):

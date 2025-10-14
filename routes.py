@@ -198,27 +198,36 @@ def prediction():
 @bp.route('/api/prediction/omitted_balls', methods=['GET'])
 def api_prediction_omitted_balls():
     lottery_type = request.args.get('lottery_type')
-    current_app.logger.info(f"API call: /api/prediction/omitted_balls for {lottery_type}")
+    offset_str = request.args.get('offset', '0') # 获取 offset 参数，默认为 '0'
+    current_app.logger.info(f"API call: /api/prediction/omitted_balls for {lottery_type} with offset {offset_str}")
 
     if not lottery_type or lottery_type not in ['ssq', 'dlt']:
         current_app.logger.warning("API call: Invalid or missing lottery_type for omitted_balls.")
         return jsonify({'error': 'Invalid or missing lottery_type'}), 400
     
-    # 获取遗漏数据，包括遗漏期数
-    omitted_data_raw = get_omitted_balls_for_prediction(lottery_type)
+    try:
+        offset = int(offset_str)
+        if offset < 0:
+            raise ValueError("Offset cannot be negative.")
+    except (ValueError, TypeError):
+        current_app.logger.warning(f"API call: Invalid offset '{offset_str}' for omitted_balls.")
+        return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
+
+    # 获取遗漏数据，包括遗漏期数、当前期号和最大偏移量
+    omitted_data_raw = get_omitted_balls_for_prediction(lottery_type, offset)
     if 'error' in omitted_data_raw:
-        current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type}: {omitted_data_raw['error']}")
+        current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type} with offset {offset}: {omitted_data_raw['error']}")
         return jsonify(omitted_data_raw), 500
     
-    # 格式化数据以包含遗漏期数
-    # prediction_engine.py 中的 get_omitted_balls_for_prediction 已经返回了包含 omission 的字典列表
-    # 所以这里直接使用即可
+    # 格式化数据以包含遗漏期数、当前期号和最大偏移量
     formatted_omitted_data = {
         'red_balls': omitted_data_raw['red_balls_with_omission'],
-        'blue_balls': omitted_data_raw['blue_balls_with_omission']
+        'blue_balls': omitted_data_raw['blue_balls_with_omission'],
+        'issue': omitted_data_raw['issue'], # 当前期号
+        'max_offset': omitted_data_raw['max_offset'] # 最大偏移量
     }
     
-    current_app.logger.info(f"API call: Successfully returned omitted balls for {lottery_type}.")
+    current_app.logger.info(f"API call: Successfully returned omitted balls for {lottery_type} with offset {offset}.")
     return jsonify(formatted_omitted_data)
 
 
