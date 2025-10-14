@@ -2,7 +2,7 @@
 <div class="mt-4">
     <h6>{{ title }}</h6>
     <canvas id="{{ chart_id }}"></canvas>
-    <button class="btn btn-sm btn-outline-secondary mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#{{ table_id }}" aria-expanded="false" aria-controls="{{ table_id }}">
+    <button class="btn btn-sm btn-outline-secondary mt-3" type="button" id="toggle-{{ table_id }}" aria-expanded="false" aria-controls="{{ table_id }}">
         显示/隐藏详细数据
     </button>
     <div class="collapse mt-3" id="{{ table_id }}">

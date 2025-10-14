@@ -46,7 +46,7 @@
                 <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ stat_explanations.red_frequency }}">红球统计 <i class="bi bi-info-circle-fill text-muted"></i></h6>
                 <canvas id="redBallFrequencyChart"></canvas>
                 <canvas id="redBallOmissionChart" class="mt-3"></canvas>
-                <button class="btn btn-sm btn-outline-secondary mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#redBallDetails" aria-expanded="false" aria-controls="redBallDetails">
+                <button class="btn btn-sm btn-outline-secondary mt-3" type="button" id="toggleRedBallDetails" aria-expanded="false" aria-controls="redBallDetails">
                     显示/隐藏红球详细数据
                 </button>
                 <div class="collapse mt-3" id="redBallDetails">
@@ -233,7 +233,7 @@
                 <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ stat_explanations.blue_frequency }}">蓝球统计 <i class="bi bi-info-circle-fill text-muted"></i></h6>
                 <canvas id="blueBallFrequencyChart"></canvas>
                 <canvas id="blueBallOmissionChart" class="mt-3"></canvas>
-                <button class="btn btn-sm btn-outline-secondary mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#blueBallDetails" aria-expanded="false" aria-controls="blueBallDetails">
+                <button class="btn btn-sm btn-outline-secondary mt-3" type="button" id="toggleBlueBallDetails" aria-expanded="false" aria-controls="blueBallDetails">
                     显示/隐藏蓝球详细数据
                 </button>
                 <div class="collapse mt-3" id="blueBallDetails">
@@ -490,6 +490,72 @@
         renderAggregatedStats('blueRepeatedCountsChart', '蓝球重号数量分布', aggregatedStats.blue_repeated_counts, totalDraws, 'rgba(220, 53, 69, 0.7)');
         renderAggregatedStats('blueHeadCountsChart', '蓝球龙头分布', aggregatedStats.blue_head_counts, totalDraws, 'rgba(23, 162, 184, 0.7)');
         renderAggregatedStats('blueTailCountsChart', '蓝球凤尾分布', aggregatedStats.blue_tail_counts, totalDraws, 'rgba(40, 167, 69, 0.7)');
+
+        // 通用折叠元素的显示/隐藏逻辑
+        function setupCollapseToggle(buttonId, targetId) {
+            const toggleButton = document.getElementById(buttonId);
+            const collapseElement = document.getElementById(targetId);
+
+            if (toggleButton && collapseElement) {
+                toggleButton.addEventListener('click', function() {
+                    const isExpanded = collapseElement.classList.contains('show');
+                    if (isExpanded) {
+                        collapseElement.classList.remove('show');
+                        toggleButton.setAttribute('aria-expanded', 'false');
+                    } else {
+                        collapseElement.classList.add('show');
+                        toggleButton.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            }
+        }
+
+        // 设置红球和蓝球详细数据的折叠
+        setupCollapseToggle('toggleRedBallDetails', 'redBallDetails');
+        setupCollapseToggle('toggleBlueBallDetails', 'blueBallDetails');
+
+        // 设置所有通过 include 'components/stats_chart_and_table.html' 引入的折叠
+        // 按钮ID格式为 'toggle-{{ table_id }}'，折叠元素ID格式为 '{{ table_id }}'
+        document.querySelectorAll('[id^="toggle-"]').forEach(button => {
+            const targetId = button.id.replace('toggle-', '');
+            setupCollapseToggle(button.id, targetId);
+        });
+
+        // 确保所有折叠元素初始状态是隐藏的
+        // 使用 setTimeout 延迟执行，以确保所有 DOM 和 Bootstrap 初始化完成，避免竞态条件
+        setTimeout(function() {
+            // 针对红球和蓝球详细数据
+            const redBallDetailsElement = document.getElementById('redBallDetails');
+            const blueBallDetailsElement = document.getElementById('blueBallDetails');
+            const toggleRedBallButton = document.getElementById('toggleRedBallDetails');
+            const toggleBlueBallButton = document.getElementById('toggleBlueBallDetails');
+
+            if (redBallDetailsElement && redBallDetailsElement.classList.contains('show')) {
+                redBallDetailsElement.classList.remove('show');
+                if (toggleRedBallButton) {
+                    toggleRedBallButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+            if (blueBallDetailsElement && blueBallDetailsElement.classList.contains('show')) {
+                blueBallDetailsElement.classList.remove('show');
+                if (toggleBlueBallButton) {
+                    toggleBlueBallButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            // 针对所有通过 include 'components/stats_chart_and_table.html' 引入的折叠
+            document.querySelectorAll('.collapse.show').forEach(collapseElement => {
+                // 检查是否是我的自定义折叠，避免影响其他可能存在的Bootstrap折叠
+                const buttonId = `toggle-${collapseElement.id}`;
+                const toggleButton = document.getElementById(buttonId);
+
+                if (toggleButton) { // 只有当存在对应的自定义按钮时才处理
+                    collapseElement.classList.remove('show');
+                    toggleButton.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }, 100); // 延迟100毫秒
     });
 </script>
+
 {% endblock %}
