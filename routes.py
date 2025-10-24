@@ -226,18 +226,18 @@ def api_prediction_omitted_balls():
         current_app.logger.error(f"API call: Error getting draw and matched omitted balls for {lottery_type} with offset {offset}: {draw_and_matched_data['error']}")
         return jsonify(draw_and_matched_data), 500
 
-    # 3. 合并两个结果
+    # 3. 合并两个结果，并调整键名以匹配前端期望
     combined_data = {
-        'omitted_red_balls': omitted_data_for_offset['red_balls_with_omission'],
-        'omitted_blue_balls': omitted_data_for_offset['blue_balls_with_omission'],
+        'red_balls': omitted_data_for_offset['red_balls_with_omission'], # 遗漏最多的红球
+        'blue_balls': omitted_data_for_offset['blue_balls_with_omission'], # 遗漏最多的蓝球
         'current_omission_issue': omitted_data_for_offset['issue'], # 当前遗漏数据对应的期号
         'max_offset': omitted_data_for_offset['max_offset'], # 最大偏移量
         
+        'display_issue': draw_and_matched_data['display_issue'], # Issue for the displayed draw
+        'display_draw_date': draw_and_matched_data['display_draw_date'],
         'display_red_balls': draw_and_matched_data['display_red_balls'],
         'display_blue_balls': draw_and_matched_data['display_blue_balls'],
-        'matched_red_balls': draw_and_matched_data['matched_red_balls'],
-        'matched_blue_balls': draw_and_matched_data['matched_blue_balls'],
-        'display_issue': draw_and_matched_data['display_issue'] # 当前显示期号
+        'matched_omitted_balls': draw_and_matched_data['matched_red_balls'] # This is already in the correct format
     }
     
     current_app.logger.info(f"API call: Successfully returned combined omitted and matched balls for {lottery_type} with offset {offset}.")

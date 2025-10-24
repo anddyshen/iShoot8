@@ -914,7 +914,8 @@ def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_
         'display_blue_balls': sorted(list(display_blue_balls)),
         'matched_red_balls': matched_red_balls_with_omission, # Now includes omission count
         'matched_blue_balls': matched_blue_balls_with_omission, # Now includes omission count
-        'display_issue': current_draw_for_display.issue # 返回当前显示期号
+        'display_issue': current_draw_for_display.issue, # 返回当前显示期号
+        'display_draw_date': current_draw_for_display.draw_date.strftime('%Y-%m-%d') # 返回当前显示期号的日期
     }
 
 

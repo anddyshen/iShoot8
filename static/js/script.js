@@ -121,12 +121,24 @@ function renderBalls(balls, ballType, consecutiveMap = {}) {
     return html;
 }
 
+// Global chart instances (declared here to avoid conflicts with prediction.html)
 let ssqFilterChart;
 let dltFilterChart;
+
+// Variables to keep track of the current offset being displayed for omitted balls
+let currentSsqOmissionOffset = 0; // 0 means latest
+let currentDltOmissionOffset = 0; // 0 means latest
+let maxSsqOmissionOffset = 0; // Max historical offset available
+let maxDltOmissionOffset = 0; // Max historical offset available
 
 // New function to render balls with omission count
 function renderBallsWithOmission(ballsWithOmission, ballType) {
     let html = '';
+    // Ensure ballsWithOmission is an array before iterating
+    if (!Array.isArray(ballsWithOmission)) {
+        console.error("renderBallsWithOmission received non-array data:", ballsWithOmission);
+        return ''; // Return empty string or handle error gracefully
+    }
     for (const ballData of ballsWithOmission) {
         html += `
             <div class="lottery-ball-with-omission">
@@ -138,113 +150,98 @@ function renderBallsWithOmission(ballsWithOmission, ballType) {
     return html;
 }
 
-// Global state for omission issue navigation
-let currentOmissionIssueOffset = 0; // 0 for latest, 1 for previous, etc.
-let maxOmissionIssueOffset = 0; // Will be updated by API response
-let minOmissionIssueOffset = 0; // Always 0 for latest issue
-
-function updateOmissionIssueDisplay(issue) {
-    const displayElement = document.getElementById('current_omission_issue_display');
+// Function to update the display of the current omission issue
+function updateOmissionIssueDisplay(lotteryType, issue, offset) {
+    const displayElement = document.getElementById(`${lotteryType}_current_omission_issue_display`);
     if (displayElement) {
-        if (currentOmissionIssueOffset === 0) {
-            displayElement.textContent = '最新一期';
-        } else {
-            displayElement.textContent = `第 ${issue} 期`;
-        }
+        displayElement.textContent = offset === 0 ? '最新一期' : `第 ${issue} 期 (偏移 ${offset})`;
     }
-}
+    // Enable/disable buttons based on offset
+    const prevBtn = document.getElementById(`${lotteryType}_prev_omission_issue_btn`);
+    const nextBtn = document.getElementById(`${lotteryType}_next_omission_issue_btn`);
+    
+    // Use the correct max_offset for the current lottery type
+    const currentMaxOffset = lotteryType === 'ssq' ? maxSsqOmissionOffset : maxDltOmissionOffset;
 
-function updateOmissionNavigationButtons() {
-    const prevBtn = document.getElementById('prev_omission_issue_btn');
-    const nextBtn = document.getElementById('next_omission_issue_btn');
-
-    if (prevBtn) {
-        prevBtn.disabled = currentOmissionIssueOffset >= maxOmissionIssueOffset;
-    }
-    if (nextBtn) {
-        nextBtn.disabled = currentOmissionIssueOffset <= minOmissionIssueOffset;
-    }
+    if (prevBtn) prevBtn.disabled = offset >= currentMaxOffset;
+    if (nextBtn) nextBtn.disabled = offset === 0;
 }
 
 // Load omitted balls via API
 async function loadOmittedBalls(lotteryType, offset = 0) {
-    const omittedRedContainer = document.getElementById(`${lotteryType}_omitted_red_balls`);
-    const omittedBlueContainer = document.getElementById(`${lotteryType}_omitted_blue_balls`);
+    const redContainer = document.getElementById(`${lotteryType}_omitted_red_balls`);
+    const blueContainer = document.getElementById(`${lotteryType}_omitted_blue_balls`);
+    const latestDrawLabel = document.getElementById(`${lotteryType}_latest_draw_label`);
     const latestDrawBallsContainer = document.getElementById(`${lotteryType}_latest_draw_balls`);
     const matchedOmittedBallsContainer = document.getElementById(`${lotteryType}_matched_omitted_balls`);
-    const omissionIssueDisplay = document.getElementById('current_omission_issue_display');
-    const prevBtn = document.getElementById('prev_omission_issue_btn');
-    const nextBtn = document.getElementById('next_omission_issue_btn');
-
-    // Set loading states
-    omittedRedContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
-    omittedBlueContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
+    
+    redContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
+    blueContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
+    latestDrawLabel.innerHTML = '<strong>本期开奖号码:</strong> <span class="loading-spinner"></span>';
     latestDrawBallsContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
     matchedOmittedBallsContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
-    if (omissionIssueDisplay) omissionIssueDisplay.textContent = '加载中...';
-    if (prevBtn) prevBtn.disabled = true;
-    if (nextBtn) nextBtn.disabled = true;
 
-    console.log(`Frontend: Fetching omitted and matched balls for ${lotteryType} with offset ${offset}...`);
+    let url = `/api/prediction/omitted_balls?lottery_type=${lotteryType}&offset=${offset}`;
+
+    console.log(`Frontend: Fetching omitted balls for ${lotteryType}, offset=${offset}...`);
     try {
-        const response = await fetch(`/api/prediction/omitted_balls?lottery_type=${lotteryType}&offset=${offset}`);
+        const response = await fetch(url);
         const data = await response.json();
 
-        console.log(`Frontend: Received response for ${lotteryType} omitted and matched balls:`, data);
+        console.log(`Frontend: Received response for ${lotteryType} omitted balls:`, data);
 
         if (data.error) {
-            omittedRedContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
-            omittedBlueContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+            redContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+            blueContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+            latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong> <span class="text-danger">加载失败</span>`;
             latestDrawBallsContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
             matchedOmittedBallsContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
-            if (omissionIssueDisplay) omissionIssueDisplay.textContent = '错误';
             return;
         }
 
-        // Update global state for navigation
-        currentOmissionIssueOffset = offset;
-        maxOmissionIssueOffset = data.max_offset;
-        updateOmissionIssueDisplay(data.current_omission_issue);
-        updateOmissionNavigationButtons();
+        // Update current offset tracking variable and max offset
+        if (lotteryType === 'ssq') {
+            currentSsqOmissionOffset = offset;
+            maxSsqOmissionOffset = data.max_offset;
+        } else {
+            currentDltOmissionOffset = offset;
+            maxDltOmissionOffset = data.max_offset;
+        }
+        updateOmissionIssueDisplay(lotteryType, data.current_omission_issue, offset);
 
-        // Render omitted balls for the current offset
-        omittedRedContainer.innerHTML = renderBallsWithOmission(data.omitted_red_balls, 'red');
-        omittedBlueContainer.innerHTML = renderBallsWithOmission(data.omitted_blue_balls, 'blue');
+        redContainer.innerHTML = renderBallsWithOmission(data.red_balls, 'red');
+        blueContainer.innerHTML = renderBallsWithOmission(data.blue_balls, 'blue');
 
-        // Update the label for "本期开奖号码"
-        const latestDrawLabel = document.getElementById(`${lotteryType}_latest_draw_label`);
-        if (latestDrawLabel) {
-            latestDrawLabel.innerHTML = `<strong>第 ${data.display_issue} 期号码:</strong>`;
+        // Render latest draw balls (using display_red_balls and display_blue_balls from API)
+        if (data.display_red_balls && data.display_blue_balls) {
+            latestDrawLabel.innerHTML = `<strong>第 ${data.display_issue} 期开奖号码:</strong>`;
+            const redConsecutiveMap = getConsecutiveGroupsJS(data.display_red_balls);
+            const blueConsecutiveMap = getConsecutiveGroupsJS(data.display_blue_balls);
+            latestDrawBallsContainer.innerHTML = `
+                红球: ${renderBalls(data.display_red_balls, 'red', redConsecutiveMap)}
+                蓝球: ${renderBalls(data.display_blue_balls, 'blue', blueConsecutiveMap)}
+            `;
+        } else {
+            latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong>`;
+            latestDrawBallsContainer.innerHTML = '<p class="text-muted">暂无数据。</p>';
         }
 
-        // Render current display draw balls (now dynamic based on offset)
-        latestDrawBallsContainer.innerHTML = `红球: ${renderBalls(data.display_red_balls, 'red', getConsecutiveGroupsJS(data.display_red_balls))} 蓝球: ${renderBalls(data.display_blue_balls, 'blue', getConsecutiveGroupsJS(data.display_blue_balls))}`;
+        // Render matched omitted balls
+        if (data.matched_omitted_balls && data.matched_omitted_balls.length > 0) {
+            matchedOmittedBallsContainer.innerHTML = renderBallsWithOmission(data.matched_omitted_balls, 'red'); // Assuming matched are red balls
+        } else {
+            matchedOmittedBallsContainer.innerHTML = '<p class="text-muted">无。</p>';
+        }
 
-        // Render matched omitted balls (now dynamic based on offset and includes omission)
-        let matchedHtml = '';
-        if (data.matched_red_balls.length > 0) {
-            matchedHtml += `红球: ${renderBallsWithOmission(data.matched_red_balls, 'red')}`;
-        }
-        if (data.matched_blue_balls.length > 0) {
-            if (matchedHtml) matchedHtml += ' '; // Add space if both exist
-            matchedHtml += `蓝球: ${renderBallsWithOmission(data.matched_blue_balls, 'blue')}`;
-        }
-        if (matchedHtml === '') {
-            matchedHtml = '<p class="text-muted">本期号码中不含上期遗漏最多的号码。</p>';
-        }
-        matchedOmittedBallsContainer.innerHTML = matchedHtml;
-
-        console.log(`Frontend: Successfully rendered omitted and matched balls for ${lotteryType}.`);
+        console.log(`Frontend: Successfully rendered omitted balls for ${lotteryType}.`);
 
     } catch (error) {
-        console.error(`Frontend: Error loading omitted and matched balls for ${lotteryType}:`, error);
-        omittedRedContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
-        omittedBlueContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
+        console.error(`Frontend: Error loading omitted balls for ${lotteryType}:`, error);
+        redContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
+        blueContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
+        latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong>`;
         latestDrawBallsContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
         matchedOmittedBallsContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
-        if (omissionIssueDisplay) omissionIssueDisplay.textContent = '错误';
-        if (prevBtn) prevBtn.disabled = true;
-        if (nextBtn) nextBtn.disabled = true;
     }
 }
 
@@ -258,8 +255,7 @@ document.getElementById('ssq_prediction_tab').addEventListener('click', function
     console.log("Switched to SSQ tab. Loading omitted and matched balls for SSQ.");
     updateFilterStatsDisplay('ssq', null); // Clear stats when switching tabs
     document.getElementById('dlt_filter_overview_card').style.display = 'none'; // Hide DLT overview when switching to SSQ
-    currentOmissionIssueOffset = 0; // Reset offset when switching tabs
-    loadOmittedBalls('ssq', currentOmissionIssueOffset); // Load data for SSQ when tab is clicked
+    loadOmittedBalls('ssq', currentSsqOmissionOffset); // Load data for SSQ when tab is clicked
 });
 
 document.getElementById('dlt_prediction_tab').addEventListener('click', function(e) {
@@ -271,24 +267,31 @@ document.getElementById('dlt_prediction_tab').addEventListener('click', function
     console.log("Switched to DLT tab. Loading omitted and matched balls for DLT.");
     updateFilterStatsDisplay('dlt', null); // Clear stats when switching tabs
     document.getElementById('ssq_filter_overview_card').style.display = 'none'; // Hide SSQ overview when switching to DLT
-    currentOmissionIssueOffset = 0; // Reset offset when switching tabs
-    loadOmittedBalls('dlt', currentOmissionIssueOffset); // Load data for DLT when tab is clicked
+    loadOmittedBalls('dlt', currentDltOmissionOffset); // Load data for DLT when tab is clicked
 });
 
-// Re-enable navigation for omitted balls
-document.getElementById('prev_omission_issue_btn').addEventListener('click', function() {
-    if (currentOmissionIssueOffset < maxOmissionIssueOffset) {
-        currentOmissionIssueOffset++;
-        const currentLotteryType = document.getElementById('ssq_prediction_tab').classList.contains('active') ? 'ssq' : 'dlt';
-        loadOmittedBalls(currentLotteryType, currentOmissionIssueOffset);
+// Event Listeners for omission navigation buttons
+document.getElementById('prev_omission_issue_btn').addEventListener('click', () => {
+    if (currentSsqOmissionOffset < maxSsqOmissionOffset) {
+        loadOmittedBalls('ssq', currentSsqOmissionOffset + 1);
     }
 });
 
-document.getElementById('next_omission_issue_btn').addEventListener('click', function() {
-    if (currentOmissionIssueOffset > minOmissionIssueOffset) {
-        currentOmissionIssueOffset--;
-        const currentLotteryType = document.getElementById('ssq_prediction_tab').classList.contains('active') ? 'ssq' : 'dlt';
-        loadOmittedBalls(currentLotteryType, currentOmissionIssueOffset);
+document.getElementById('next_omission_issue_btn').addEventListener('click', () => {
+    if (currentSsqOmissionOffset > 0) {
+        loadOmittedBalls('ssq', currentSsqOmissionOffset - 1);
+    }
+});
+
+document.getElementById('dlt_prev_omission_issue_btn').addEventListener('click', () => {
+    if (currentDltOmissionOffset < maxDltOmissionOffset) {
+        loadOmittedBalls('dlt', currentDltOmissionOffset + 1);
+    }
+});
+
+document.getElementById('dlt_next_omission_issue_btn').addEventListener('click', () => {
+    if (currentDltOmissionOffset > 0) {
+        loadOmittedBalls('dlt', currentDltOmissionOffset - 1);
     }
 });
 
