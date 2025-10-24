@@ -154,7 +154,7 @@ function renderBallsWithOmission(ballsWithOmission, ballType) {
 function updateOmissionIssueDisplay(lotteryType, issue, offset) {
     const displayElement = document.getElementById(`${lotteryType}_current_omission_issue_display`);
     if (displayElement) {
-        displayElement.textContent = offset === 0 ? '最新一期' : `第 ${issue} 期 (偏移 ${offset})`;
+        displayElement.textContent = offset === 0 ? '最新一期' : `第 ${issue} 期`;
     }
     // Enable/disable buttons based on offset
     const prevBtn = document.getElementById(`${lotteryType}_prev_omission_issue_btn`);
@@ -271,13 +271,13 @@ document.getElementById('dlt_prediction_tab').addEventListener('click', function
 });
 
 // Event Listeners for omission navigation buttons
-document.getElementById('prev_omission_issue_btn').addEventListener('click', () => {
+document.getElementById('ssq_prev_omission_issue_btn').addEventListener('click', () => {
     if (currentSsqOmissionOffset < maxSsqOmissionOffset) {
         loadOmittedBalls('ssq', currentSsqOmissionOffset + 1);
     }
 });
 
-document.getElementById('next_omission_issue_btn').addEventListener('click', () => {
+document.getElementById('ssq_next_omission_issue_btn').addEventListener('click', () => {
     if (currentSsqOmissionOffset > 0) {
         loadOmittedBalls('ssq', currentSsqOmissionOffset - 1);
     }
