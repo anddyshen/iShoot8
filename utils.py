@@ -273,6 +273,153 @@ def calculate_ac_value_per_draw(balls):
     
     return len(diffs) - (len(balls) - 1)
 
+def calculate_mean_per_draw(balls):
+    """计算单期号码的均值"""
+    if not balls:
+        return 0.0
+    return sum(balls) / len(balls)
+
+def calculate_remainder_group_counts_per_draw(balls, divisor):
+    """
+    计算单期号码按指定除数分组的余数相同数量。
+    例如，除数3，统计余数为0, 1, 2的号码数量。
+    """
+    if not balls or divisor <= 0:
+        return {}
+    
+    remainder_counts = Counter(ball % divisor for ball in balls)
+    # 确保所有余数类别都存在，即使数量为0
+    for i in range(divisor):
+        if i not in remainder_counts:
+            remainder_counts[i] = 0
+    
+    return dict(sorted(remainder_counts.items()))
+
+def calculate_red_ball_area_distribution_per_draw(balls, area_ranges):
+    """
+    计算单期红球在指定分区范围内的分布情况。
+    area_ranges: 列表，每个元素是一个元组 (start, end)，表示一个分区范围。
+    例如: [(1,8), (9,16), (17,24), (25,33)]
+    返回: 字典，键为分区索引 (从0开始)，值为该分区内的号码数量。
+    """
+    if not balls or not area_ranges:
+        return {}
+    
+    distribution = Counter()
+    for ball in balls:
+        for i, (start, end) in enumerate(area_ranges):
+            if start <= ball <= end:
+                distribution[f'Area {i+1} ({start}-{end})'] += 1
+                break
+    
+    # 确保所有分区都存在，即使数量为0
+    for i, (start, end) in enumerate(area_ranges):
+        area_key = f'Area {i+1} ({start}-{end})'
+        if area_key not in distribution:
+            distribution[area_key] = 0
+            
+    return dict(distribution)
+
+def calculate_multi_draw_repeat_balls(draws_list, num_previous_draws, ball_type='red'):
+    """
+    计算在最近 N 期内重复出现的号码及其重复次数。
+    draws_list: 降序排列的开奖数据列表 (最新在前面)
+    num_previous_draws: 要检查的期数 N
+    ball_type: 'red' 或 'blue'
+    返回: 字典 {号码: 重复次数}
+    """
+    if not draws_list or num_previous_draws <= 0:
+        return {}
+
+    # 获取最近 N 期的开奖数据
+    recent_draws = draws_list[:num_previous_draws]
+    
+    all_recent_balls = []
+    for draw in recent_draws:
+        if ball_type == 'red':
+            all_recent_balls.extend(draw.get_red_balls_list())
+        elif ball_type == 'blue':
+            all_recent_balls.extend(draw.get_blue_balls_list())
+            
+    # 统计每个号码的出现次数
+    repeat_counts = Counter(all_recent_balls)
+    
+    # 过滤掉只出现一次的号码，只保留重复出现的
+    return {ball: count for ball, count in repeat_counts.items() if count > 1}
+
+def calculate_diagonal_skip_numbers(draws_list, ball_type='red', lookback_periods=5):
+    """
+    计算斜连号和跳号。
+    斜连号: 号码在连续期数中递增或递减1。例如：10(期N), 11(期N-1), 12(期N-2)
+    跳号: 号码在间隔期数中出现。例如：10(期N), 10(期N-2), 10(期N-4)
+    draws_list: 降序排列的开奖数据列表 (最新在前面)
+    ball_type: 'red' 或 'blue'
+    lookback_periods: 往前追溯的期数
+    返回: 字典 {'diagonal_numbers': [], 'skip_numbers': []}
+    """
+    diagonal_numbers = set()
+    skip_numbers = set()
+
+    if not draws_list or len(draws_list) < 2:
+        return {'diagonal_numbers': [], 'skip_numbers': []}
+
+    # 确保 lookback_periods 不超过实际的开奖期数
+    actual_lookback = min(lookback_periods, len(draws_list))
+
+    for i in range(actual_lookback):
+        current_draw = draws_list[i]
+        current_balls = set(current_draw.get_red_balls_list() if ball_type == 'red' else current_draw.get_blue_balls_list())
+
+        # 检查斜连号
+        if i + 1 < len(draws_list):
+            prev_draw = draws_list[i+1]
+            prev_balls = set(prev_draw.get_red_balls_list() if ball_type == 'red' else prev_draw.get_blue_balls_list())
+            
+            for ball in current_balls:
+                # 检查递增斜连 (ball in current, ball-1 in prev)
+                if (ball - 1) in prev_balls:
+                    diagonal_numbers.add(ball)
+                    diagonal_numbers.add(ball - 1)
+                # 检查递减斜连 (ball in current, ball+1 in prev)
+                if (ball + 1) in prev_balls:
+                    diagonal_numbers.add(ball)
+                    diagonal_numbers.add(ball + 1)
+
+        # 检查跳号 (间隔一期重复)
+        if i + 2 < len(draws_list):
+            skip_draw = draws_list[i+2]
+            skip_balls = set(skip_draw.get_red_balls_list() if ball_type == 'red' else skip_draw.get_blue_balls_list())
+            
+            for ball in current_balls:
+                if ball in skip_balls:
+                    skip_numbers.add(ball)
+    
+    return {
+        'diagonal_numbers': sorted(list(diagonal_numbers)),
+        'skip_numbers': sorted(list(skip_numbers))
+    }
+
+def calculate_consecutive_trend_over_draws(draws_list, ball_type='red', min_consecutive_length=2):
+    """
+    计算在历史开奖中，不同长度连号出现的频率。
+    draws_list: 降序排列的开奖数据列表 (最新在前面)
+    ball_type: 'red' 或 'blue'
+    min_consecutive_length: 最小连号长度，例如2表示统计2连号、3连号等
+    返回: 字典 {连号长度: 出现次数}
+    """
+    consecutive_counts = Counter()
+    
+    for draw in draws_list:
+        balls = draw.get_red_balls_list() if ball_type == 'red' else draw.get_blue_balls_list()
+        groups, _ = get_consecutive_groups(balls)
+        for group in groups:
+            length = len(group)
+            if length >= min_consecutive_length:
+                consecutive_counts[length] += 1
+                
+    return dict(sorted(consecutive_counts.items()))
+
+
 # --- 聚合统计函数 (用于 statistics 页面) ---
 
 def get_aggregated_stats(draws_list, lottery_type, config_settings):

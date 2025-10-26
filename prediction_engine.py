@@ -9,7 +9,11 @@ from utils import (
     format_lottery_numbers, calculate_omissions, get_consecutive_groups, 
     calculate_frequency_and_omissions_for_balls,
     calculate_odd_even_ratio_per_draw, calculate_sum_per_draw, 
-    calculate_span_per_draw, calculate_size_ratio_per_draw # 新增导入统计函数
+    calculate_span_per_draw, calculate_size_ratio_per_draw,
+    calculate_mean_per_draw, calculate_remainder_group_counts_per_draw,
+    calculate_prime_composite_ratio_per_draw, calculate_red_ball_area_distribution_per_draw,
+    calculate_multi_draw_repeat_balls, calculate_diagonal_skip_numbers,
+    calculate_consecutive_trend_over_draws # 新增导入趋势计算函数
 )
 
 # 版本号，每次生成文件时更新
@@ -533,12 +537,13 @@ def generate_random_balls(lottery_type, num_red, num_blue, red_odd_even_ratio=No
     current_app.logger.warning(f"Max attempts ({max_attempts}) reached for random ball generation with filters. No suitable combination found.")
     return None # 达到最大尝试次数仍未找到符合条件的组合
 
-def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_ratio=None):
+def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_ratio=None, blue_strategy=None):
     """
     根据预测规则生成一组号码，并根据奇偶比和大小比进行筛选。
     这部分将是核心逻辑，需要根据 config.py 中的规则进行复杂的加权和筛选。
+    blue_strategy: 蓝球预测策略 (例如 'hot', 'cold', 'balanced', 'trend')
     """
-    current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type}, odd/even={red_odd_even_ratio}, size={red_size_ratio}.")
+    current_app.logger.info(f"Attempting to generate predicted balls for {lottery_type}, odd/even={red_odd_even_ratio}, size={red_size_ratio}, blue_strategy={blue_strategy}.")
     
     red_range = PRIZE_RULES[lottery_type]['red_range']
     blue_range = PRIZE_RULES[lottery_type]['blue_range']
@@ -570,7 +575,40 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
         
         # --- 蓝球预测逻辑 ---
         blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+        blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
+        sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+        sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
 
+        # 根据策略调整蓝球概率
+        if blue_strategy == 'hot': # 策略一：倾向于选择“热号”
+            # 增加出现频率高的号码的权重
+            for i, ball_data in enumerate(sorted_blue_frequencies):
+                # 可以根据排名或频率值设置不同的权重
+                blue_probabilities[ball_data['ball']] += (len(sorted_blue_frequencies) - i) * 0.1 
+        elif blue_strategy == 'cold': # 策略二：关注“冷号回补”
+            # 增加遗漏期数长的号码的权重
+            for i, ball_data in enumerate(sorted_blue_omissions):
+                blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.1
+        elif blue_strategy == 'balanced': # 策略三：平衡冷热号分布
+            # 结合频率和遗漏，例如，频率高的略微增加，遗漏长的也略微增加
+            for ball_data in blue_stats_list:
+                # 频率权重
+                blue_probabilities[ball_data['ball']] += ball_data['frequency_percentage'] * 0.01
+                # 遗漏权重
+                blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.05
+        elif blue_strategy == 'trend': # 策略四：结合遗漏值趋势分析
+            # 这是一个更复杂的策略，可能需要分析遗漏值的变化趋势
+            # 暂时先简单实现为：对当前遗漏值处于“中等”水平的号码给予更高权重，避免过冷或过热
+            # 假设中等遗漏范围是总期数的 1/4 到 1/2
+            total_draws_count = len(all_draws)
+            if total_draws_count > 0:
+                mid_omission_lower = total_draws_count // 4
+                mid_omission_upper = total_draws_count // 2
+                for ball_data in blue_stats_list:
+                    if mid_omission_lower <= ball_data['current_omission'] <= mid_omission_upper:
+                        blue_probabilities[ball_data['ball']] += 0.5 # 给予中等遗漏号码额外权重
+        
+        # 现有蓝球预测逻辑 (遗漏和重复)
         if lottery_type == 'ssq':
             num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
             excluded_blue_balls = set()
@@ -578,7 +616,7 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
                 excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
             for ball in excluded_blue_balls:
                 if ball in blue_probabilities:
-                    blue_probabilities[ball] = 0.0
+                    blue_probabilities[ball] = min(blue_probabilities[ball], 0.0) # 确保排除的号码概率为0
 
             ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
             ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
@@ -591,9 +629,9 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
                         else:
                             break
                     if consecutive_count >= 5:
-                        blue_probabilities[ball] = ssq_blue_consecutive_5_prob
+                        blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_5_prob)
                     elif consecutive_count >= 3:
-                        blue_probabilities[ball] = ssq_blue_consecutive_3_prob
+                        blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_3_prob)
         elif lottery_type == 'dlt':
             dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
             if latest_draw:
@@ -611,7 +649,7 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
                     else:
                         break
                 if consecutive_count >= 5:
-                    blue_probabilities[ball] = dlt_blue_consecutive_5_prob
+                    blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_consecutive_5_prob)
         
         total_blue_prob = sum(blue_probabilities.values())
         if total_blue_prob == 0:
@@ -794,13 +832,14 @@ def _get_latest_draw(model_class):
     """
     return model_class.query.order_by(model_class.issue.desc()).first()
 
-def get_omitted_balls_for_prediction(lottery_type, offset=0):
+def get_omitted_balls_for_prediction(lottery_type, offset=0, blue_strategy=None):
     """
     获取遗漏最多的红球和蓝球，并包含其遗漏期数，用于预测页面显示。
     offset: 0表示最新一期，1表示上一期，以此类推。
+    blue_strategy: 蓝球预测策略 (例如 'hot', 'cold', 'balanced', 'trend')
     返回格式: {'red_balls_with_omission': [{'ball': 1, 'omission': 10}, ...], 'issue': 2023123, 'max_offset': 5}
     """
-    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type} with offset {offset}")
+    current_app.logger.info(f"Attempting to get omitted balls for {lottery_type} with offset {offset}, blue_strategy={blue_strategy}")
 
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
     red_ball_range = PRIZE_RULES[lottery_type]['red_range']
@@ -858,10 +897,11 @@ def get_omitted_balls_for_prediction(lottery_type, offset=0):
         'max_offset': max_offset
     }
 
-def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_offset=0):
+def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_offset=0, blue_strategy=None):
     """
     获取指定 offset 的开奖号码，以及该期开奖号码中与“其上一期”遗漏号码重合的号码。
     current_display_offset: 0表示最新一期，1表示上一期，以此类推。
+    blue_strategy: 蓝球预测策略 (例如 'hot', 'cold', 'balanced', 'trend')
     """
     model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
 
@@ -884,7 +924,7 @@ def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_
     previous_omitted_red_balls = []
     previous_omitted_blue_balls = []
     if (current_display_offset + 1) < len(all_draws):
-        previous_omitted_data = get_omitted_balls_for_prediction(lottery_type, offset=current_display_offset + 1)
+        previous_omitted_data = get_omitted_balls_for_prediction(lottery_type, offset=current_display_offset + 1, blue_strategy=blue_strategy)
         if 'error' in previous_omitted_data:
             current_app.logger.warning(f"Could not retrieve previous omitted balls for {lottery_type} at offset {current_display_offset + 1}: {previous_omitted_data['error']}")
         else:
@@ -919,12 +959,13 @@ def get_draw_and_matched_omitted_balls_for_offset(lottery_type, current_display_
     }
 
 
-def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_count: int):
+def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_count: int, blue_strategy=None):
     """
     根据预测规则生成一组复式号码。
     复用 generate_predicted_balls 的概率计算逻辑，但根据 red_count 和 blue_count 采样。
+    blue_strategy: 蓝球预测策略 (例如 'hot', 'cold', 'balanced', 'trend')
     """
-    current_app.logger.info(f"Attempting to generate complex prediction balls for {lottery_type}: red_count={red_count}, blue_count={blue_count}")
+    current_app.logger.info(f"Attempting to generate complex prediction balls for {lottery_type}: red_count={red_count}, blue_count={blue_count}, blue_strategy={blue_strategy}")
 
     red_range = PRIZE_RULES[lottery_type]['red_range']
     blue_range = PRIZE_RULES[lottery_type]['blue_range']
@@ -969,7 +1010,31 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
 
     # --- 蓝球预测逻辑 (复用 generate_predicted_balls 的概率计算) ---
     blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
+    sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+    sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
 
+    # 根据策略调整蓝球概率
+    if blue_strategy == 'hot': # 策略一：倾向于选择“热号”
+        for i, ball_data in enumerate(sorted_blue_frequencies):
+            blue_probabilities[ball_data['ball']] += (len(sorted_blue_frequencies) - i) * 0.1 
+    elif blue_strategy == 'cold': # 策略二：关注“冷号回补”
+        for i, ball_data in enumerate(sorted_blue_omissions):
+            blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.1
+    elif blue_strategy == 'balanced': # 策略三：平衡冷热号分布
+        for ball_data in blue_stats_list:
+            blue_probabilities[ball_data['ball']] += ball_data['frequency_percentage'] * 0.01
+            blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.05
+    elif blue_strategy == 'trend': # 策略四：结合遗漏值趋势分析
+        total_draws_count = len(all_draws)
+        if total_draws_count > 0:
+            mid_omission_lower = total_draws_count // 4
+            mid_omission_upper = total_draws_count // 2
+            for ball_data in blue_stats_list:
+                if mid_omission_lower <= ball_data['current_omission'] <= mid_omission_upper:
+                    blue_probabilities[ball_data['ball']] += 0.5 
+    
+    # 现有蓝球预测逻辑 (遗漏和重复)
     if lottery_type == 'ssq':
         num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
         excluded_blue_balls = set()
@@ -977,7 +1042,7 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
             excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
         for ball in excluded_blue_balls:
             if ball in blue_probabilities:
-                blue_probabilities[ball] = 0.0
+                blue_probabilities[ball] = min(blue_probabilities[ball], 0.0) 
 
         ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
         ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
@@ -990,9 +1055,9 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
                     else:
                         break
                 if consecutive_count >= 5:
-                    blue_probabilities[ball] = ssq_blue_consecutive_5_prob
+                    blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_5_prob)
                 elif consecutive_count >= 3:
-                    blue_probabilities[ball] = ssq_blue_consecutive_3_prob
+                    blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_3_prob)
     elif lottery_type == 'dlt':
         dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
         if latest_draw:
@@ -1010,7 +1075,7 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
                 else:
                     break
             if consecutive_count >= 5:
-                blue_probabilities[ball] = dlt_blue_consecutive_5_prob
+                blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_consecutive_5_prob)
     
     total_blue_prob = sum(blue_probabilities.values())
     if total_blue_prob == 0:
@@ -1203,3 +1268,111 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
             return None
     
     return None # 如果达到最大尝试次数仍未找到符合规则的组合
+
+def calculate_red_ball_trends(draws_list, lottery_type):
+    """
+    计算所有红球趋势指标。
+    draws_list: 降序排列的开奖数据列表 (最新在前面)
+    lottery_type: 'ssq' 或 'dlt'
+    """
+    if not draws_list:
+        return {'error': 'No historical data available for trend calculation.'}
+
+    red_ball_range = PRIZE_RULES[lottery_type]['red_range']
+    
+    # 获取配置参数
+    if lottery_type == 'ssq':
+        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
+        red_area_ranges = CURRENT_SETTINGS.get('ssq_red_area_ranges', [(1,8), (9,16), (17,24), (25,33)])
+    else: # dlt
+        red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
+        red_area_ranges = CURRENT_SETTINGS.get('dlt_front_area_ranges', [(1,8), (9,16), (17,24), (25,35)])
+
+    # 获取最新一期的红球
+    latest_red_balls = draws_list[0].get_red_balls_list() if draws_list else []
+
+    trends = {}
+
+    # 4.1 奇偶比
+    trends['odd_even_ratio'] = calculate_odd_even_ratio_per_draw(latest_red_balls)
+
+    # 4.2 连号出现的概率 (这里计算的是历史连号的频率)
+    trends['consecutive_trend_over_draws'] = calculate_consecutive_trend_over_draws(draws_list, 'red')
+
+    # 4.3 余数相同数量 (基数可配置，例如除3余数)
+    remainder_divisor = CURRENT_SETTINGS.get(f'{lottery_type}_red_remainder_divisor', 3)
+    trends['remainder_group_counts'] = calculate_remainder_group_counts_per_draw(latest_red_balls, remainder_divisor)
+
+    # 4.4 多期号码重复 (N 可配置)
+    multi_draw_repeat_periods = CURRENT_SETTINGS.get(f'{lottery_type}_red_multi_draw_repeat_periods', 5)
+    trends['multi_draw_repeat_balls'] = calculate_multi_draw_repeat_balls(draws_list, multi_draw_repeat_periods, 'red')
+
+    # 4.5 红球大小比 (界限可配置)
+    trends['size_ratio'] = calculate_size_ratio_per_draw(latest_red_balls, red_size_midpoint)
+
+    # 4.6 红球质合比
+    trends['prime_composite_ratio'] = calculate_prime_composite_ratio_per_draw(latest_red_balls)
+
+    # 4.7 红球斜连号/跳号
+    diagonal_skip_lookback = CURRENT_SETTINGS.get(f'{lottery_type}_red_diagonal_skip_lookback', 5)
+    trends['diagonal_skip_numbers'] = calculate_diagonal_skip_numbers(draws_list, 'red', diagonal_skip_lookback)
+
+    # 4.8 红球和值与均值
+    trends['sum'] = calculate_sum_per_draw(latest_red_balls)
+    trends['mean'] = calculate_mean_per_draw(latest_red_balls)
+
+    # 4.9 红球跨度
+    trends['span'] = calculate_span_per_draw(latest_red_balls)
+
+    # 4.10 红球分区分布 (分区范围可配置)
+    trends['area_distribution'] = calculate_red_ball_area_distribution_per_draw(latest_red_balls, red_area_ranges)
+
+    # 4.11 红球遗漏值分析 (使用 calculate_frequency_and_omissions_for_balls 结果)
+    red_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_list, red_ball_range, 'red')
+    trends['omission_analysis'] = sorted(red_stats_list, key=lambda x: x['current_omission'], reverse=True)
+
+    return trends
+
+def calculate_blue_ball_trends(draws_list, lottery_type):
+    """
+    计算所有蓝球趋势指标。
+    draws_list: 降序排列的开奖数据列表 (最新在前面)
+    lottery_type: 'ssq' 或 'dlt'
+    """
+    if not draws_list:
+        return {'error': 'No historical data available for trend calculation.'}
+
+    blue_ball_range = PRIZE_RULES[lottery_type]['blue_range']
+    
+    # 获取配置参数
+    if lottery_type == 'ssq':
+        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
+    else: # dlt
+        blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+
+    # 获取最新一期的蓝球
+    latest_blue_balls = draws_list[0].get_blue_balls_list() if draws_list else []
+
+    trends = {}
+
+    # 蓝球遗漏值分析
+    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_list, blue_ball_range, 'blue')
+    trends['omission_analysis'] = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+
+    # 蓝球重复值计算 (多期号码重复)
+    multi_draw_repeat_periods = CURRENT_SETTINGS.get(f'{lottery_type}_blue_multi_draw_repeat_periods', 5)
+    trends['multi_draw_repeat_balls'] = calculate_multi_draw_repeat_balls(draws_list, multi_draw_repeat_periods, 'blue')
+
+    if lottery_type == 'dlt':
+        # 大乐透蓝球特有指标
+        trends['odd_even_ratio'] = calculate_odd_even_ratio_per_draw(latest_blue_balls)
+        trends['size_ratio'] = calculate_size_ratio_per_draw(latest_blue_balls, blue_size_midpoint)
+        trends['prime_composite_ratio'] = calculate_prime_composite_ratio_per_draw(latest_blue_balls)
+        trends['sum'] = calculate_sum_per_draw(latest_blue_balls)
+        trends['mean'] = calculate_mean_per_draw(latest_blue_balls)
+        trends['span'] = calculate_span_per_draw(latest_blue_balls)
+        trends['consecutive_trend_over_draws'] = calculate_consecutive_trend_over_draws(draws_list, 'blue')
+        diagonal_skip_lookback = CURRENT_SETTINGS.get(f'{lottery_type}_blue_diagonal_skip_lookback', 5)
+        trends['diagonal_skip_numbers'] = calculate_diagonal_skip_numbers(draws_list, 'blue', diagonal_skip_lookback)
+
+    return trends
