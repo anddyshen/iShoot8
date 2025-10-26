@@ -8,8 +8,8 @@ import io
 import random
 import string
 
-from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE, SSQ_SETTINGS_KEYS, DLT_SETTINGS_KEYS, GENERAL_SETTINGS_KEYS
-from models import db, SSQDraw, DLTDraw, News
+from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE, SSQ_SETTINGS_KEYS, DLT_SETTINGS_KEYS, GENERAL_SETTINGS_KEYS, TREND_SETTINGS_KEYS
+from models import db, SSQDraw, DLTDraw, News, AdminSettings
 from data_manager import update_latest_draws, add_manual_draw, validate_ssq_format, validate_dlt_format
 
 # 版本号，每次生成文件时更新
@@ -59,9 +59,37 @@ def admin_settings():
     # 重定向到综合参数设置页面作为默认设置页面
     return redirect(url_for('admin_routes.admin_settings_general'))
 
-def _process_settings_form(settings_keys, redirect_route):
+def _get_admin_setting(key, default_value=None, data_type='string'):
+    """从AdminSettings表中获取设置值"""
+    setting = AdminSettings.query.filter_by(key=key).first()
+    if setting:
+        if setting.data_type == 'integer':
+            return int(setting.value)
+        elif setting.data_type == 'float':
+            return float(setting.value)
+        elif setting.data_type == 'boolean':
+            return setting.value.lower() == 'true'
+        elif setting.data_type == 'json':
+            return json.loads(setting.value)
+        return setting.value
+    return default_value
+
+def _update_admin_setting(key, value, description=None, data_type='string'):
+    """更新或创建AdminSettings表中的设置值"""
+    setting = AdminSettings.query.filter_by(key=key).first()
+    if setting:
+        setting.value = str(value)
+        setting.data_type = data_type
+        if description:
+            setting.description = description
+    else:
+        setting = AdminSettings(key=key, value=str(value), description=description, data_type=data_type)
+        db.session.add(setting)
+    db.session.commit()
+
+def _process_config_settings_form(settings_keys, redirect_route):
     """
-    处理设置表单提交的通用逻辑。
+    处理来自 config.py 的设置表单提交的通用逻辑。
     :param settings_keys: 当前页面需要处理的设置键列表。
     :param redirect_route: 处理完成后重定向的路由名称。
     """
@@ -73,9 +101,9 @@ def _process_settings_form(settings_keys, redirect_route):
                     CURRENT_SETTINGS[key] = False
                 continue
 
-            current_app.logger.debug(f"Processing setting: key='{key}', value='{value}', type(value)='{type(value)}'")
+            current_app.logger.debug(f"Processing config setting: key='{key}', value='{value}', type(value)='{type(value)}'")
             default_type = type(DEFAULT_SETTINGS.get(key))
-            current_app.logger.debug(f"  Default setting type for '{key}': '{default_type}'")
+            current_app.logger.debug(f"  Default config setting type for '{key}': '{default_type}'")
             
             if key in CURRENT_SETTINGS:
                 # 特殊处理 admin_password：如果输入框为空，则不更新密码
@@ -124,7 +152,7 @@ def _process_settings_form(settings_keys, redirect_route):
 @bp.route('/settings/ssq', methods=['GET', 'POST'])
 @admin_required
 def admin_settings_ssq():
-    response = _process_settings_form(SSQ_SETTINGS_KEYS, 'admin_routes.admin_settings_ssq')
+    response = _process_config_settings_form(SSQ_SETTINGS_KEYS, 'admin_routes.admin_settings_ssq')
     if response:
         return response
     
@@ -139,7 +167,7 @@ def admin_settings_ssq():
 @bp.route('/settings/dlt', methods=['GET', 'POST'])
 @admin_required
 def admin_settings_dlt():
-    response = _process_settings_form(DLT_SETTINGS_KEYS, 'admin_routes.admin_settings_dlt')
+    response = _process_config_settings_form(DLT_SETTINGS_KEYS, 'admin_routes.admin_settings_dlt')
     if response:
         return response
     
@@ -154,7 +182,7 @@ def admin_settings_dlt():
 @bp.route('/settings/general', methods=['GET', 'POST'])
 @admin_required
 def admin_settings_general():
-    response = _process_settings_form(GENERAL_SETTINGS_KEYS, 'admin_routes.admin_settings_general')
+    response = _process_config_settings_form(GENERAL_SETTINGS_KEYS, 'admin_routes.admin_settings_general')
     if response:
         return response
     
@@ -164,6 +192,31 @@ def admin_settings_general():
                            default_settings=DEFAULT_SETTINGS,
                            setting_labels=SETTING_LABELS_CHINESE,
                            general_settings_keys=GENERAL_SETTINGS_KEYS
+                           )
+
+@bp.route('/settings/trend', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_trend():
+    if request.method == 'POST':
+        lookback_periods_str = request.form.get('lookback_periods')
+        if lookback_periods_str:
+            try:
+                # Validate input: ensure it's a comma-separated list of integers
+                periods = [int(x.strip()) for x in lookback_periods_str.split(',') if x.strip()]
+                _update_admin_setting('lookback_periods', lookback_periods_str, 'Comma-separated list of lookback periods for trend calculations', 'string')
+                flash('回溯期数设置已更新！', 'success')
+            except ValueError:
+                flash('回溯期数格式不正确，请输入逗号分隔的整数列表。', 'danger')
+        else:
+            flash('回溯期数不能为空。', 'danger')
+        return redirect(url_for('admin_routes.admin_settings_trend'))
+    
+    lookback_periods = _get_admin_setting('lookback_periods', default_value="5,10,20,50,100,200")
+    
+    return render_template('admin/settings_trend.html', 
+                           lookback_periods=lookback_periods,
+                           setting_labels=SETTING_LABELS_CHINESE,
+                           trend_settings_keys=TREND_SETTINGS_KEYS
                            )
 
 @bp.route('/settings/download')

@@ -99,6 +99,40 @@ class AdminSettings(db.Model):
     description = db.Column(db.String(255))
     data_type = db.Column(db.String(50), default='string') # 'string', 'integer', 'float', 'boolean', 'json'
 
+    @staticmethod
+    def initialize_default_settings():
+        # Default lookback periods for trend calculations, including 0 for all periods
+        default_lookback_periods = "5,10,20,50,100,200,0"
+        setting = AdminSettings.query.filter_by(key='lookback_periods').first()
+        if not setting:
+            new_setting = AdminSettings(
+                key='lookback_periods',
+                value=default_lookback_periods,
+                description='Comma-separated list of lookback periods for trend calculations (e.g., 5,10,20,50,100,200,0 where 0 means all history)',
+                data_type='string'
+            )
+            db.session.add(new_setting)
+            db.session.commit()
+            print(f"Initialized default lookback_periods setting: {default_lookback_periods}")
+
+class TrendProbabilities(db.Model):
+    __tablename__ = 'trend_probabilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    lottery_type = db.Column(db.String(10), nullable=False) # 彩种，例如 "SSQ", "DLT"
+    lookback_period = db.Column(db.Integer, nullable=False) # 回溯期数，例如 5, 100
+    trend_metric = db.Column(db.String(100), nullable=False) # 趋势指标类型，例如 "odd_even_ratio", "consecutive_numbers"
+    metric_value = db.Column(db.String(100), nullable=False) # 具体指标值，例如 "3:3", "2_consecutive"
+    probability = db.Column(db.Float, nullable=False) # 概率值，例如 0.25
+    distribution_data = db.Column(db.JSON) # 分布区间或详细数据，JSON格式
+    last_calculated_at = db.Column(db.DateTime, default=datetime.utcnow) # 最后计算时间戳
+
+    __table_args__ = (db.UniqueConstraint('lottery_type', 'lookback_period', 'trend_metric', 'metric_value', name='_lottery_trend_uc'),)
+
+    def __repr__(self):
+        return f"<TrendProbabilities {self.lottery_type}-{self.lookback_period}-{self.trend_metric}-{self.metric_value}>"
+
+
 # 首次运行生成随机管理路由前缀
 def generate_admin_route_prefix():
     chars = string.ascii_lowercase + string.digits

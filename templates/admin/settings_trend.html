@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% from "admin/macros.html" import render_field %}
+
+{% block title %}趋势设置 - {{ site_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="container mt-4">
+    <h2 class="mb-4">趋势设置</h2>
+    <p class="text-muted">配置用于趋势计算的回溯期数。</p>
+
+    <form method="POST" action="{{ url_for('admin_routes.admin_settings_trend') }}">
+        <div class="card mb-3">
+            <div class="card-header">
+                回溯期数配置
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="lookback_periods">回溯期数 (逗号分隔的整数)</label>
+                    <input type="text" class="form-control" id="lookback_periods" name="lookback_periods" value="{{ lookback_periods }}" required>
+                    <small class="form-text text-muted">例如: 5,10,20,50,100,200</small>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">保存趋势设置</button>
+    </form>
+</div>
+{% endblock %}

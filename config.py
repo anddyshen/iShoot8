@@ -187,6 +187,11 @@ GENERAL_SETTINGS_KEYS = [
     'news_data_source_url',
 ]
 
+# 趋势设置参数键
+TREND_SETTINGS_KEYS = [
+    'lookback_periods',
+]
+
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
 
 def load_settings():
@@ -331,6 +336,9 @@ SETTING_LABELS_CHINESE = {
     # 趣味游戏消息中文标签
     'fun_game_no_prize_message': "趣味游戏：未中奖消息",
     'fun_game_prize_message': "趣味游戏：中奖消息",
+
+    # 趋势设置
+    'lookback_periods': "趋势计算回溯期数",
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')

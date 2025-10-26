@@ -25,7 +25,7 @@ from config import (
     CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS,
     __version__
 )
-from models import db, SSQDraw, DLTDraw, News, initialize_admin_route_prefix
+from models import db, SSQDraw, DLTDraw, News, AdminSettings, initialize_admin_route_prefix
 
 # 初始化 Flask 应用
 app = Flask(__name__, instance_relative_config=True)
@@ -94,7 +94,7 @@ def inject_global_data():
 # 数据库初始化和定时任务启动
 with app.app_context():
     db.create_all()
-    # ... (代码不变) ...
+    AdminSettings.initialize_default_settings() # Initialize default settings, including lookback periods
 
     # 启动定时任务 (例如，每天凌晨3点更新数据)
     # 重点修改下面这一行
