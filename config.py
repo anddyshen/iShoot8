@@ -90,6 +90,57 @@ DEFAULT_SETTINGS = {
     'dlt_blue_recent_occurrence_threshold': 8,   # 出现8次以上
     'dlt_blue_recent_occurrence_weight': 0.40,   # 概率变为40%
 
+    # 双色球红球趋势筛选规则
+    'ssq_red_trend_rules': {
+        'odd_even_ratio': {'enabled': False, 'params': {'target_ratio': '3:3'}, 'logic': 'AND'}, # 奇偶比
+        'size_ratio': {'enabled': False, 'params': {'target_ratio': '3:3'}, 'logic': 'AND'}, # 大小比
+        'prime_composite_ratio': {'enabled': False, 'params': {'target_ratio': '3:3'}, 'logic': 'AND'}, # 质合比
+        'remainder_012_ratio': {'enabled': False, 'params': {'target_ratio': '2:2:2'}, 'logic': 'AND'}, # 012路比
+        'consecutive_length': {'enabled': False, 'params': {'min_len': 2, 'max_len': 3, 'max_groups': 2}, 'logic': 'AND'}, # 连号长度和组数
+        'sum_range': {'enabled': False, 'params': {'min_sum': 80, 'max_sum': 120}, 'logic': 'AND'}, # 和值范围
+        'average_range': {'enabled': False, 'params': {'min_avg': 10, 'max_avg': 20}, 'logic': 'AND'}, # 均值范围
+        'span_range': {'enabled': False, 'params': {'min_span': 15, 'max_span': 25}, 'logic': 'AND'}, # 跨度范围
+        'ac_value_range': {'enabled': False, 'params': {'min_ac': 5, 'max_ac': 9}, 'logic': 'AND'}, # AC值范围
+        'omission_range': {'enabled': False, 'params': {'min_omit': 0, 'max_omit': 5, 'omit_type': 'total'}, 'logic': 'AND'}, # 遗漏值范围 (total/individual)
+        'prev_draw_repeat': {'enabled': False, 'params': {'min_repeat': 0, 'max_repeat': 1}, 'logic': 'AND'}, # 上期重复数
+        'head_tail_range': {'enabled': False, 'params': {'min_head': 1, 'max_head': 5, 'min_tail': 28, 'max_tail': 33}, 'logic': 'AND'}, # 龙头凤尾
+    },
+    # 双色球蓝球趋势筛选规则
+    'ssq_blue_trend_rules': {
+        'odd_even_ratio': {'enabled': False, 'params': {'target_ratio': '1:0'}, 'logic': 'AND'}, # 奇偶比
+        'size_ratio': {'enabled': False, 'params': {'target_ratio': '1:0'}, 'logic': 'AND'}, # 大小比
+        'prime_composite_ratio': {'enabled': False, 'params': {'target_ratio': '1:0'}, 'logic': 'AND'}, # 质合比
+        'remainder_012_ratio': {'enabled': False, 'params': {'target_ratio': '1:0:0'}, 'logic': 'AND'}, # 012路比
+        'omission_range': {'enabled': False, 'params': {'min_omit': 0, 'max_omit': 5}, 'logic': 'AND'}, # 遗漏值范围
+        'prev_draw_repeat': {'enabled': False, 'params': {'enabled': False}, 'logic': 'AND'}, # 上期重复数 (蓝球通常不重复，但可作为规则)
+        'blue_strategy': {'enabled': False, 'params': {'strategy_type': 'recent_occurrence', 'threshold': 5, 'draws': 10}, 'logic': 'AND'}, # 蓝球策略
+    },
+    # 大乐透红球趋势筛选规则
+    'dlt_red_trend_rules': {
+        'odd_even_ratio': {'enabled': False, 'params': {'target_ratio': '3:2'}, 'logic': 'AND'}, # 奇偶比
+        'size_ratio': {'enabled': False, 'params': {'target_ratio': '3:2'}, 'logic': 'AND'}, # 大小比
+        'prime_composite_ratio': {'enabled': False, 'params': {'target_ratio': '3:2'}, 'logic': 'AND'}, # 质合比
+        'remainder_012_ratio': {'enabled': False, 'params': {'target_ratio': '2:2:1'}, 'logic': 'AND'}, # 012路比
+        'consecutive_length': {'enabled': False, 'params': {'min_len': 2, 'max_len': 3, 'max_groups': 2}, 'logic': 'AND'}, # 连号长度和组数
+        'sum_range': {'enabled': False, 'params': {'min_sum': 90, 'max_sum': 140}, 'logic': 'AND'}, # 和值范围
+        'average_range': {'enabled': False, 'params': {'min_avg': 15, 'max_avg': 25}, 'logic': 'AND'}, # 均值范围
+        'span_range': {'enabled': False, 'params': {'min_span': 20, 'max_span': 30}, 'logic': 'AND'}, # 跨度范围
+        'ac_value_range': {'enabled': False, 'params': {'min_ac': 6, 'max_ac': 10}, 'logic': 'AND'}, # AC值范围
+        'omission_range': {'enabled': False, 'params': {'min_omit': 0, 'max_omit': 5, 'omit_type': 'total'}, 'logic': 'AND'}, # 遗漏值范围
+        'prev_draw_repeat': {'enabled': False, 'params': {'min_repeat': 0, 'max_repeat': 1}, 'logic': 'AND'}, # 上期重复数
+        'head_tail_range': {'enabled': False, 'params': {'min_head': 1, 'max_head': 5, 'min_tail': 30, 'max_tail': 35}, 'logic': 'AND'}, # 龙头凤尾
+    },
+    # 大乐透蓝球趋势筛选规则
+    'dlt_blue_trend_rules': {
+        'odd_even_ratio': {'enabled': False, 'params': {'target_ratio': '1:1'}, 'logic': 'AND'}, # 奇偶比
+        'size_ratio': {'enabled': False, 'params': {'target_ratio': '1:1'}, 'logic': 'AND'}, # 大小比
+        'prime_composite_ratio': {'enabled': False, 'params': {'target_ratio': '1:1'}, 'logic': 'AND'}, # 质合比
+        'remainder_012_ratio': {'enabled': False, 'params': {'target_ratio': '1:1:0'}, 'logic': 'AND'}, # 012路比
+        'omission_range': {'enabled': False, 'params': {'min_omit': 0, 'max_omit': 5}, 'logic': 'AND'}, # 遗漏值范围
+        'prev_draw_repeat': {'enabled': False, 'params': {'enabled': False}, 'logic': 'AND'}, # 上期重复数
+        'blue_strategy': {'enabled': False, 'params': {'strategy_type': 'recent_occurrence', 'threshold': 8, 'draws': 10}, 'logic': 'AND'}, # 蓝球策略
+    },
+
     # 趣味游戏消息设置
     'fun_game_no_prize_message': "哇哦，看样子在这个世界里的未来{simulation_years}年没有命中一等奖了，让我们赶紧再次按动 大奖时光机 按钮，穿梭到其他的平行时空，看看能不能中到大奖。",
     'fun_game_prize_message': "恭喜你！在时光机中成功命中一等奖！预计在 {estimated_date} 左右中奖。",
@@ -135,11 +186,15 @@ SSQ_SETTINGS_KEYS = [
     'ssq_blue_recent_occurrence_weight',
     'ssq_red_size_midpoint',
     'ssq_blue_size_midpoint',
+    'ssq_red_trend_rules', # 新增双色球红球趋势规则
+    'ssq_blue_trend_rules', # 新增双色球蓝球趋势规则
 ]
 
 # 大乐透参数键
 DLT_SETTINGS_KEYS = [
     'dlt_data_source_url',
+    'dlt_red_trend_rules', # 新增大乐透红球趋势规则
+    'dlt_blue_trend_rules', # 新增大乐透蓝球趋势规则
     'dlt_blue_repeat_prob',
     'dlt_blue_consecutive_5_prob',
     'dlt_red_omit_1_weight',
@@ -191,6 +246,103 @@ GENERAL_SETTINGS_KEYS = [
 TREND_SETTINGS_KEYS = [
     'lookback_periods',
 ]
+
+# 后台设置项的中文标题映射
+SETTING_LABELS_CHINESE = {
+    'site_name': "网站名称",
+    'site_description': "网站描述",
+    'admin_username': "管理员用户名",
+    'admin_password': "管理员密码",
+    'ssq_data_source_url': "双色球数据源URL",
+    'dlt_data_source_url': "大乐透数据源URL",
+    'news_data_source_url': "新闻数据源URL",
+    'history_page_size': "历史数据每页显示数量",
+    'history_stats_range_default': "统计数据默认范围",
+    
+    # 大小号分界点
+    'ssq_red_size_midpoint': "双色球红球大小号分界点",
+    'ssq_blue_size_midpoint': "双色球蓝球大小号分界点",
+    'dlt_front_size_midpoint': "大乐透前区大小号分界点",
+    'dlt_back_size_midpoint': "大乐透后区大小号分界点",
+
+    # 预测相关设置
+    'prediction_latest_draws': "预测页面：显示最新开奖期数",
+    'prediction_omitted_red_balls': "预测页面：显示遗漏最多红球数量",
+    'prediction_omitted_blue_balls': "预测页面：显示遗漏最多蓝球数量",
+    'prediction_generated_count': "预测页面：默认生成号码组数",
+
+    # 双色球预测规则权重/概率
+    'ssq_blue_omit_latest_draws': "双色球蓝球：遗漏分析期数",
+    'ssq_blue_consecutive_3_prob': "双色球蓝球：连号3期概率",
+    'ssq_blue_consecutive_5_prob': "双色球蓝球：连号5期概率",
+    'ssq_red_omit_1_weight': "双色球红球：遗漏1期权重，每球平均概率 3.03%",
+    'ssq_red_omit_2_weight': "双色球红球：遗漏2期权重",
+    'ssq_red_omit_3_weight': "双色球红球：遗漏3期权重",
+    'ssq_red_omit_4_weight': "双色球红球：遗漏4期权重",
+    'ssq_red_omit_5_weight': "双色球红球：遗漏5期权重",
+    'ssq_red_omit_6_weight': "双色球红球：遗漏6期权重",
+    'ssq_red_consecutive_3_prob': "双色球红球：连号3期概率",
+    'ssq_red_consecutive_3_second_prob': "双色球红球：连号3期第二次概率",
+    'ssq_red_area_min_count': "双色球红球：分区最小数量",
+    'ssq_red_prev_2_draws_max_repeat': "双色球红球：近2期最大重复数",
+    'ssq_red_max_consecutive_balls': "双色球红球：最大连号数量",
+    'ssq_red_omit_prob_threshold_1': "双色球红球：遗漏降概率阈值1对应的概率",
+    'ssq_red_omit_prob_threshold_2': "双色球红球：遗漏降概率阈值2对应的概率",
+    'ssq_red_omit_prob_threshold_3': "双色球红球：遗漏降概率阈值3对应的概率",
+    'ssq_red_omit_threshold_1': "双色球红球：遗漏降概率阈值1",
+    'ssq_red_omit_threshold_2': "双色球红球：遗漏降概率阈值2",
+    'ssq_red_omit_threshold_3': "双色球红球：遗漏降概率阈值3",
+    
+    'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
+    'dlt_blue_consecutive_5_prob': "大乐透蓝球：连号5期概率",
+    'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重，每球平均概率 2.857%",
+    'dlt_red_omit_2_weight': "大乐透红球：遗漏2期权重",
+    'dlt_red_omit_3_weight': "大乐透红球：遗漏3期权重",
+    'dlt_red_omit_4_weight': "大乐透红球：遗漏4期权重",
+    'dlt_red_omit_5_weight': "大乐透红球：遗漏5期权重",
+    'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重",
+    'dlt_red_consecutive_3_prob': "大乐透红球：连号3期概率",
+    'dlt_red_area_min_count': "大乐透红球：分区最小数量",
+    'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
+    'dlt_red_max_consecutive_balls': "大乐透红球：最大连号数量",
+    'dlt_red_omit_prob_threshold_1': "大乐透红球：遗漏降概率阈值1对应的概率",
+    'dlt_red_omit_prob_threshold_2': "大乐透红球：遗漏降概率阈值2对应的概率",
+    'dlt_red_omit_prob_threshold_3': "大乐透红球：遗漏降概率阈值3对应的概率",
+    'dlt_red_omit_threshold_1': "大乐透红球：遗漏降概率阈值1",
+    'dlt_red_omit_threshold_2': "大乐透红球：遗漏降概率阈值2",
+    'dlt_red_omit_threshold_3': "大乐透红球：遗漏降概率阈值3",
+
+    # 对奖中心设置
+    'prize_check_range': "对奖中心：检查范围",
+    'fun_game_max_simulations': "趣味游戏：最大模拟次数",
+
+    # 开奖日期设置
+    'ssq_draw_days': "双色球开奖日 (周几)",
+    'dlt_draw_days': "大乐透开奖日 (周几)",
+    'annual_holidays': "年度节假日 (不更新数据)",
+    'fun_game_simulation_years': "趣味游戏：模拟年份范围",
+
+    # 蓝球近期出现频率规则
+    'ssq_blue_recent_occurrence_draws': "双色球蓝球：近期出现分析期数",
+    'ssq_blue_recent_occurrence_threshold': "双色球蓝球：近期出现频率阈值",
+    'ssq_blue_recent_occurrence_weight': "双色球蓝球：近期出现频率权重",
+    'dlt_blue_recent_occurrence_draws': "大乐透蓝球：近期出现分析期数",
+    'dlt_blue_recent_occurrence_threshold': "大乐透蓝球：近期出现频率阈值",
+    'dlt_blue_recent_occurrence_weight': "大乐透蓝球：近期出现频率权重",
+
+    # 趣味游戏消息中文标签
+    'fun_game_no_prize_message': "趣味游戏：未中奖消息",
+    'fun_game_prize_message': "趣味游戏：中奖消息",
+
+    # 趋势设置
+    'lookback_periods': "趋势计算回溯期数",
+
+    # 新增趋势规则中文标签
+    'ssq_red_trend_rules': "双色球红球趋势规则",
+    'ssq_blue_trend_rules': "双色球蓝球趋势规则",
+    'dlt_red_trend_rules': "大乐透红球趋势规则",
+    'dlt_blue_trend_rules': "大乐透蓝球趋势规则",
+}
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
 

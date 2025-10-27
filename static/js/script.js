@@ -75,7 +75,47 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// --- 以下是 prediction.html 页面相关的 JavaScript 逻辑 ---
+// --- prediction.html 页面相关的 JavaScript 逻辑 ---
+
+// Function to load and display active rules from backend
+async function loadActiveRules(lotteryType, displayElementId) {
+    const displayElement = document.getElementById(displayElementId);
+    if (!displayElement) {
+        console.error(`Display element with ID ${displayElementId} not found.`);
+        return;
+    }
+    displayElement.innerHTML = '<p class="text-muted">加载后台配置规则中... <span class="loading-spinner"></span></p>';
+
+    try {
+        const response = await fetch(`/api/prediction/active_rules?lottery_type=${lotteryType}`);
+        const data = await response.json();
+
+        if (data.error) {
+            displayElement.innerHTML = `<p class="text-danger">加载规则失败: ${data.error}</p>`;
+            return;
+        }
+
+        if (data.active_rules && data.active_rules.length > 0) {
+            let html = '<p><strong>当前激活的筛选规则:</strong></p><ul>';
+            data.active_rules.forEach(rule => {
+                let paramsHtml = '';
+                if (Object.keys(rule.params).length > 0) {
+                    paramsHtml = ' (参数: ';
+                    paramsHtml += Object.entries(rule.params).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join(', ');
+                    paramsHtml += ')';
+                }
+                html += `<li><strong>${rule.label}</strong>${paramsHtml} (组合逻辑: ${rule.logic})</li>`;
+            });
+            html += '</ul><p><strong>提示： 规则冲突优先级:</strong> 所有规则如果产生冲突，则按照顺序作为优先级，在先的优先考虑，舍弃后一条规则。</p>';
+            displayElement.innerHTML = html;
+        } else {
+            displayElement.innerHTML = '<p class="text-muted">当前没有激活的筛选规则。</p>';
+        }
+    } catch (error) {
+        console.error(`Error loading active rules for ${lotteryType}:`, error);
+        displayElement.innerHTML = '<p class="text-danger">加载规则失败。</p>';
+    }
+}
 
 // Helper function to get consecutive groups in JavaScript
 function getConsecutiveGroupsJS(numbers) {
@@ -256,6 +296,7 @@ document.getElementById('ssq_prediction_tab').addEventListener('click', function
     updateFilterStatsDisplay('ssq', null); // Clear stats when switching tabs
     document.getElementById('dlt_filter_overview_card').style.display = 'none'; // Hide DLT overview when switching to SSQ
     loadOmittedBalls('ssq', currentSsqOmissionOffset); // Load data for SSQ when tab is clicked
+    loadActiveRules('ssq', 'ssq_active_rules_display'); // Load active rules for SSQ
 });
 
 document.getElementById('dlt_prediction_tab').addEventListener('click', function(e) {
@@ -268,6 +309,7 @@ document.getElementById('dlt_prediction_tab').addEventListener('click', function
     updateFilterStatsDisplay('dlt', null); // Clear stats when switching tabs
     document.getElementById('ssq_filter_overview_card').style.display = 'none'; // Hide SSQ overview when switching to DLT
     loadOmittedBalls('dlt', currentDltOmissionOffset); // Load data for DLT when tab is clicked
+    loadActiveRules('dlt', 'dlt_active_rules_display'); // Load active rules for DLT
 });
 
 // Event Listeners for omission navigation buttons
@@ -299,8 +341,6 @@ document.getElementById('dlt_next_omission_issue_btn').addEventListener('click',
 // Generate Random Numbers
 async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
     const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
-    const redOddEvenRatio = document.getElementById(`${lotteryType}_red_odd_even_ratio`).value;
-    const redSizeRatio = document.getElementById(`${lotteryType}_red_size_ratio`).value;
     const outputDiv = document.getElementById(`${lotteryType}_random_numbers_output`);
     
     if (indexToRegenerate === null) { // Only clear if generating all
@@ -313,16 +353,14 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
         }
     }
 
-    console.log(`Frontend: Generating random numbers for ${lotteryType}, count=${numGenerate}, odd/even=${redOddEvenRatio}, size=${redSizeRatio}, index=${indexToRegenerate}...`);
+    console.log(`Frontend: Generating random numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
     try {
         const response = await fetch('/api/prediction/generate_random', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 lottery_type: lotteryType, 
-                count: parseInt(numGenerate),
-                red_odd_even_ratio: redOddEvenRatio,
-                red_size_ratio: redSizeRatio
+                count: parseInt(numGenerate)
             })
         });
         const data = await response.json();
@@ -420,8 +458,6 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
 // Generate Predicted Numbers (now "规则号码")
 async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
     const numGenerate = indexToRegenerate === null ? document.getElementById(`${lotteryType}_num_generate`).value : 1;
-    const redOddEvenRatio = document.getElementById(`${lotteryType}_red_odd_even_ratio`).value;
-    const redSizeRatio = document.getElementById(`${lotteryType}_red_size_ratio`).value;
     const outputDiv = document.getElementById(`${lotteryType}_predicted_numbers_output`);
 
     if (indexToRegenerate === null) { // Only clear if generating all
@@ -434,16 +470,14 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
         }
     }
 
-    console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count=${numGenerate}, odd/even=${redOddEvenRatio}, size=${redSizeRatio}, index=${indexToRegenerate}...`);
+    console.log(`Frontend: Generating predicted (rule-based) numbers for ${lotteryType}, count=${numGenerate}, index=${indexToRegenerate}...`);
     try {
         const response = await fetch('/api/prediction/generate_predicted', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 lottery_type: lotteryType, 
-                count: parseInt(numGenerate),
-                red_odd_even_ratio: redOddEvenRatio,
-                red_size_ratio: redSizeRatio
+                count: parseInt(numGenerate)
             })
         });
         const data = await response.json();
@@ -844,7 +878,7 @@ function updateFilterStatsDisplay(lotteryType, statsData) {
 // Initial load
 document.addEventListener('DOMContentLoaded', function() {
     // Ensure the correct tab is active on load
-    document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq')
+    document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq') and loadActiveRules('ssq', 'ssq_active_rules_display')
 });
 document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-random-btn')) {

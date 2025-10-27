@@ -78,14 +78,38 @@
 
 {% block scripts %}
     {{ super() }} {# 确保继承父模板的脚本 #}
-    <!-- Admin specific scripts if any -->
+    <!-- Admin specific scripts -->
     <script>
-        // Example: Toggle sidebar on smaller screens
-        // var sidebarToggle = document.querySelector('.navbar-toggler');
-        // var sidebar = document.getElementById('sidebarMenu');
-        // sidebarToggle.addEventListener('click', function() {
-        //     sidebar.classList.toggle('show');
-        // });
+        document.addEventListener('DOMContentLoaded', function() {
+            // 查找所有趋势规则的启用/禁用开关
+            document.querySelectorAll('input[type="checkbox"][name*="_trend_rules_"][name$="_enabled"]').forEach(function(checkbox) {
+                checkbox.addEventListener('change', function() {
+                    // 从 checkbox 的 name 属性中提取 full_key_prefix
+                    // 例如：ssq_red_trend_rules_odd_even_ratio_enabled -> ssq_red_trend_rules_odd_even_ratio
+                    const fullKeyPrefix = this.name.replace('_enabled', '');
+                    const bodyElementId = fullKeyPrefix + '_body';
+                    const body = document.getElementById(bodyElementId);
+                    if (body) {
+                        if (this.checked) {
+                            body.style.display = 'block';
+                        } else {
+                            body.style.display = 'none';
+                        }
+                    }
+                });
+                // 页面加载时根据初始状态设置显示/隐藏
+                const fullKeyPrefix = checkbox.name.replace('_enabled', '');
+                const bodyElementId = fullKeyPrefix + '_body';
+                const body = document.getElementById(bodyElementId);
+                if (body) {
+                    if (checkbox.checked) {
+                        body.style.display = 'block';
+                    } else {
+                        body.style.display = 'none';
+                    }
+                }
+            });
+        });
     </script>
 {% endblock %}
 

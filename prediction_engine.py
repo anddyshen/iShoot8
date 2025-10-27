@@ -3,7 +3,7 @@ import random
 from collections import Counter
 from datetime import date
 from flask import current_app
-from models import SSQDraw, DLTDraw, db # 确保 db 已导入
+from models import SSQDraw, DLTDraw, db, TrendProbabilities # 确保 db 和 TrendProbabilities 已导入
 from config import CURRENT_SETTINGS, PRIZE_RULES
 from utils import (
     format_lottery_numbers, calculate_omissions, get_consecutive_groups, 
@@ -570,43 +570,248 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
     attempts_made = 0
     filtered_count = 0
 
+    # 获取回溯期数，优先从配置中获取，否则使用所有历史数据
+    lookback_periods_str = CURRENT_SETTINGS.get('lookback_periods', '0')
+    lookback_periods_list = [int(p) for p in lookback_periods_str.split(',') if p.strip()]
+    
+    # 优先使用最长的回溯期数进行趋势数据查询，如果配置为0则表示所有历史数据
+    # 假设我们总是使用所有历史数据进行趋势计算，因此 lookback_period = len(all_draws)
+    # 如果配置中没有0，则取最大的回溯期数
+    if 0 in lookback_periods_list:
+        trend_lookback_period = len(all_draws)
+    elif lookback_periods_list:
+        trend_lookback_period = max(lookback_periods_list)
+    else:
+        trend_lookback_period = len(all_draws) # 默认使用所有历史数据
+
+    # 尝试从 TrendProbabilities 表中加载预计算的趋势数据
+    precomputed_trends = TrendProbabilities.query.filter_by(
+        lottery_type=lottery_type,
+        lookback_period=trend_lookback_period
+    ).all()
+
+    # 将预计算的趋势数据转换为易于访问的字典
+    trend_data_map = {}
+    for trend in precomputed_trends:
+        if trend.trend_metric not in trend_data_map:
+            trend_data_map[trend.trend_metric] = {}
+        trend_data_map[trend.trend_metric][trend.metric_value] = {
+            'probability': trend.probability,
+            'distribution_data': trend.distribution_data
+        }
+    
+    use_precomputed = bool(precomputed_trends)
+    if use_precomputed:
+        current_app.logger.info(f"Using precomputed trend data for {lottery_type} (lookback: {trend_lookback_period}).")
+    else:
+        current_app.logger.warning(f"No precomputed trend data found for {lottery_type} (lookback: {trend_lookback_period}). Triggering on-demand calculation and backfill.")
+        
+        # 触发即时计算和回填
+        red_trends = calculate_red_ball_trends(all_draws, lottery_type)
+        blue_trends = calculate_blue_ball_trends(all_draws, lottery_type)
+
+        # 将即时计算所得的数据写入 trend_probabilities 表
+        trend_entries_to_add = []
+
+        # 辅助函数：将趋势数据添加到列表中
+        def add_trend_entry(metric_name, metric_value, probability, distribution_data):
+            trend_entries_to_add.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=trend_lookback_period,
+                trend_metric=metric_name,
+                metric_value=str(metric_value),
+                probability=probability,
+                distribution_data=distribution_data
+            ))
+
+        # 处理红球趋势
+        for trend_metric, trend_data in red_trends.items():
+            if trend_metric == 'omission_analysis':
+                for ball_data in trend_data:
+                    add_trend_entry(
+                        f"red_stats_ball_{ball_data['ball']}",
+                        ball_data['ball'],
+                        ball_data.get('frequency_percentage', 0) / 100,
+                        {
+                            'frequency_count': ball_data.get('frequency_count', 0),
+                            'current_omission': ball_data.get('current_omission', 0),
+                            'max_omission': ball_data.get('max_omission', 0)
+                        }
+                    )
+            elif trend_metric == 'consecutive_trend_over_draws':
+                for length, count in trend_data.items():
+                    add_trend_entry(
+                        'consecutive_trend_red',
+                        length,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'multi_draw_repeat_balls':
+                for ball, count in trend_data.items():
+                    add_trend_entry(
+                        'multi_draw_repeat_red',
+                        ball,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'diagonal_skip_numbers':
+                add_trend_entry(
+                    'diagonal_numbers_red',
+                    ','.join(map(str, trend_data.get('diagonal_numbers', []))),
+                    len(trend_data.get('diagonal_numbers', [])) / red_range if red_range > 0 else 0,
+                    {'numbers': trend_data.get('diagonal_numbers', [])}
+                )
+                add_trend_entry(
+                    'skip_numbers_red',
+                    ','.join(map(str, trend_data.get('skip_numbers', []))),
+                    len(trend_data.get('skip_numbers', [])) / red_range if red_range > 0 else 0,
+                    {'numbers': trend_data.get('skip_numbers', [])}
+                )
+            else: # 其他简单指标，如奇偶比、大小比、和值、均值、跨度、分区分布、余数分组
+                if isinstance(trend_data, dict):
+                    for key, value in trend_data.items():
+                        add_trend_entry(
+                            f"red_{trend_metric}_{key}", # 例如 red_area_distribution_Area 1 (1-8)
+                            value,
+                            0.0, # 概率可能不直接适用，或需要额外计算
+                            {'value': value}
+                        )
+                else:
+                    add_trend_entry(
+                        f"red_{trend_metric}",
+                        trend_data,
+                        0.0, # 概率可能不直接适用，或需要额外计算
+                        {'value': trend_data}
+                    )
+
+        # 处理蓝球趋势
+        for trend_metric, trend_data in blue_trends.items():
+            if trend_metric == 'omission_analysis':
+                for ball_data in trend_data:
+                    add_trend_entry(
+                        f"blue_stats_ball_{ball_data['ball']}",
+                        ball_data['ball'],
+                        ball_data.get('frequency_percentage', 0) / 100,
+                        {
+                            'frequency_count': ball_data.get('frequency_count', 0),
+                            'current_omission': ball_data.get('current_omission', 0),
+                            'max_omission': ball_data.get('max_omission', 0)
+                        }
+                    )
+            elif trend_metric == 'consecutive_trend_over_draws':
+                for length, count in trend_data.items():
+                    add_trend_entry(
+                        'consecutive_trend_blue',
+                        length,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'multi_draw_repeat_balls':
+                for ball, count in trend_data.items():
+                    add_trend_entry(
+                        'multi_draw_repeat_blue',
+                        ball,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'diagonal_skip_numbers':
+                add_trend_entry(
+                    'diagonal_numbers_blue',
+                    ','.join(map(str, trend_data.get('diagonal_numbers', []))),
+                    len(trend_data.get('diagonal_numbers', [])) / blue_range if blue_range > 0 else 0,
+                    {'numbers': trend_data.get('diagonal_numbers', [])}
+                )
+                add_trend_entry(
+                    'skip_numbers_blue',
+                    ','.join(map(str, trend_data.get('skip_numbers', []))),
+                    len(trend_data.get('skip_numbers', [])) / blue_range if blue_range > 0 else 0,
+                    {'numbers': trend_data.get('skip_numbers', [])}
+                )
+            else: # 其他简单指标
+                if isinstance(trend_data, dict):
+                    for key, value in trend_data.items():
+                        add_trend_entry(
+                            f"blue_{trend_metric}_{key}",
+                            value,
+                            0.0,
+                            {'value': value}
+                        )
+                else:
+                    add_trend_entry(
+                        f"blue_{trend_metric}",
+                        trend_data,
+                        0.0,
+                        {'value': trend_data}
+                    )
+
+        db.session.add_all(trend_entries_to_add)
+        db.session.commit()
+        current_app.logger.info(f"On-demand trend data calculated and backfilled for {lottery_type} (lookback: {trend_lookback_period}). Total entries: {len(trend_entries_to_add)}")
+
+        # 重新加载趋势数据
+        precomputed_trends = TrendProbabilities.query.filter_by(
+            lottery_type=lottery_type,
+            lookback_period=trend_lookback_period
+        ).all()
+
+        trend_data_map = {}
+        for trend in precomputed_trends:
+            if trend.trend_metric not in trend_data_map:
+                trend_data_map[trend.trend_metric] = {}
+            trend_data_map[trend.trend_metric][trend.metric_value] = {
+                'probability': trend.probability,
+                'distribution_data': trend.distribution_data
+            }
+        use_precomputed = True # 现在有了预计算数据
+
     while attempts_made < max_attempts:
         attempts_made += 1
         
         # --- 蓝球预测逻辑 ---
         blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
-        blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
-        sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
-        sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
+
+        # 从预计算数据中获取蓝球频率和遗漏
+        blue_stats_from_trend = []
+        for ball in range(1, blue_range + 1):
+            metric_key = f"blue_stats_ball_{ball}"
+            if metric_key in trend_data_map and str(ball) in trend_data_map[metric_key]:
+                data = trend_data_map[metric_key][str(ball)]['distribution_data']
+                blue_stats_from_trend.append({
+                    'ball': ball,
+                    'frequency_count': data.get('frequency_count', 0),
+                    'current_omission': data.get('current_omission', 0),
+                    'max_omission': data.get('max_omission', 0),
+                    'frequency_percentage': trend_data_map[metric_key][str(ball)]['probability'] * 100
+                })
+        if blue_stats_from_trend:
+            blue_stats_list = blue_stats_from_trend
+            sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+            sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
+        else:
+            current_app.logger.warning(f"Precomputed blue_stats_list not found for {lottery_type} after on-demand calculation. Falling back to real-time calculation.")
+            blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
+            sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+            sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
 
         # 根据策略调整蓝球概率
         if blue_strategy == 'hot': # 策略一：倾向于选择“热号”
-            # 增加出现频率高的号码的权重
             for i, ball_data in enumerate(sorted_blue_frequencies):
-                # 可以根据排名或频率值设置不同的权重
                 blue_probabilities[ball_data['ball']] += (len(sorted_blue_frequencies) - i) * 0.1 
         elif blue_strategy == 'cold': # 策略二：关注“冷号回补”
-            # 增加遗漏期数长的号码的权重
             for i, ball_data in enumerate(sorted_blue_omissions):
                 blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.1
         elif blue_strategy == 'balanced': # 策略三：平衡冷热号分布
-            # 结合频率和遗漏，例如，频率高的略微增加，遗漏长的也略微增加
             for ball_data in blue_stats_list:
-                # 频率权重
                 blue_probabilities[ball_data['ball']] += ball_data['frequency_percentage'] * 0.01
-                # 遗漏权重
                 blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.05
         elif blue_strategy == 'trend': # 策略四：结合遗漏值趋势分析
-            # 这是一个更复杂的策略，可能需要分析遗漏值的变化趋势
-            # 暂时先简单实现为：对当前遗漏值处于“中等”水平的号码给予更高权重，避免过冷或过热
-            # 假设中等遗漏范围是总期数的 1/4 到 1/2
             total_draws_count = len(all_draws)
             if total_draws_count > 0:
                 mid_omission_lower = total_draws_count // 4
                 mid_omission_upper = total_draws_count // 2
                 for ball_data in blue_stats_list:
                     if mid_omission_lower <= ball_data['current_omission'] <= mid_omission_upper:
-                        blue_probabilities[ball_data['ball']] += 0.5 # 给予中等遗漏号码额外权重
+                        blue_probabilities[ball_data['ball']] += 0.5 
         
         # 现有蓝球预测逻辑 (遗漏和重复)
         if lottery_type == 'ssq':
@@ -616,18 +821,25 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
                 excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
             for ball in excluded_blue_balls:
                 if ball in blue_probabilities:
-                    blue_probabilities[ball] = min(blue_probabilities[ball], 0.0) # 确保排除的号码概率为0
+                    blue_probabilities[ball] = min(blue_probabilities[ball], 0.0) 
 
             ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
             ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
             for ball in range(1, blue_range + 1):
                 if blue_probabilities[ball] > 0:
                     consecutive_count = 0
-                    for draw in all_draws:
-                        if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
-                            consecutive_count += 1
-                        else:
-                            break
+                    # 尝试从预计算数据中获取连号趋势
+                    consecutive_trend_key = 'consecutive_trend_blue'
+                    metric_value = f"{ball}_consecutive" # 假设存储方式
+                    if consecutive_trend_key in trend_data_map and metric_value in trend_data_map[consecutive_trend_key]:
+                        consecutive_count = trend_data_map[consecutive_trend_key][metric_value]['distribution_data'].get('count', 0)
+                    else: # 回退到实时计算
+                        for draw in all_draws:
+                            if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
+                                consecutive_count += 1
+                            else:
+                                break
+                    
                     if consecutive_count >= 5:
                         blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_5_prob)
                     elif consecutive_count >= 3:
@@ -643,11 +855,17 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
             dlt_blue_consecutive_5_prob = CURRENT_SETTINGS.get('dlt_blue_consecutive_5_prob', 0.25)
             for ball in range(1, blue_range + 1):
                 consecutive_count = 0
-                for draw in all_draws:
-                    if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
-                        consecutive_count += 1
-                    else:
-                        break
+                # 尝试从预计算数据中获取连号趋势
+                consecutive_trend_key = 'consecutive_trend_blue'
+                metric_value = f"{ball}_consecutive" # 假设存储方式
+                if consecutive_trend_key in trend_data_map and metric_value in trend_data_map[consecutive_trend_key]:
+                    consecutive_count = trend_data_map[consecutive_trend_key][metric_value]['distribution_data'].get('count', 0)
+                else: # 回退到实时计算
+                    for draw in all_draws:
+                        if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
+                            consecutive_count += 1
+                        else:
+                            break
                 if consecutive_count >= 5:
                     blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_consecutive_5_prob)
         
@@ -667,8 +885,26 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
         # --- 红球预测逻辑 ---
         red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
 
-        red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
-        sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+        # 从预计算数据中获取红球频率和遗漏
+        red_omission_stats_from_trend = []
+        for ball in range(1, red_range + 1):
+            metric_key = f"red_stats_ball_{ball}"
+            if metric_key in trend_data_map and str(ball) in trend_data_map[metric_key]:
+                data = trend_data_map[metric_key][str(ball)]['distribution_data']
+                red_omission_stats_from_trend.append({
+                    'ball': ball,
+                    'frequency_count': data.get('frequency_count', 0),
+                    'current_omission': data.get('current_omission', 0),
+                    'max_omission': data.get('max_omission', 0),
+                    'frequency_percentage': trend_data_map[metric_key][str(ball)]['probability'] * 100
+                })
+        if red_omission_stats_from_trend:
+            red_omission_stats = red_omission_stats_from_trend
+            sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+        else:
+            current_app.logger.warning(f"Precomputed red_omission_stats not found for {lottery_type} after on-demand calculation. Falling back to real-time calculation.")
+            red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
+            sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
 
         if lottery_type == 'ssq':
             omit_weights = {
@@ -683,17 +919,29 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
 
             ssq_red_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_prob', 0.35)
             ssq_red_consecutive_3_second_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_second_prob', 0.0)
-            latest_3_draws = all_draws[:3]
-            if len(latest_3_draws) >= 3:
-                red_ball_counts = Counter()
-                for draw in latest_3_draws:
-                    red_ball_counts.update(draw.get_red_balls_list())
-                consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
-                if consecutive_repeat_balls:
-                    if len(consecutive_repeat_balls) >= 1:
-                        red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
-                    if len(consecutive_repeat_balls) >= 2:
-                        red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
+            
+            # 尝试从预计算数据中获取连号趋势
+            consecutive_trend_key = 'consecutive_trend_red'
+            consecutive_repeat_balls = []
+            if consecutive_trend_key in trend_data_map:
+                # 这里需要更精细的逻辑来判断是哪个球连续3期
+                # 预计算数据中只存储了连号长度的计数，没有具体是哪个球
+                # 所以这部分仍然需要回退到实时计算，或者在预计算时存储更详细的信息
+                pass 
+            
+            if not consecutive_repeat_balls: # 如果预计算数据没有提供具体球的连号信息，则回退
+                latest_3_draws = all_draws[:3]
+                if len(latest_3_draws) >= 3:
+                    red_ball_counts = Counter()
+                    for draw in latest_3_draws:
+                        red_ball_counts.update(draw.get_red_balls_list())
+                    consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+
+            if consecutive_repeat_balls:
+                if len(consecutive_repeat_balls) >= 1:
+                    red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
+                if len(consecutive_repeat_balls) >= 2:
+                    red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
 
             ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
             ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
@@ -724,15 +972,31 @@ def generate_predicted_balls(lottery_type, red_odd_even_ratio=None, red_size_rat
                 red_probabilities[ball_data['ball']] += weight
 
             dlt_red_consecutive_3_prob = CURRENT_SETTINGS.get('dlt_red_consecutive_3_prob', 0.35)
-            latest_3_draws = all_draws[:3]
-            if len(latest_3_draws) >= 3:
-                red_ball_counts = Counter()
-                for draw in latest_3_draws:
-                    red_ball_counts.update(draw.get_red_balls_list())
-                consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
-                if consecutive_repeat_balls:
-                    if len(consecutive_repeat_balls) >= 1:
-                        red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
+            
+            # 尝试从预计算数据中获取连号趋势
+            consecutive_trend_key = 'consecutive_trend_red'
+            consecutive_repeat_balls = []
+            if consecutive_trend_key in trend_data_map:
+                pass 
+            
+            if not consecutive_repeat_balls: # 如果预计算数据没有提供具体球的连号信息，则回退
+                latest_3_draws = all_draws[:3]
+                if len(latest_3_draws) >= 3:
+                    red_ball_counts = Counter()
+                    for draw in latest_3_draws:
+                        red_ball_counts.update(draw.get_red_balls_list())
+                    consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+            else: # 回退到实时计算
+                latest_3_draws = all_draws[:3]
+                if len(latest_3_draws) >= 3:
+                    red_ball_counts = Counter()
+                    for draw in latest_3_draws:
+                        red_ball_counts.update(draw.get_red_balls_list())
+                    consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+
+            if consecutive_repeat_balls:
+                if len(consecutive_repeat_balls) >= 1:
+                    red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
 
             dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
             dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
@@ -1166,8 +1430,453 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
 
     # --- 加权随机采样红球和蓝球，并检查结构性约束 ---
     max_attempts = 500 # 增加尝试次数，因为复式号码的约束可能更难满足
+    
+    # 获取回溯期数，优先从配置中获取，否则使用所有历史数据
+    lookback_periods_str = CURRENT_SETTINGS.get('lookback_periods', '0')
+    lookback_periods_list = [int(p) for p in lookback_periods_str.split(',') if p.strip()]
+    
+    if 0 in lookback_periods_list:
+        trend_lookback_period = len(all_draws)
+    elif lookback_periods_list:
+        trend_lookback_period = max(lookback_periods_list)
+    else:
+        trend_lookback_period = len(all_draws)
+
+    # 尝试从 TrendProbabilities 表中加载预计算的趋势数据
+    precomputed_trends = TrendProbabilities.query.filter_by(
+        lottery_type=lottery_type,
+        lookback_period=trend_lookback_period
+    ).all()
+
+    trend_data_map = {}
+    for trend in precomputed_trends:
+        if trend.trend_metric not in trend_data_map:
+            trend_data_map[trend.trend_metric] = {}
+        trend_data_map[trend.trend_metric][trend.metric_value] = {
+            'probability': trend.probability,
+            'distribution_data': trend.distribution_data
+        }
+    
+    use_precomputed = bool(precomputed_trends)
+    if use_precomputed:
+        current_app.logger.info(f"Using precomputed trend data for {lottery_type} (lookback: {trend_lookback_period}) in complex prediction.")
+    else:
+        current_app.logger.warning(f"No precomputed trend data found for {lottery_type} (lookback: {trend_lookback_period}) in complex prediction. Triggering on-demand calculation and backfill.")
+        
+        # 触发即时计算和回填
+        red_trends = calculate_red_ball_trends(all_draws, lottery_type)
+        blue_trends = calculate_blue_ball_trends(all_draws, lottery_type)
+
+        # 将即时计算所得的数据写入 trend_probabilities 表
+        trend_entries_to_add = []
+
+        # 辅助函数：将趋势数据添加到列表中
+        def add_trend_entry(metric_name, metric_value, probability, distribution_data):
+            trend_entries_to_add.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=trend_lookback_period,
+                trend_metric=metric_name,
+                metric_value=str(metric_value),
+                probability=probability,
+                distribution_data=distribution_data
+            ))
+
+        # 处理红球趋势
+        for trend_metric, trend_data in red_trends.items():
+            if trend_metric == 'omission_analysis':
+                for ball_data in trend_data:
+                    add_trend_entry(
+                        f"red_stats_ball_{ball_data['ball']}",
+                        ball_data['ball'],
+                        ball_data.get('frequency_percentage', 0) / 100,
+                        {
+                            'frequency_count': ball_data.get('frequency_count', 0),
+                            'current_omission': ball_data.get('current_omission', 0),
+                            'max_omission': ball_data.get('max_omission', 0)
+                        }
+                    )
+            elif trend_metric == 'consecutive_trend_over_draws':
+                for length, count in trend_data.items():
+                    add_trend_entry(
+                        'consecutive_trend_red',
+                        length,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'multi_draw_repeat_balls':
+                for ball, count in trend_data.items():
+                    add_trend_entry(
+                        'multi_draw_repeat_red',
+                        ball,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'diagonal_skip_numbers':
+                add_trend_entry(
+                    'diagonal_numbers_red',
+                    ','.join(map(str, trend_data.get('diagonal_numbers', []))),
+                    len(trend_data.get('diagonal_numbers', [])) / red_range if red_range > 0 else 0,
+                    {'numbers': trend_data.get('diagonal_numbers', [])}
+                )
+                add_trend_entry(
+                    'skip_numbers_red',
+                    ','.join(map(str, trend_data.get('skip_numbers', []))),
+                    len(trend_data.get('skip_numbers', [])) / red_range if red_range > 0 else 0,
+                    {'numbers': trend_data.get('skip_numbers', [])}
+                )
+            else: # 其他简单指标，如奇偶比、大小比、和值、均值、跨度、分区分布、余数分组
+                if isinstance(trend_data, dict):
+                    for key, value in trend_data.items():
+                        add_trend_entry(
+                            f"red_{trend_metric}_{key}", # 例如 red_area_distribution_Area 1 (1-8)
+                            value,
+                            0.0, # 概率可能不直接适用，或需要额外计算
+                            {'value': value}
+                        )
+                else:
+                    add_trend_entry(
+                        f"red_{trend_metric}",
+                        trend_data,
+                        0.0, # 概率可能不直接适用，或需要额外计算
+                        {'value': trend_data}
+                    )
+
+        # 处理蓝球趋势
+        for trend_metric, trend_data in blue_trends.items():
+            if trend_metric == 'omission_analysis':
+                for ball_data in trend_data:
+                    add_trend_entry(
+                        f"blue_stats_ball_{ball_data['ball']}",
+                        ball_data['ball'],
+                        ball_data.get('frequency_percentage', 0) / 100,
+                        {
+                            'frequency_count': ball_data.get('frequency_count', 0),
+                            'current_omission': ball_data.get('current_omission', 0),
+                            'max_omission': ball_data.get('max_omission', 0)
+                        }
+                    )
+            elif trend_metric == 'consecutive_trend_over_draws':
+                for length, count in trend_data.items():
+                    add_trend_entry(
+                        'consecutive_trend_blue',
+                        length,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'multi_draw_repeat_balls':
+                for ball, count in trend_data.items():
+                    add_trend_entry(
+                        'multi_draw_repeat_blue',
+                        ball,
+                        count / len(all_draws) if len(all_draws) > 0 else 0,
+                        {'count': count}
+                    )
+            elif trend_metric == 'diagonal_skip_numbers':
+                add_trend_entry(
+                    'diagonal_numbers_blue',
+                    ','.join(map(str, trend_data.get('diagonal_numbers', []))),
+                    len(trend_data.get('diagonal_numbers', [])) / blue_range if blue_range > 0 else 0,
+                    {'numbers': trend_data.get('numbers', [])}
+                )
+                add_trend_entry(
+                    'skip_numbers_blue',
+                    ','.join(map(str, trend_data.get('skip_numbers', []))),
+                    len(trend_data.get('skip_numbers', [])) / blue_range if blue_range > 0 else 0,
+                    {'numbers': trend_data.get('numbers', [])}
+                )
+            else: # 其他简单指标
+                if isinstance(trend_data, dict):
+                    for key, value in trend_data.items():
+                        add_trend_entry(
+                            f"blue_{trend_metric}_{key}",
+                            value,
+                            0.0,
+                            {'value': value}
+                        )
+                else:
+                    add_trend_entry(
+                        f"blue_{trend_metric}",
+                        trend_data,
+                        0.0,
+                        {'value': trend_data}
+                    )
+
+        db.session.add_all(trend_entries_to_add)
+        db.session.commit()
+        current_app.logger.info(f"On-demand trend data calculated and backfilled for {lottery_type} (lookback: {trend_lookback_period}) in complex prediction. Total entries: {len(trend_entries_to_add)}")
+
+        # 重新加载趋势数据
+        precomputed_trends = TrendProbabilities.query.filter_by(
+            lottery_type=lottery_type,
+            lookback_period=trend_lookback_period
+        ).all()
+
+        trend_data_map = {}
+        for trend in precomputed_trends:
+            if trend.trend_metric not in trend_data_map:
+                trend_data_map[trend.trend_metric] = {}
+            trend_data_map[trend.trend_metric][trend.metric_value] = {
+                'probability': trend.probability,
+                'distribution_data': trend.distribution_data
+            }
+        use_precomputed = True # 现在有了预计算数据
+
+        # 重新加载趋势数据
+        precomputed_trends = TrendProbabilities.query.filter_by(
+            lottery_type=lottery_type,
+            lookback_period=trend_lookback_period
+        ).all()
+
+        trend_data_map = {}
+        for trend in precomputed_trends:
+            if trend.trend_metric not in trend_data_map:
+                trend_data_map[trend.trend_metric] = {}
+            trend_data_map[trend.trend_metric][trend.metric_value] = {
+                'probability': trend.probability,
+                'distribution_data': trend.distribution_data
+            }
+        use_precomputed = True # 现在有了预计算数据
+
     for attempt in range(max_attempts):
         try:
+            # --- 蓝球预测逻辑 (复用 generate_predicted_balls 的概率计算) ---
+            blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+
+            # 从预计算数据中获取蓝球频率和遗漏
+            blue_stats_from_trend = []
+            for ball in range(1, blue_range + 1):
+                metric_key = f"blue_stats_ball_{ball}"
+                if metric_key in trend_data_map and str(ball) in trend_data_map[metric_key]:
+                    data = trend_data_map[metric_key][str(ball)]['distribution_data']
+                    blue_stats_from_trend.append({
+                        'ball': ball,
+                        'frequency_count': data.get('frequency_count', 0),
+                        'current_omission': data.get('current_omission', 0),
+                        'max_omission': data.get('max_omission', 0),
+                        'frequency_percentage': trend_data_map[metric_key][str(ball)]['probability'] * 100
+                    })
+            if blue_stats_from_trend:
+                blue_stats_list = blue_stats_from_trend
+                sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+                sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
+            else:
+                current_app.logger.warning(f"Precomputed blue_stats_list not found for {lottery_type} after on-demand calculation. Falling back to real-time calculation.")
+                blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
+                sorted_blue_omissions = sorted(blue_stats_list, key=lambda x: x['current_omission'], reverse=True)
+                sorted_blue_frequencies = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
+
+            # 根据策略调整蓝球概率
+            if blue_strategy == 'hot': # 策略一：倾向于选择“热号”
+                for i, ball_data in enumerate(sorted_blue_frequencies):
+                    blue_probabilities[ball_data['ball']] += (len(sorted_blue_frequencies) - i) * 0.1 
+            elif blue_strategy == 'cold': # 策略二：关注“冷号回补”
+                for i, ball_data in enumerate(sorted_blue_omissions):
+                    blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.1
+            elif blue_strategy == 'balanced': # 策略三：平衡冷热号分布
+                for ball_data in blue_stats_list:
+                    blue_probabilities[ball_data['ball']] += ball_data['frequency_percentage'] * 0.01
+                    blue_probabilities[ball_data['ball']] += ball_data['current_omission'] * 0.05
+            elif blue_strategy == 'trend': # 策略四：结合遗漏值趋势分析
+                total_draws_count = len(all_draws)
+                if total_draws_count > 0:
+                    mid_omission_lower = total_draws_count // 4
+                    mid_omission_upper = total_draws_count // 2
+                    for ball_data in blue_stats_list:
+                        if mid_omission_lower <= ball_data['current_omission'] <= mid_omission_upper:
+                            blue_probabilities[ball_data['ball']] += 0.5 
+            
+            # 现有蓝球预测逻辑 (遗漏和重复)
+            if lottery_type == 'ssq':
+                num_omit_latest_blue = CURRENT_SETTINGS.get('ssq_blue_omit_latest_draws', 1)
+                excluded_blue_balls = set()
+                for i in range(min(num_omit_latest_blue, len(all_draws))):
+                    excluded_blue_balls.update(all_draws[i].get_blue_balls_list())
+                for ball in excluded_blue_balls:
+                    if ball in blue_probabilities:
+                        blue_probabilities[ball] = min(blue_probabilities[ball], 0.0) 
+
+                ssq_blue_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_3_prob', 0.08)
+                ssq_blue_consecutive_5_prob = CURRENT_SETTINGS.get('ssq_blue_consecutive_5_prob', 0.35)
+                for ball in range(1, blue_range + 1):
+                    if blue_probabilities[ball] > 0:
+                        consecutive_count = 0
+                        consecutive_trend_key = 'consecutive_trend_blue'
+                        metric_value = f"{ball}_consecutive" # 假设存储方式
+                        if consecutive_trend_key in trend_data_map and metric_value in trend_data_map[consecutive_trend_key]:
+                            consecutive_count = trend_data_map[consecutive_trend_key][metric_value]['distribution_data'].get('count', 0)
+                        else:
+                            for draw in all_draws:
+                                if draw.get_blue_balls_list() and ball == draw.get_blue_balls_list()[0]:
+                                    consecutive_count += 1
+                                else:
+                                    break
+                        
+                        if consecutive_count >= 5:
+                            blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_5_prob)
+                        elif consecutive_count >= 3:
+                            blue_probabilities[ball] = min(blue_probabilities[ball], ssq_blue_consecutive_3_prob)
+            elif lottery_type == 'dlt':
+                dlt_blue_repeat_prob = CURRENT_SETTINGS.get('dlt_blue_repeat_prob', 0.035)
+                if latest_draw:
+                    latest_blue_balls = set(latest_draw.get_blue_balls_list())
+                    for ball in latest_blue_balls:
+                        if ball in blue_probabilities:
+                            blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_repeat_prob)
+
+                dlt_blue_consecutive_5_prob = CURRENT_SETTINGS.get('dlt_blue_consecutive_5_prob', 0.25)
+                for ball in range(1, blue_range + 1):
+                    consecutive_count = 0
+                    consecutive_trend_key = 'consecutive_trend_blue'
+                    metric_value = f"{ball}_consecutive" # 假设存储方式
+                    if consecutive_trend_key in trend_data_map and metric_value in trend_data_map[consecutive_trend_key]:
+                        consecutive_count = trend_data_map[consecutive_trend_key][metric_value]['distribution_data'].get('count', 0)
+                    else:
+                        for draw in all_draws:
+                            if draw.get_blue_balls_list() and ball in draw.get_blue_balls_list():
+                                consecutive_count += 1
+                            else:
+                                break
+                    if consecutive_count >= 5:
+                        blue_probabilities[ball] = min(blue_probabilities[ball], dlt_blue_consecutive_5_prob)
+            
+            total_blue_prob = sum(blue_probabilities.values())
+            if total_blue_prob == 0:
+                current_app.logger.warning(f"All {lottery_type.upper()} blue balls have 0 probability. Resetting to uniform distribution.")
+                blue_probabilities = {ball: 1.0 for ball in range(1, blue_range + 1)}
+                total_blue_prob = sum(blue_probabilities.values())
+            normalized_blue_probabilities = {ball: prob / total_blue_prob for ball, prob in blue_probabilities.items()}
+
+            # --- 红球预测逻辑 (复用 generate_predicted_balls 的概率计算) ---
+            red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
+
+            if use_precomputed:
+                red_omission_stats_from_trend = []
+                for ball in range(1, red_range + 1):
+                    metric_key = f"red_stats_ball_{ball}"
+                    if metric_key in trend_data_map and str(ball) in trend_data_map[metric_key]:
+                        data = trend_data_map[metric_key][str(ball)]['distribution_data']
+                        red_omission_stats_from_trend.append({
+                            'ball': ball,
+                            'frequency_count': data.get('frequency_count', 0),
+                            'current_omission': data.get('current_omission', 0),
+                            'max_omission': data.get('max_omission', 0),
+                            'frequency_percentage': trend_data_map[metric_key][str(ball)]['probability'] * 100
+                        })
+                if red_omission_stats_from_trend:
+                    red_omission_stats = red_omission_stats_from_trend
+                    sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+                else:
+                    current_app.logger.warning(f"Precomputed red_omission_stats not found for {lottery_type}. Falling back to real-time calculation.")
+                    red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
+                    sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+            else:
+                red_omission_stats, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_range, 'red')
+                sorted_red_omissions = sorted(red_omission_stats, key=lambda x: x['current_omission'], reverse=True)
+
+            if lottery_type == 'ssq':
+                omit_weights = {
+                    1: CURRENT_SETTINGS.get('ssq_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('ssq_red_omit_2_weight', 0.015),
+                    3: CURRENT_SETTINGS.get('ssq_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('ssq_red_omit_4_weight', 0.03),
+                    5: CURRENT_SETTINGS.get('ssq_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('ssq_red_omit_6_weight', 0.03),
+                }
+                for i, ball_data in enumerate(sorted_red_omissions[:6]):
+                    rank = i + 1
+                    weight = omit_weights.get(rank, 0)
+                    red_probabilities[ball_data['ball']] += weight
+
+                ssq_red_consecutive_3_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_prob', 0.35)
+                ssq_red_consecutive_3_second_prob = CURRENT_SETTINGS.get('ssq_red_consecutive_3_second_prob', 0.0)
+                
+                consecutive_repeat_balls = []
+                consecutive_trend_key = 'consecutive_trend_red'
+                if consecutive_trend_key in trend_data_map:
+                    pass 
+                
+                if not consecutive_repeat_balls: # 如果预计算数据没有提供具体球的连号信息，则回退
+                    latest_3_draws = all_draws[:3]
+                    if len(latest_3_draws) >= 3:
+                        red_ball_counts = Counter()
+                        for draw in latest_3_draws:
+                            red_ball_counts.update(draw.get_red_balls_list())
+                        consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+
+                if consecutive_repeat_balls:
+                    if len(consecutive_repeat_balls) >= 1:
+                        red_probabilities[consecutive_repeat_balls[0]] += ssq_red_consecutive_3_prob
+                    if len(consecutive_repeat_balls) >= 2:
+                        red_probabilities[consecutive_repeat_balls[1]] += ssq_red_consecutive_3_second_prob
+
+                ssq_red_omit_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_1', 12)
+                ssq_red_omit_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_2', 13)
+                ssq_red_omit_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_threshold_3', 14)
+                ssq_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_1', 0.015)
+                ssq_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_2', 0.0)
+                ssq_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('ssq_red_omit_prob_threshold_3', 0.0)
+
+                for ball_data in red_omission_stats:
+                    ball = ball_data['ball']
+                    omission = ball_data['current_omission']
+                    if omission >= ssq_red_omit_threshold_3:
+                        red_probabilities[ball] = ssq_red_omit_prob_threshold_3
+                    elif omission >= ssq_red_omit_threshold_2:
+                        red_probabilities[ball] = ssq_red_omit_prob_threshold_2
+                    elif omission >= ssq_red_omit_threshold_1:
+                        red_probabilities[ball] = ssq_red_omit_prob_threshold_1
+
+            elif lottery_type == 'dlt':
+                omit_weights = {
+                    1: CURRENT_SETTINGS.get('dlt_red_omit_1_weight', 0.01), 2: CURRENT_SETTINGS.get('dlt_red_omit_2_weight', 0.015),
+                    3: CURRENT_SETTINGS.get('dlt_red_omit_3_weight', 0.02), 4: CURRENT_SETTINGS.get('dlt_red_omit_4_weight', 0.03),
+                    5: CURRENT_SETTINGS.get('dlt_red_omit_5_weight', 0.03), 6: CURRENT_SETTINGS.get('dlt_red_omit_6_weight', 0.03),
+                }
+                for i, ball_data in enumerate(sorted_red_omissions[:6]):
+                    rank = i + 1
+                    weight = omit_weights.get(rank, 0)
+                    red_probabilities[ball_data['ball']] += weight
+
+                dlt_red_consecutive_3_prob = CURRENT_SETTINGS.get('dlt_red_consecutive_3_prob', 0.35)
+                
+                consecutive_repeat_balls = []
+                consecutive_trend_key = 'consecutive_trend_red'
+                if consecutive_trend_key in trend_data_map:
+                    pass 
+                
+                if not consecutive_repeat_balls: # 如果预计算数据没有提供具体球的连号信息，则回退
+                    latest_3_draws = all_draws[:3]
+                    if len(latest_3_draws) >= 3:
+                        red_ball_counts = Counter()
+                        for draw in latest_3_draws:
+                            red_ball_counts.update(draw.get_red_balls_list())
+                        consecutive_repeat_balls = [ball for ball, count in red_ball_counts.items() if count >= 3]
+
+                if consecutive_repeat_balls:
+                    if len(consecutive_repeat_balls) >= 1:
+                        red_probabilities[consecutive_repeat_balls[0]] += dlt_red_consecutive_3_prob
+
+                dlt_red_omit_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_1', 12)
+                dlt_red_omit_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_2', 13)
+                dlt_red_omit_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_threshold_3', 14)
+                dlt_red_omit_prob_threshold_1 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_1', 0.015)
+                dlt_red_omit_prob_threshold_2 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_2', 0.0)
+                dlt_red_omit_prob_threshold_3 = CURRENT_SETTINGS.get('dlt_red_omit_prob_threshold_3', 0.0)
+
+                for ball_data in red_omission_stats:
+                    ball = ball_data['ball']
+                    omission = ball_data['current_omission']
+                    if omission >= dlt_red_omit_threshold_3:
+                        red_probabilities[ball] = dlt_red_omit_prob_threshold_3
+                    elif omission >= dlt_red_omit_threshold_2:
+                        red_probabilities[ball] = dlt_red_omit_prob_threshold_2
+                    elif omission >= dlt_red_omit_threshold_1:
+                        red_probabilities[ball] = dlt_red_omit_prob_threshold_1
+
+            total_red_prob = sum(red_probabilities.values())
+            if total_red_prob == 0:
+                current_app.logger.warning(f"All {lottery_type.upper()} red balls have 0 probability. Resetting to uniform distribution.")
+                red_probabilities = {ball: 1.0 for ball in range(1, red_range + 1)}
+                total_red_prob = sum(red_probabilities.values())
+            normalized_red_probabilities = {ball: prob / total_red_prob for ball, prob in red_probabilities.items()}
+
             # 采样红球
             sampled_red_balls = weighted_random_sample_without_replacement(
                 list(normalized_red_probabilities.keys()), 
@@ -1182,39 +1891,24 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
             )
         except ValueError as e:
             current_app.logger.error(f"Error during weighted_random_sample_without_replacement for complex prediction: {e}")
-            # 如果采样失败，可能是因为 k > len(population)，作为回退，生成随机号码
             sampled_red_balls = sorted(random.sample(range(1, red_range + 1), red_count))
             sampled_blue_balls = sorted(random.sample(range(1, blue_range + 1), blue_count))
 
         # 检查结构性规则
-        # 需要模拟一个 Draw 对象来调用规则检查函数
         if lottery_type == 'ssq':
             dummy_draw = SSQDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
-                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), # 只检查前6个红球
-                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required]))) # 只检查前1个蓝球
+                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), 
+                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required])))
             
-            # 规则 4.1.4 红球区域分布 (检查所有选中的红球)
             rule_4_1_4_passed = _check_ssq_rule_4_1_4_red_area_distribution(sampled_red_balls)['passed']
-            # 规则 4.1.5 红球限重复数量 (检查所有选中的红球)
             rule_4_1_5_passed = _check_ssq_rule_4_1_5_red_repeat_previous_2(dummy_draw)['passed']
-            # 规则 4.1.6 红球禁连续数字 (检查所有选中的红球)
             rule_4_1_6_passed = _check_ssq_rule_4_1_6_red_consecutive_4_plus(sampled_red_balls)['passed']
 
-            # 对于复式号码，我们只检查其“核心”部分是否符合单式规则
-            # 例如，双色球复式7红1蓝，我们从7个红球中随机选6个，检查这6个是否符合规则
-            # 这里简化处理，直接检查选出的 red_count 个红球是否符合规则
-            # 更严谨的做法是，从 red_count 个红球中生成所有 C(red_count, 6) 组合，然后检查每个组合是否符合规则
-            # 但这会非常复杂且计算量大，对于“生成复式号码”的按钮，通常是生成一个符合规则的“复式号码本身”
-            # 而不是生成所有符合规则的单式组合。
-            # 因此，我们检查选出的 red_count 个红球和 blue_count 个蓝球是否符合规则。
-            
-            # 暂时只检查红球的结构性规则，蓝球的结构性规则（如重复）已经在概率调整中处理
             if rule_4_1_4_passed and rule_4_1_5_passed and rule_4_1_6_passed:
                 predicted_red_balls = sorted(sampled_red_balls)
                 predicted_blue_balls = sorted(sampled_blue_balls)
                 current_app.logger.info(f"Successfully generated complex SSQ balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
                 
-                # 计算统计数据
                 red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
                 blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
 
@@ -1232,14 +1926,11 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
 
         elif lottery_type == 'dlt':
             dummy_draw = DLTDraw(issue=dummy_draw_issue, draw_date=dummy_draw_date, 
-                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), # 只检查前5个红球
-                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required]))) # 只检查前2个蓝球
+                                 red_balls=','.join(map(str, sampled_red_balls[:num_red_required])), 
+                                 blue_balls=','.join(map(str, sampled_blue_balls[:num_blue_required])))
 
-            # 规则 4.2.4 红球区域分布 (检查所有选中的红球)
             rule_4_2_4_passed = _check_dlt_rule_4_2_4_red_area_distribution(sampled_red_balls)['passed']
-            # 规则 4.2.5 红球限重复数量 (检查所有选中的红球)
             rule_4_2_5_passed = _check_dlt_rule_4_2_5_red_repeat_previous_2(dummy_draw)['passed']
-            # 规则 4.2.6 红球禁连续数字 (检查所有选中的红球)
             rule_4_2_6_passed = _check_dlt_rule_4_2_6_red_consecutive_4_plus(sampled_red_balls)['passed']
 
             if rule_4_2_4_passed and rule_4_2_5_passed and rule_4_2_6_passed:
@@ -1247,7 +1938,6 @@ def generate_complex_prediction_balls(lottery_type: str, red_count: int, blue_co
                 predicted_blue_balls = sorted(sampled_blue_balls)
                 current_app.logger.info(f"Successfully generated complex DLT balls after {attempt+1} attempts: Red={predicted_red_balls}, Blue={predicted_blue_balls}")
                 
-                # 计算统计数据
                 red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
                 blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
 

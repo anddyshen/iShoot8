@@ -87,6 +87,64 @@ def _update_admin_setting(key, value, description=None, data_type='string'):
         db.session.add(setting)
     db.session.commit()
 
+def _process_trend_rules_form(lottery_type, ball_type, redirect_route):
+    """
+    处理趋势规则表单提交的通用逻辑。
+    :param lottery_type: 彩票类型 ('ssq' 或 'dlt')。
+    :param ball_type: 球类型 ('red' 或 'blue')。
+    :param redirect_route: 处理完成后重定向的路由名称。
+    """
+    rules_key = f'{lottery_type}_{ball_type}_trend_rules'
+    if rules_key not in CURRENT_SETTINGS:
+        current_app.logger.error(f"Trend rules key '{rules_key}' not found in CURRENT_SETTINGS.")
+        return None
+
+    # 复制一份当前设置，以便在处理过程中修改
+    updated_rules = CURRENT_SETTINGS[rules_key].copy()
+
+    for rule_name, rule_config in DEFAULT_SETTINGS[rules_key].items():
+        # 处理启用/禁用开关
+        enabled_key = f'{rules_key}_{rule_name}_enabled'
+        updated_rules[rule_name]['enabled'] = (request.form.get(enabled_key) == 'true')
+
+        # 处理组合逻辑
+        logic_key = f'{rules_key}_{rule_name}_logic'
+        logic_value = request.form.get(logic_key)
+        if logic_value in ['AND', 'OR', 'DISABLE']:
+            updated_rules[rule_name]['logic'] = logic_value
+        else:
+            flash(f"规则 '{SETTING_LABELS_CHINESE.get(rule_name, rule_name)}' 的组合逻辑无效。", 'danger')
+            return redirect(url_for(redirect_route))
+
+        # 处理参数
+        for param_key, default_param_value in rule_config['params'].items():
+            form_param_key = f'{rules_key}_{rule_name}_param_{param_key}'
+            param_value = request.form.get(form_param_key)
+
+            if param_value is None:
+                # 如果是checkbox，未选中则为False
+                if isinstance(default_param_value, bool):
+                    updated_rules[rule_name]['params'][param_key] = False
+                continue
+
+            try:
+                if isinstance(default_param_value, int):
+                    updated_rules[rule_name]['params'][param_key] = int(param_value)
+                elif isinstance(default_param_value, float):
+                    updated_rules[rule_name]['params'][param_key] = float(param_value)
+                elif isinstance(default_param_value, bool):
+                    updated_rules[rule_name]['params'][param_key] = (param_value.lower() == 'true')
+                elif isinstance(default_param_value, list): # 假设列表是逗号分隔的数字
+                    updated_rules[rule_name]['params'][param_key] = [int(x.strip()) for x in param_value.split(',') if x.strip()]
+                else: # 字符串类型
+                    updated_rules[rule_name]['params'][param_key] = param_value
+            except ValueError:
+                flash(f"规则 '{SETTING_LABELS_CHINESE.get(rule_name, rule_name)}' 的参数 '{param_key}' 值 '{param_value}' 格式不正确。", 'danger')
+                return redirect(url_for(redirect_route))
+    
+    CURRENT_SETTINGS[rules_key] = updated_rules
+    return None # 成功处理，返回None
+
 def _process_config_settings_form(settings_keys, redirect_route):
     """
     处理来自 config.py 的设置表单提交的通用逻辑。
@@ -95,6 +153,15 @@ def _process_config_settings_form(settings_keys, redirect_route):
     """
     if request.method == 'POST':
         for key in settings_keys: # 只处理当前页面相关的设置
+            # 检查是否是趋势规则的顶层键
+            if key in ['ssq_red_trend_rules', 'ssq_blue_trend_rules', 'dlt_red_trend_rules', 'dlt_blue_trend_rules']:
+                lottery_type = key.split('_')[0]
+                ball_type = key.split('_')[1]
+                response = _process_trend_rules_form(lottery_type, ball_type, redirect_route)
+                if response:
+                    return response
+                continue # 处理完趋势规则后跳过当前key，处理下一个
+
             value = request.form.get(key)
             if value is None: # 如果表单中没有这个key，可能是checkbox未选中
                 if isinstance(DEFAULT_SETTINGS.get(key), bool):

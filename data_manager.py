@@ -4,9 +4,10 @@ from datetime import datetime
 from flask import current_app
 from models import db, SSQDraw, DLTDraw
 from config import SSQ_URL, DLT_URL, USER_AGENT
+from utils import calculate_all_trend_data # 导入趋势计算函数
 
 # 版本号，每次生成文件时更新
-__version__ = "1.0.1"
+__version__ = "1.0.1" # 更新版本号
 
 def fetch_raw_data(url, app): # <--- 添加 app 参数
     """从指定URL获取原始文本数据"""
@@ -169,6 +170,14 @@ def update_latest_draws(app): # <--- 修改这里，接收 app 参数
         dlt_draws = parse_dlt_data(dlt_raw, app) # <--- 传递 app
         new_dlt_count = save_draw_data(dlt_draws, 'dlt')
         app.logger.info(f"DLT data updated. Added {new_dlt_count} new entries.") # <--- 使用 app.logger
+
+        # 数据更新完成后，触发趋势数据预计算
+        if new_ssq_count > 0:
+            app.logger.info("触发双色球趋势数据预计算...")
+            calculate_all_trend_data(app, 'ssq')
+        if new_dlt_count > 0:
+            app.logger.info("触发大乐透趋势数据预计算...")
+            calculate_all_trend_data(app, 'dlt')
 
         return new_ssq_count, new_dlt_count
 

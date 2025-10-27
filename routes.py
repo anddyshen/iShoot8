@@ -193,8 +193,50 @@ def prediction():
     return render_template('prediction.html',
                            latest_ssq_draws=latest_ssq_draws,
                            latest_dlt_draws=latest_dlt_draws,
-                           get_consecutive_groups=get_consecutive_groups # Pass the function to the template
+                           get_consecutive_groups=get_consecutive_groups, # Pass the function to the template
+                           ssq_red_trend_rules=CURRENT_SETTINGS.get('ssq_red_trend_rules', {}),
+                           ssq_blue_trend_rules=CURRENT_SETTINGS.get('ssq_blue_trend_rules', {}),
+                           dlt_red_trend_rules=CURRENT_SETTINGS.get('dlt_red_trend_rules', {}),
+                           dlt_blue_trend_rules=CURRENT_SETTINGS.get('dlt_blue_trend_rules', {}),
+                           setting_labels=SETTING_LABELS_CHINESE # 传递中文标签
                            )
+
+@bp.route('/api/prediction/active_rules', methods=['GET'])
+def api_prediction_active_rules():
+    lottery_type = request.args.get('lottery_type')
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    active_rules = []
+    red_rules_key = f'{lottery_type}_red_trend_rules'
+    blue_rules_key = f'{lottery_type}_blue_trend_rules'
+
+    # 获取红球规则
+    if red_rules_key in CURRENT_SETTINGS:
+        for rule_name, rule_config in CURRENT_SETTINGS[red_rules_key].items():
+            if rule_config.get('enabled'):
+                active_rules.append({
+                    'ball_type': 'red',
+                    'rule_name': rule_name,
+                    'label': SETTING_LABELS_CHINESE.get(rule_name, rule_name),
+                    'params': rule_config.get('params', {}),
+                    'logic': rule_config.get('logic', 'AND')
+                })
+    
+    # 获取蓝球规则
+    if blue_rules_key in CURRENT_SETTINGS:
+        for rule_name, rule_config in CURRENT_SETTINGS[blue_rules_key].items():
+            if rule_config.get('enabled'):
+                active_rules.append({
+                    'ball_type': 'blue',
+                    'rule_name': rule_name,
+                    'label': SETTING_LABELS_CHINESE.get(rule_name, rule_name),
+                    'params': rule_config.get('params', {}),
+                    'logic': rule_config.get('logic', 'AND')
+                })
+    
+    return jsonify({'active_rules': active_rules})
+
 
 @bp.route('/api/prediction/omitted_balls', methods=['GET'])
 def api_prediction_omitted_balls():

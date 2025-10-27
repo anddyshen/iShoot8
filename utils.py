@@ -935,3 +935,187 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
         'estimated_first_prize_date': estimated_first_prize_date.strftime('%Y-%m-%d') if estimated_first_prize_date else None,
         'message': message
     }
+
+def calculate_all_trend_data(app, lottery_type, lookback_periods=None):
+    """
+    计算所有必要的趋势概率数据。
+    app: Flask 应用实例，用于访问数据库和日志。
+    lottery_type: 'ssq' 或 'dlt'。
+    lookback_periods: 回溯期数，如果为 None，则计算所有历史数据。
+    """
+    with app.app_context():
+        app.logger.info(f"开始计算 {lottery_type} 趋势数据...")
+
+        Model = SSQDraw if lottery_type == 'ssq' else DLTDraw
+        
+        # 获取历史开奖数据
+        if lookback_periods:
+            all_draws = Model.query.order_by(Model.issue.desc()).limit(lookback_periods).all()
+        else:
+            all_draws = Model.query.order_by(Model.issue.desc()).all()
+
+        if not all_draws:
+            app.logger.warning(f"没有 {lottery_type} 的历史开奖数据，跳过趋势计算。")
+            return None
+
+        # 获取配置设置
+        config_settings = CURRENT_SETTINGS # 假设 CURRENT_SETTINGS 包含了所有彩票类型的配置
+
+        # 1. 聚合统计数据 (大小比、奇偶比、012路比、连号、重号、跨度、龙头凤尾、AC值等)
+        aggregated_stats = get_aggregated_stats(all_draws, lottery_type, config_settings)
+
+        # 2. 单个号码的频率和遗漏
+        red_ball_range = 33 if lottery_type == 'ssq' else 35
+        blue_ball_range = 16 if lottery_type == 'ssq' else 12
+        
+        red_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, red_ball_range, 'red')
+        blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_ball_range, 'blue')
+
+        # 3. 多期重复号码
+        multi_draw_repeat_red = calculate_multi_draw_repeat_balls(all_draws, num_previous_draws=5, ball_type='red')
+        multi_draw_repeat_blue = calculate_multi_draw_repeat_balls(all_draws, num_previous_draws=5, ball_type='blue')
+
+        # 4. 斜连号和跳号
+        diagonal_skip_red = calculate_diagonal_skip_numbers(all_draws, ball_type='red', lookback_periods=10)
+        diagonal_skip_blue = calculate_diagonal_skip_numbers(all_draws, ball_type='blue', lookback_periods=10)
+
+        # 5. 连号趋势
+        consecutive_trend_red = calculate_consecutive_trend_over_draws(all_draws, ball_type='red')
+        consecutive_trend_blue = calculate_consecutive_trend_over_draws(all_draws, ball_type='blue')
+
+        # 清除旧的趋势数据
+        from models import TrendProbabilities # 确保导入 TrendProbabilities
+        TrendProbabilities.query.filter_by(lottery_type=lottery_type, lookback_period=len(all_draws)).delete()
+        db.session.commit()
+        app.logger.info(f"已清除 {lottery_type} (回溯期数: {len(all_draws)}) 的旧趋势数据。")
+
+        trend_entries = []
+        current_time = datetime.utcnow()
+        
+        # 存储聚合统计数据
+        for metric_group, stats_dict in aggregated_stats.items():
+            if isinstance(stats_dict, dict):
+                for metric_value, count in stats_dict.items():
+                    # 避免存储空字典或列表
+                    if not metric_value:
+                        continue
+                    
+                    # 计算概率 (如果适用)
+                    probability = count / len(all_draws) if len(all_draws) > 0 else 0
+
+                    trend_entries.append(TrendProbabilities(
+                        lottery_type=lottery_type,
+                        lookback_period=len(all_draws),
+                        trend_metric=metric_group,
+                        metric_value=str(metric_value), # 确保是字符串
+                        probability=probability,
+                        distribution_data={'count': count}, # 存储计数
+                        last_calculated_at=current_time
+                    ))
+            elif isinstance(stats_dict, list): # 例如 red_stats, blue_stats
+                for item in stats_dict:
+                    ball = item.get('ball')
+                    if ball is not None:
+                        # 存储单个号码的频率和遗漏
+                        trend_entries.append(TrendProbabilities(
+                            lottery_type=lottery_type,
+                            lookback_period=len(all_draws),
+                            trend_metric=f"{metric_group}_ball_{ball}", # 例如 "red_stats_ball_1"
+                            metric_value=str(ball),
+                            probability=item.get('frequency_percentage', 0) / 100, # 转换为小数
+                            distribution_data={
+                                'frequency_count': item.get('frequency_count'),
+                                'current_omission': item.get('current_omission'),
+                                'max_omission': item.get('max_omission')
+                            },
+                            last_calculated_at=current_time
+                        ))
+
+        # 存储多期重复号码
+        for ball, count in multi_draw_repeat_red.items():
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='multi_draw_repeat_red',
+                metric_value=str(ball),
+                probability=count / len(all_draws) if len(all_draws) > 0 else 0,
+                distribution_data={'count': count},
+                last_calculated_at=current_time
+            ))
+        for ball, count in multi_draw_repeat_blue.items():
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='multi_draw_repeat_blue',
+                metric_value=str(ball),
+                probability=count / len(all_draws) if len(all_draws) > 0 else 0,
+                distribution_data={'count': count},
+                last_calculated_at=current_time
+            ))
+
+        # 存储斜连号和跳号
+        if diagonal_skip_red:
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='diagonal_numbers_red',
+                metric_value=','.join(map(str, diagonal_skip_red.get('diagonal_numbers', []))),
+                probability=len(diagonal_skip_red.get('diagonal_numbers', [])) / red_ball_range if red_ball_range > 0 else 0,
+                distribution_data={'numbers': diagonal_skip_red.get('diagonal_numbers', [])},
+                last_calculated_at=current_time
+            ))
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='skip_numbers_red',
+                metric_value=','.join(map(str, diagonal_skip_red.get('skip_numbers', []))),
+                probability=len(diagonal_skip_red.get('skip_numbers', [])) / red_ball_range if red_ball_range > 0 else 0,
+                distribution_data={'numbers': diagonal_skip_red.get('skip_numbers', [])},
+                last_calculated_at=current_time
+            ))
+        if diagonal_skip_blue:
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='diagonal_numbers_blue',
+                metric_value=','.join(map(str, diagonal_skip_blue.get('diagonal_numbers', []))),
+                probability=len(diagonal_skip_blue.get('diagonal_numbers', [])) / blue_ball_range if blue_ball_range > 0 else 0,
+                distribution_data={'numbers': diagonal_skip_blue.get('diagonal_numbers', [])},
+                last_calculated_at=current_time
+            ))
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='skip_numbers_blue',
+                metric_value=','.join(map(str, diagonal_skip_blue.get('skip_numbers', []))),
+                probability=len(diagonal_skip_blue.get('skip_numbers', [])) / blue_ball_range if blue_ball_range > 0 else 0,
+                distribution_data={'numbers': diagonal_skip_blue.get('skip_numbers', [])},
+                last_calculated_at=current_time
+            ))
+
+        # 存储连号趋势
+        for length, count in consecutive_trend_red.items():
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='consecutive_trend_red',
+                metric_value=f"{length}_consecutive",
+                probability=count / len(all_draws) if len(all_draws) > 0 else 0,
+                distribution_data={'count': count},
+                last_calculated_at=current_time
+            ))
+        for length, count in consecutive_trend_blue.items():
+            trend_entries.append(TrendProbabilities(
+                lottery_type=lottery_type,
+                lookback_period=len(all_draws),
+                trend_metric='consecutive_trend_blue',
+                metric_value=f"{length}_consecutive",
+                probability=count / len(all_draws) if len(all_draws) > 0 else 0,
+                distribution_data={'count': count},
+                last_calculated_at=current_time
+            ))
+
+        db.session.add_all(trend_entries)
+        db.session.commit()
+        app.logger.info(f"{lottery_type} 趋势数据计算完成并存储到数据库。共 {len(trend_entries)} 条记录。")
+        return trend_entries # 返回存储的记录列表
