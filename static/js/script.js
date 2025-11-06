@@ -879,6 +879,9 @@ function updateFilterStatsDisplay(lotteryType, statsData) {
 document.addEventListener('DOMContentLoaded', function() {
     // Ensure the correct tab is active on load
     document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq') and loadActiveRules('ssq', 'ssq_active_rules_display')
+    
+    // Default to generating rule-based numbers for SSQ on page load
+    generatePredictedNumbers('ssq');
 });
 document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-random-btn')) {

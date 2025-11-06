@@ -198,7 +198,8 @@ def prediction():
                            ssq_blue_trend_rules=CURRENT_SETTINGS.get('ssq_blue_trend_rules', {}),
                            dlt_red_trend_rules=CURRENT_SETTINGS.get('dlt_red_trend_rules', {}),
                            dlt_blue_trend_rules=CURRENT_SETTINGS.get('dlt_blue_trend_rules', {}),
-                           setting_labels=SETTING_LABELS_CHINESE # 传递中文标签
+                           setting_labels=SETTING_LABELS_CHINESE, # 传递中文标签
+                           prediction_generation_mode=CURRENT_SETTINGS.get('prediction_generation_mode', 'rule_based') # 传递默认生成模式
                            )
 
 @bp.route('/api/prediction/active_rules', methods=['GET'])

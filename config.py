@@ -32,6 +32,7 @@ DEFAULT_SETTINGS = {
     "prediction_omitted_red_balls": 7, # 预测页面显示遗漏最多红球数量
     "prediction_omitted_blue_balls": 7, # 预测页面显示遗漏最多蓝球数量
     "prediction_generated_count": 5, # 预测页面默认生成号码组数
+    "prediction_generation_mode": "rule_based", # 预测页面默认生成模式: "rule_based" 或 "random"
     "ssq_blue_omit_latest_draws": 2, # 蓝球如最新一期开出过的号码就不作为本期的预测候选号码
     "ssq_blue_consecutive_3_prob": 0.08,
     "ssq_blue_consecutive_5_prob": 0.35,
@@ -240,6 +241,7 @@ GENERAL_SETTINGS_KEYS = [
     'admin_username',
     'admin_password',
     'news_data_source_url',
+    'prediction_generation_mode', # 新增预测生成模式
 ]
 
 # 趋势设置参数键
@@ -270,6 +272,7 @@ SETTING_LABELS_CHINESE = {
     'prediction_omitted_red_balls': "预测页面：显示遗漏最多红球数量",
     'prediction_omitted_blue_balls': "预测页面：显示遗漏最多蓝球数量",
     'prediction_generated_count': "预测页面：默认生成号码组数",
+    'prediction_generation_mode': "预测页面：默认生成模式", # 新增预测生成模式
 
     # 双色球预测规则权重/概率
     'ssq_blue_omit_latest_draws': "双色球蓝球：遗漏分析期数",

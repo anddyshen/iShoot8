@@ -1,3 +1,15 @@
+{# General purpose select field macro #}
+{% macro render_select_field(key, value, options, label) %}
+    <div class="mb-3">
+        <label for="{{ key }}" class="form-label">{{ label }}</label>
+        <select class="form-select" id="{{ key }}" name="{{ key }}">
+            {% for option_value, option_label in options.items() %}
+                <option value="{{ option_value }}" {% if value == option_value %}selected{% endif %}>{{ option_label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+{% endmacro %}
+
 {% macro render_setting_field(key, value, default_value, label, setting_labels) %}
     {% if key in ['ssq_red_trend_rules', 'ssq_blue_trend_rules', 'dlt_red_trend_rules', 'dlt_blue_trend_rules'] %}
         {# 渲染趋势规则组 #}
@@ -37,6 +49,11 @@
                 <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value | join(', ') }}">
             {% elif 'url' in key %} {# URL类型 #}
                 <input type="url" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+            {% elif key == 'prediction_generation_mode' %} {# 预测页面默认生成模式 #}
+                <select class="form-select" id="{{ key }}" name="{{ key }}">
+                    <option value="rule_based" {% if value == 'rule_based' %}selected{% endif %}>规则生成</option>
+                    <option value="random" {% if value == 'random' %}selected{% endif %}>随机生成</option>
+                </select>
             {% else %} {# 文本类型 #}
                 <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
             {% endif %}
