@@ -283,7 +283,8 @@ def admin_settings_trend():
     return render_template('admin/settings_trend.html', 
                            lookback_periods=lookback_periods,
                            setting_labels=SETTING_LABELS_CHINESE,
-                           trend_settings_keys=TREND_SETTINGS_KEYS
+                           trend_settings_keys=TREND_SETTINGS_KEYS,
+                           default_settings=DEFAULT_SETTINGS
                            )
 
 @bp.route('/settings/download')

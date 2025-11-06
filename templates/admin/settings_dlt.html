@@ -22,7 +22,7 @@
         <form method="POST" action="{{ url_for('admin_routes.admin_settings_dlt') }}">
             {% for key in dlt_settings_keys %}
                 {% if key != 'annual_holidays' %}
-                    {{ render_setting_field(key, settings[key], default_settings.get(key), setting_labels.get(key, key)) }}
+                    {{ render_setting_field(key, settings[key], default_settings.get(key), setting_labels.get(key, key), setting_labels) }}
                 {% endif %}
             {% endfor %}
             <button type="submit" class="btn btn-primary">保存设置</button>

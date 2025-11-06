@@ -1,4 +1,4 @@
-{% macro render_setting_field(key, value, default_value, label) %}
+{% macro render_setting_field(key, value, default_value, label, setting_labels) %}
     {% if key in ['ssq_red_trend_rules', 'ssq_blue_trend_rules', 'dlt_red_trend_rules', 'dlt_blue_trend_rules'] %}
         {# 渲染趋势规则组 #}
         <div class="card mb-3">
@@ -7,7 +7,7 @@
             </div>
             <div class="card-body">
                 {% for rule_name, rule_config in value.items() %}
-                    {{ render_trend_rule_group(key, rule_name, rule_config, default_value[rule_name], setting_labels) }}
+                    {{ render_trend_rule_group(parent_key=key, rule_name=rule_name, rule_config=rule_config, default_rule_config=default_value[rule_name], setting_labels=setting_labels) }}
                 {% endfor %}
             </div>
         </div>
