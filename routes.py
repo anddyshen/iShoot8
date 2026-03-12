@@ -1,4 +1,3 @@
-# routes.py
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify, current_app
 from datetime import datetime, date
 from models import SSQDraw, DLTDraw, News, db
@@ -882,3 +881,50 @@ def api_fun_game_status(task_id):
         return jsonify({'error': '未找到该任务'}), 404
     
     return jsonify(task)
+
+
+# New route for Intelligent Analysis page
+@bp.route('/intelligent_analysis')
+def intelligent_analysis():
+    return render_template('intelligent_analysis.html')
+
+# New API endpoint to get draw data for clipboard
+@bp.route('/api/get_draw_data_for_clipboard', methods=['GET'])
+def get_draw_data_for_clipboard():
+    lottery_type = request.args.get('lottery_type')
+    num_periods_str = request.args.get('num_periods')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    if not num_periods_str:
+        return jsonify({'error': 'Missing num_periods'}), 400
+
+    try:
+        if num_periods_str == 'all':
+            num_periods = 0 # 0 will indicate all draws
+        else:
+            num_periods = int(num_periods_str)
+            if num_periods <= 0:
+                raise ValueError("Number of periods must be a positive integer or 'all'.")
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid num_periods parameter, must be a positive integer or "all".'}), 400
+
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    
+    # Fetch draws
+    if num_periods == 0: # All draws
+        draws = model_class.query.order_by(model_class.issue.desc()).all()
+    else:
+        draws = model_class.query.order_by(model_class.issue.desc()).limit(num_periods).all()
+
+    if not draws:
+        return jsonify({'error': 'No draw data found for the selected type and periods.'}), 404
+
+    formatted_data = []
+    for draw in draws:
+        red_balls = ','.join(map(str, draw.get_red_balls_list()))
+        blue_balls = ','.join(map(str, draw.get_blue_balls_list()))
+        formatted_data.append(f"期号: {draw.issue}, 开奖日期: {draw.draw_date.strftime('%Y-%m-%d')}, 红球: {red_balls}, 蓝球: {blue_balls}")
+    
+    return jsonify({'data': '\n'.join(formatted_data)}) # Use \n for newlines in JSON string

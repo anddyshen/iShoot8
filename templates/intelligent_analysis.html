@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}智能分析{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>智能分析</h1>
+
+    <div class="mb-3">
+        <label for="lotteryType" class="form-label">选择彩票类型:</label>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lotteryType" id="ssqRadio" value="ssq" checked>
+            <label class="form-check-label" for="ssqRadio">双色球</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lotteryType" id="dltRadio" value="dlt">
+            <label class="form-check-label" for="dltRadio">大乐透</label>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="numPeriods" class="form-label">选择期数:</label>
+        <select class="form-select" id="numPeriods">
+            <option value="20">20期</option>
+            <option value="30">30期</option>
+            <option value="50">50期</option>
+            <option value="100">100期</option>
+            <option value="200">200期</option>
+            <option value="500">500期</option>
+            <option value="all">全部期数</option>
+        </select>
+    </div>
+
+    <button id="copyDataButton" class="btn btn-primary mb-3">导入数据到剪贴板</button>
+
+    <div id="messageArea" class="mt-3">
+        <!-- Success or error messages will be displayed here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const messageArea = document.getElementById('messageArea');
+    const copyDataButton = document.getElementById('copyDataButton');
+
+    // Check if clipboard API is available (requires HTTPS or modern browser environment)
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        messageArea.innerHTML = '<div class="alert alert-warning" role="alert">警告：您的浏览器环境不支持自动复制到剪贴板功能（可能需要HTTPS或现代浏览器）。数据将显示在下方文本框中，请手动复制。</div>';
+        // Optionally, disable the button if automatic copy is not possible
+        // copyDataButton.disabled = true;
+    }
+
+    copyDataButton.addEventListener('click', async () => {
+        const lotteryType = document.querySelector('input[name="lotteryType"]:checked').value;
+        const numPeriods = document.getElementById('numPeriods').value;
+        
+        messageArea.innerHTML = ''; // Clear previous messages
+
+        // Remove any previously displayed textarea for data
+        const existingTextArea = document.getElementById('clipboardDataDisplay');
+        if (existingTextArea) {
+            existingTextArea.remove();
+        }
+
+        try {
+            const response = await fetch(`/api/get_draw_data_for_clipboard?lottery_type=${lotteryType}&num_periods=${numPeriods}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                if (data.data) {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(data.data);
+                        messageArea.innerHTML = '<div class="alert alert-success" role="alert">数据已成功导入到剪贴板！</div>';
+                    } else {
+                        // Fallback: display data in a textarea for manual copy
+                        messageArea.innerHTML = '<div class="alert alert-info" role="alert">已获取数据。请从下方文本框手动复制。</div>';
+                        const dataDisplayArea = document.createElement('textarea');
+                        dataDisplayArea.id = 'clipboardDataDisplay';
+                        dataDisplayArea.className = 'form-control mt-3';
+                        dataDisplayArea.rows = 10;
+                        dataDisplayArea.readOnly = true;
+                        dataDisplayArea.value = data.data;
+                        messageArea.parentNode.insertBefore(dataDisplayArea, messageArea.nextSibling);
+                        dataDisplayArea.select(); // Automatically select the text for easy copying
+                    }
+                } else {
+                    messageArea.innerHTML = '<div class="alert alert-warning" role="alert">没有找到数据。</div>';
+                }
+            } else {
+                messageArea.innerHTML = `<div class="alert alert-danger" role="alert">导入失败: ${data.error || '未知错误'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error copying data:', error);
+            messageArea.innerHTML = '<div class="alert alert-danger" role="alert">导入过程中发生错误。</div>';
+        }
+    });
+</script>
+{% endblock %}

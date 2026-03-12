@@ -47,6 +47,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'routes.prize_check' %}active{% endif %}" href="{{ url_for('routes.prize_check') }}">对奖中心</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'routes.intelligent_analysis' %}active{% endif %}" href="{{ url_for('routes.intelligent_analysis') }}">智能分析</a>
+                    </li>
                     <!-- 后台管理入口，仅在开发或特定条件下显示 -->
                     {% if session.get('logged_in_admin') %}
                     <li class="nav-item">
