@@ -983,3 +983,202 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure the correct tab is active on load
     document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq')
 });
+
+
+// ==================== 智能筛选功能 ====================
+
+// 收集智能筛选选项
+function getSmartFilterOptions(lotteryType) {
+    const options = {};
+    
+    // 分区原则
+    const zoneRatio = document.getElementById(`${lotteryType}_smart_zone_ratio`).value;
+    if (zoneRatio !== 'disabled') {
+        options.zone_ratio = zoneRatio;
+    }
+    
+    // 连号原则
+    const consecutive = document.getElementById(`${lotteryType}_smart_consecutive`).value;
+    if (consecutive !== 'disabled') {
+        options.consecutive = consecutive;
+    }
+    
+    // 与上期重号
+    const repeat = document.getElementById(`${lotteryType}_smart_repeat`).value;
+    if (repeat !== 'disabled') {
+        options.repeat = repeat;
+    }
+    
+    // 遗漏号原则
+    const omissionPattern = document.getElementById(`${lotteryType}_smart_omission_pattern`).value;
+    if (omissionPattern !== 'disabled') {
+        options.omission_pattern = omissionPattern;
+    }
+    
+    // 奇偶比
+    const oddEven = document.getElementById(`${lotteryType}_smart_odd_even`).value;
+    if (oddEven !== 'disabled') {
+        options.odd_even = oddEven;
+    }
+    
+    // 最大跨度
+    const span = document.getElementById(`${lotteryType}_smart_span`).value;
+    if (span !== 'disabled') {
+        options.span = span;
+    }
+    
+    // 号码总和
+    const sum = document.getElementById(`${lotteryType}_smart_sum`).value;
+    if (sum !== 'disabled') {
+        options.sum = sum;
+    }
+    
+    // 同尾号
+    const sameTail = document.getElementById(`${lotteryType}_smart_same_tail`).value;
+    if (sameTail !== 'disabled') {
+        options.same_tail = sameTail;
+    }
+    
+    // 邻号(边号)
+    const neighbor = document.getElementById(`${lotteryType}_smart_neighbor`).value;
+    if (neighbor !== 'disabled') {
+        options.neighbor = neighbor;
+    }
+    
+    // AC值
+    const acValue = document.getElementById(`${lotteryType}_smart_ac_value`).value;
+    if (acValue !== 'disabled') {
+        options.ac_value = acValue;
+    }
+    
+    // 蓝球相关（不同彩票类型不同）
+    if (lotteryType === 'ssq') {
+        const blueOmission = document.getElementById(`${lotteryType}_smart_blue_omission`).value;
+        if (blueOmission !== 'any') {
+            options.blue_omission = blueOmission;
+        }
+    } else if (lotteryType === 'dlt') {
+        const blueOddEven = document.getElementById(`${lotteryType}_smart_blue_odd_even`).value;
+        if (blueOddEven !== 'disabled') {
+            options.blue_odd_even = blueOddEven;
+        }
+        const blueSize = document.getElementById(`${lotteryType}_smart_blue_size`).value;
+        if (blueSize !== 'disabled') {
+            options.blue_size = blueSize;
+        }
+    }
+    
+    return options;
+}
+
+// 生成智能筛选号码
+async function generateSmartFilterNumbers(lotteryType) {
+    const outputDiv = document.getElementById(`${lotteryType}_smart_filter_output`);
+    const count = 5; // 默认生成5组
+    
+    outputDiv.innerHTML = '<p class="text-muted">智能筛选中... <span class="loading-spinner"></span></p>';
+    
+    const options = getSmartFilterOptions(lotteryType);
+    console.log(`Frontend: Generating smart filter numbers for ${lotteryType} with options:`, options);
+    
+    try {
+        const response = await fetch('/api/prediction/smart_filter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lottery_type: lotteryType,
+                count: count,
+                options: options
+            })
+        });
+        const data = await response.json();
+        
+        console.log(`Frontend: Received smart filter response for ${lotteryType}:`, data);
+        
+        if (data.error) {
+            outputDiv.innerHTML = `<p class="text-danger">智能筛选失败: ${data.error}</p>`;
+            return;
+        }
+        
+        if (!data.numbers || data.numbers.length === 0) {
+            outputDiv.innerHTML = '<p class="text-warning">未生成符合条件的号码，请放宽筛选条件后重试。</p>';
+            return;
+        }
+        
+        let html = '';
+        data.numbers.forEach((combo, index) => {
+            const redBallsStr = combo.red_balls;
+            const blueBallsStr = combo.blue_balls;
+            const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+            
+            html += `<div class="prediction-result-card smart-filter-generated">
+                        <p class="card-title">智能筛选号码 ${index + 1}:</p>
+                        <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
+                        <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
+                        <div class="number-stats mt-2">
+                            <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
+                            <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                        <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
+                    </div>`;
+        });
+        outputDiv.innerHTML = html;
+        console.log(`Frontend: Successfully rendered smart filter numbers for ${lotteryType}.`);
+        
+    } catch (error) {
+        console.error(`Frontend: Error generating smart filter numbers for ${lotteryType}:`, error);
+        outputDiv.innerHTML = '<p class="text-danger">智能筛选失败。</p>';
+    }
+}
+
+// 清除智能筛选号码
+function clearSmartFilterNumbers(lotteryType) {
+    document.getElementById(`${lotteryType}_smart_filter_output`).innerHTML = '<p class="text-muted">智能筛选号码将在此处生成。</p>';
+    console.log(`Frontend: Cleared smart filter numbers for ${lotteryType}.`);
+}
+
+// 复制所有智能筛选号码
+function copyAllSmartFilterNumbers(lotteryType) {
+    let allNumbersText = `--- ${lotteryType.toUpperCase()} 智能筛选号码 ---\n`;
+    const smartCards = document.querySelectorAll(`#${lotteryType}_smart_filter_output .prediction-result-card`);
+    if (smartCards.length === 0) {
+        allNumbersText += "无\n";
+    } else {
+        smartCards.forEach(card => {
+            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
+            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
+            allNumbersText += `${redBalls} ${blueBalls}\n`;
+        });
+    }
+    copyToClipboard(allNumbersText);
+}
+
+// 智能筛选按钮事件监听
+document.getElementById('generate_ssq_smart_filter').addEventListener('click', () => generateSmartFilterNumbers('ssq'));
+document.getElementById('generate_dlt_smart_filter').addEventListener('click', () => generateSmartFilterNumbers('dlt'));
+
+document.getElementById('clear_ssq_smart_numbers').addEventListener('click', () => clearSmartFilterNumbers('ssq'));
+document.getElementById('clear_dlt_smart_numbers').addEventListener('click', () => clearSmartFilterNumbers('dlt'));
+
+document.getElementById('copy_all_ssq_smart_numbers').addEventListener('click', () => copyAllSmartFilterNumbers('ssq'));
+document.getElementById('copy_all_dlt_smart_numbers').addEventListener('click', () => copyAllSmartFilterNumbers('dlt'));
+
+// 智能筛选输出区域的事件委托（用于检查规则和复制按钮）
+document.getElementById('ssq_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('check-generated-rules-btn')) {
+        checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('copy-to-clipboard-btn')) {
+        copyToClipboard(e.target.dataset.copyText);
+    }
+});
+
+document.getElementById('dlt_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('check-generated-rules-btn')) {
+        checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('copy-to-clipboard-btn')) {
+        copyToClipboard(e.target.dataset.copyText);
+    }
+});

@@ -18,6 +18,7 @@ from prediction_engine import (
     generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls, # 导入新的规则检查函数
     get_draw_and_matched_omitted_balls_for_offset # 导入新的函数
 )
+from smart_filter_engine import generate_smart_filtered_numbers # 导入智能筛选引擎
 
 bp = Blueprint('routes', __name__)
 
@@ -928,3 +929,42 @@ def get_draw_data_for_clipboard():
         formatted_data.append(f"期号: {draw.issue}, 开奖日期: {draw.draw_date.strftime('%Y-%m-%d')}, 红球: {red_balls}, 蓝球: {blue_balls}")
     
     return jsonify({'data': '\n'.join(formatted_data)}) # Use \n for newlines in JSON string
+
+
+# ==================== 智能筛选 API ====================
+
+@bp.route('/api/prediction/smart_filter', methods=['POST'])
+def api_smart_filter():
+    """
+    智能筛选生成号码的API端点
+    接收详细的筛选选项，返回符合所有规则的号码组合
+    """
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    count_str = data.get('count', '5')
+    options = data.get('options', {})
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        count = int(count_str)
+        if count < 1 or count > 50:
+            raise ValueError("Count must be between 1 and 50.")
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid count parameter, must be an integer between 1 and 50.'}), 400
+
+    current_app.logger.info(f"API call: /api/prediction/smart_filter for {lottery_type}, count={count}")
+
+    try:
+        generated_numbers = generate_smart_filtered_numbers(lottery_type, count, options)
+        
+        if not generated_numbers:
+            return jsonify({'error': '无法生成符合条件的号码组合，请放宽筛选条件后重试。'}), 500
+
+        current_app.logger.info(f"API call: Successfully generated {len(generated_numbers)} smart filtered numbers for {lottery_type}.")
+        return jsonify({'numbers': generated_numbers})
+    
+    except Exception as e:
+        current_app.logger.error(f"API call: Error in smart filter for {lottery_type}: {e}")
+        return jsonify({'error': f'智能筛选生成失败: {str(e)}'}), 500
