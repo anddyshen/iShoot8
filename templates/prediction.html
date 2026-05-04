@@ -116,6 +116,9 @@
     .section-card .card-header .collapse-icon.collapsed {
         transform: rotate(-90deg);
     }
+    .smart-filter-settings-header {
+        background-color: #e8f4fd !important;
+    }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
@@ -200,14 +203,14 @@
     <!-- ===== 规则筛选号码 (单式) ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="true"></i> 规则筛选号码 (单式)</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
             <div>
                 <button class="btn btn-success btn-sm me-1" id="generate_ssq_prediction">生成规则号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_generated_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_ssq_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="ssq_rule_section_collapse">
+        <div class="collapse" id="ssq_rule_section_collapse">
             <div class="card-body">
                 <div class="mb-3 row align-items-center">
                     <label for="ssq_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
@@ -233,14 +236,14 @@
     <!-- ===== 真随机号码 ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="true"></i> 真随机号码</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
             <div>
                 <button class="btn btn-info btn-sm me-1" id="generate_ssq_random">生成随机号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_random_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_ssq_random_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="ssq_random_section_collapse">
+        <div class="collapse" id="ssq_random_section_collapse">
             <div class="card-body">
                 <div id="ssq_random_numbers_output">
                     <p class="text-muted">点击"生成真随机号码"按钮。</p>
@@ -252,17 +255,17 @@
     <!-- ===== 智能筛选号码 ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_smart_section_collapse" aria-expanded="true"></i> 智能筛选号码</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_smart_section_collapse" aria-expanded="false"></i> 智能筛选号码</span>
             <div>
                 <button class="btn btn-primary btn-sm me-1" id="generate_ssq_smart_filter">生成智能号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_smart_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_ssq_smart_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="ssq_smart_section_collapse">
+        <div class="collapse" id="ssq_smart_section_collapse">
             <div class="card-body">
                 <div class="card mb-3 border-info">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header smart-filter-settings-header">
                         <i class="bi bi-funnel"></i> 智能筛选规则设置
                         <button class="btn btn-sm btn-light float-end" type="button" data-bs-toggle="collapse" data-bs-target="#ssq_smart_filter_collapse" aria-expanded="false">
                             展开/收起
@@ -568,14 +571,14 @@
     <!-- ===== 规则筛选号码（复式） ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_complex_section_collapse" aria-expanded="true"></i> 规则筛选号码（复式）</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_complex_section_collapse" aria-expanded="false"></i> 规则筛选号码（复式）</span>
             <div>
                 <button class="btn btn-warning btn-sm me-1" id="generate_ssq_complex_prediction">生成复式号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_complex_generated_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_ssq_complex_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="ssq_complex_section_collapse">
+        <div class="collapse" id="ssq_complex_section_collapse">
             <div class="card-body">
                 <div class="mb-3 row align-items-center">
                     <label for="ssq_complex_red_count" class="col-sm-3 col-form-label">红球数量 (7-20):</label>
@@ -679,14 +682,14 @@
     <!-- ===== 规则筛选号码 (单式) ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="true"></i> 规则筛选号码 (单式)</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
             <div>
                 <button class="btn btn-success btn-sm me-1" id="generate_dlt_prediction">生成规则号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_generated_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_dlt_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="dlt_rule_section_collapse">
+        <div class="collapse" id="dlt_rule_section_collapse">
             <div class="card-body">
                 <div class="mb-3 row align-items-center">
                     <label for="dlt_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
@@ -712,14 +715,14 @@
     <!-- ===== 真随机号码 ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="true"></i> 真随机号码</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
             <div>
                 <button class="btn btn-info btn-sm me-1" id="generate_dlt_random">生成随机号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_random_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_dlt_random_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="dlt_random_section_collapse">
+        <div class="collapse" id="dlt_random_section_collapse">
             <div class="card-body">
                 <div id="dlt_random_numbers_output">
                     <p class="text-muted">点击"生成真随机号码"按钮。</p>
@@ -731,17 +734,17 @@
     <!-- ===== 智能筛选号码 ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_smart_section_collapse" aria-expanded="true"></i> 智能筛选号码</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_smart_section_collapse" aria-expanded="false"></i> 智能筛选号码</span>
             <div>
                 <button class="btn btn-primary btn-sm me-1" id="generate_dlt_smart_filter">生成智能号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_smart_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_dlt_smart_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="dlt_smart_section_collapse">
+        <div class="collapse" id="dlt_smart_section_collapse">
             <div class="card-body">
                 <div class="card mb-3 border-info">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header smart-filter-settings-header">
                         <i class="bi bi-funnel"></i> 智能筛选规则设置
                         <button class="btn btn-sm btn-light float-end" type="button" data-bs-toggle="collapse" data-bs-target="#dlt_smart_filter_collapse" aria-expanded="false">
                             展开/收起
@@ -1048,14 +1051,14 @@
     <!-- ===== 规则筛选号码（复式） ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_complex_section_collapse" aria-expanded="true"></i> 规则筛选号码（复式）</span>
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_complex_section_collapse" aria-expanded="false"></i> 规则筛选号码（复式）</span>
             <div>
                 <button class="btn btn-warning btn-sm me-1" id="generate_dlt_complex_prediction">生成复式号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_complex_generated_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_dlt_complex_numbers">复制所有号码</button>
             </div>
         </div>
-        <div class="collapse show" id="dlt_complex_section_collapse">
+        <div class="collapse" id="dlt_complex_section_collapse">
             <div class="card-body">
                 <div class="mb-3 row align-items-center">
                     <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">前区数量 (6-20):</label>
