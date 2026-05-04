@@ -655,13 +655,34 @@ async function copyToClipboard(text) {
     }
 }
 
-// Clear Generated Numbers
-function clearGeneratedNumbers(lotteryType) {
-    document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击“生成规则号码”按钮。</p>';
-    document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击“生成真随机号码”按钮。</p>';
-    updateFilterStatsDisplay(lotteryType, null); // Clear stats when clearing numbers
-    document.getElementById(`${lotteryType}_filter_overview_card`).style.display = 'none'; // Hide the overview card
-    console.log(`Frontend: Cleared generated numbers for ${lotteryType}.`);
+// Clear Predicted Numbers (规则筛选)
+function clearPredictedNumbers(lotteryType) {
+    document.getElementById(`${lotteryType}_predicted_numbers_output`).innerHTML = '<p class="text-muted">点击"生成规则号码"按钮。</p>';
+    updateFilterStatsDisplay(lotteryType, null);
+    document.getElementById(`${lotteryType}_filter_overview_card`).style.display = 'none';
+    console.log(`Frontend: Cleared predicted numbers for ${lotteryType}.`);
+}
+
+// Clear Random Numbers (真随机)
+function clearRandomNumbers(lotteryType) {
+    document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击"生成真随机号码"按钮。</p>';
+    console.log(`Frontend: Cleared random numbers for ${lotteryType}.`);
+}
+
+// Copy All Random Numbers (真随机)
+function copyAllRandomNumbers(lotteryType) {
+    let allNumbersText = `--- ${lotteryType.toUpperCase()} 真随机号码 ---\n`;
+    const randomCards = document.querySelectorAll(`#${lotteryType}_random_numbers_output .prediction-result-card`);
+    if (randomCards.length === 0) {
+        allNumbersText += "无\n";
+    } else {
+        randomCards.forEach(card => {
+            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
+            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
+            allNumbersText += `${redBalls} ${blueBalls}\n`;
+        });
+    }
+    copyToClipboard(allNumbersText);
 }
 
 // Copy All Generated Numbers
@@ -702,12 +723,16 @@ document.getElementById('generate_ssq_prediction').addEventListener('click', () 
 document.getElementById('generate_dlt_prediction').addEventListener('click', () => generatePredictedNumbers('dlt'));
 
 // Clear buttons
-document.getElementById('clear_ssq_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('ssq'));
-document.getElementById('clear_dlt_generated_numbers').addEventListener('click', () => clearGeneratedNumbers('dlt'));
+document.getElementById('clear_ssq_generated_numbers').addEventListener('click', () => clearPredictedNumbers('ssq'));
+document.getElementById('clear_dlt_generated_numbers').addEventListener('click', () => clearPredictedNumbers('dlt'));
+document.getElementById('clear_ssq_random_numbers').addEventListener('click', () => clearRandomNumbers('ssq'));
+document.getElementById('clear_dlt_random_numbers').addEventListener('click', () => clearRandomNumbers('dlt'));
 
 // Copy All buttons
 document.getElementById('copy_all_ssq_numbers').addEventListener('click', () => copyAllGeneratedNumbers('ssq'));
 document.getElementById('copy_all_dlt_numbers').addEventListener('click', () => copyAllGeneratedNumbers('dlt'));
+document.getElementById('copy_all_ssq_random_numbers').addEventListener('click', () => copyAllRandomNumbers('ssq'));
+document.getElementById('copy_all_dlt_random_numbers').addEventListener('click', () => copyAllRandomNumbers('dlt'));
 
 // Generate Complex Prediction Numbers
 async function generateComplexPrediction(lotteryType) {
@@ -977,13 +1002,6 @@ document.getElementById('dlt_complex_prediction_output').addEventListener('click
         copyToClipboard(e.target.dataset.copyText);
     }
 });
-
-// Initial load
-document.addEventListener('DOMContentLoaded', function() {
-    // Ensure the correct tab is active on load
-    document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq')
-});
-
 
 // ==================== 智能筛选功能 ====================
 
