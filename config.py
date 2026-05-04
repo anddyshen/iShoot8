@@ -44,9 +44,6 @@ DEFAULT_SETTINGS = {
     "ssq_red_omit_6_weight": 0.03,
     "ssq_red_consecutive_3_prob": 0.35,
     "ssq_red_consecutive_3_second_prob": 0.0,
-    "ssq_red_area_min_count": 2,
-    "ssq_red_prev_2_draws_max_repeat": 2,
-    "ssq_red_max_consecutive_balls": 3, # 不出现连续4个及以上数字
     "ssq_red_omit_prob_threshold_1": 0.015, # 遗漏降概率阈值1对应的概率
     "ssq_red_omit_prob_threshold_2": 0.0,   # 遗漏降概率阈值2对应的概率
     "ssq_red_omit_prob_threshold_3": 0.0,   # 遗漏降概率阈值3对应的概率
@@ -59,9 +56,6 @@ DEFAULT_SETTINGS = {
     "dlt_red_omit_5_weight": 0.03,
     "dlt_red_omit_6_weight": 0.03, # 新增：大乐透红球遗漏6期权重
     "dlt_red_consecutive_3_prob": 0.35,
-    "dlt_red_area_min_count": 2,
-    "dlt_red_prev_2_draws_max_repeat": 2,
-    "dlt_red_max_consecutive_balls": 3,
     "dlt_red_omit_prob_threshold_1": 0.015, # 遗漏降概率阈值1对应的概率
     "dlt_red_omit_prob_threshold_2": 0.0,   # 遗漏降概率阈值2对应的概率
     "dlt_red_omit_prob_threshold_3": 0.0,   # 遗漏降概率阈值3对应的概率
@@ -75,21 +69,6 @@ DEFAULT_SETTINGS = {
     "prize_check_range": 10, # 对奖页面往前核对的期数范围，默认改为10期
     "fun_game_max_simulations": 20000000, # 趣味游戏最大模拟次数
     "fun_game_simulation_years": 500, # 趣味游戏模拟年份范围
-    "ssq_draw_days": [2, 4, 7], # 周二、周四、周日
-    "dlt_draw_days": [1, 3, 6], # 周一、周三、周六
-    # "annual_holidays": [ # 默认春节和国庆后一周休息
-        # {"start": "01-28", "duration_weeks": 1}, # 假设1月28日春节开始
-        # {"start": "10-01", "duration_weeks": 1}  # 国庆
-    # ],
-    # 双色球蓝球最新出现频率规则 (4.1.11)
-    'ssq_blue_recent_occurrence_draws': 10,      # 检查前10期
-    'ssq_blue_recent_occurrence_threshold': 5,   # 出现5次以上
-    'ssq_blue_recent_occurrence_weight': 0.40,   # 概率变为40%
-
-    # 大乐透蓝球最新出现频率规则 (4.2.11)
-    'dlt_blue_recent_occurrence_draws': 10,      # 检查前10期
-    'dlt_blue_recent_occurrence_threshold': 8,   # 出现8次以上
-    'dlt_blue_recent_occurrence_weight': 0.40,   # 概率变为40%
 
     # 双色球红球趋势筛选规则
     'ssq_red_trend_rules': {
@@ -160,7 +139,6 @@ DEFAULT_SETTINGS = {
 
 # 双色球参数键
 SSQ_SETTINGS_KEYS = [
-    'ssq_data_source_url',
     'ssq_blue_omit_latest_draws',
     'ssq_blue_consecutive_3_prob',
     'ssq_blue_consecutive_5_prob',
@@ -172,30 +150,20 @@ SSQ_SETTINGS_KEYS = [
     'ssq_red_omit_6_weight',
     'ssq_red_consecutive_3_prob',
     'ssq_red_consecutive_3_second_prob',
-    'ssq_red_area_min_count',
-    'ssq_red_prev_2_draws_max_repeat',
-    'ssq_red_max_consecutive_balls',
     'ssq_red_omit_prob_threshold_1',
     'ssq_red_omit_prob_threshold_2',
     'ssq_red_omit_prob_threshold_3',
     'ssq_red_omit_threshold_1',
     'ssq_red_omit_threshold_2',
     'ssq_red_omit_threshold_3',
-    'ssq_draw_days',
-    'ssq_blue_recent_occurrence_draws',
-    'ssq_blue_recent_occurrence_threshold',
-    'ssq_blue_recent_occurrence_weight',
     'ssq_red_size_midpoint',
     'ssq_blue_size_midpoint',
-    'ssq_red_trend_rules', # 新增双色球红球趋势规则
-    'ssq_blue_trend_rules', # 新增双色球蓝球趋势规则
+    'ssq_red_trend_rules',
+    'ssq_blue_trend_rules',
 ]
 
 # 大乐透参数键
 DLT_SETTINGS_KEYS = [
-    'dlt_data_source_url',
-    'dlt_red_trend_rules', # 新增大乐透红球趋势规则
-    'dlt_blue_trend_rules', # 新增大乐透蓝球趋势规则
     'dlt_blue_repeat_prob',
     'dlt_blue_consecutive_5_prob',
     'dlt_red_omit_1_weight',
@@ -205,21 +173,16 @@ DLT_SETTINGS_KEYS = [
     'dlt_red_omit_5_weight',
     'dlt_red_omit_6_weight',
     'dlt_red_consecutive_3_prob',
-    'dlt_red_area_min_count',
-    'dlt_red_prev_2_draws_max_repeat',
-    'dlt_red_max_consecutive_balls',
     'dlt_red_omit_prob_threshold_1',
     'dlt_red_omit_prob_threshold_2',
     'dlt_red_omit_prob_threshold_3',
     'dlt_red_omit_threshold_1',
     'dlt_red_omit_threshold_2',
     'dlt_red_omit_threshold_3',
-    'dlt_draw_days',
-    'dlt_blue_recent_occurrence_draws',
-    'dlt_blue_recent_occurrence_threshold',
-    'dlt_blue_recent_occurrence_weight',
     'dlt_front_size_midpoint',
     'dlt_back_size_midpoint',
+    'dlt_red_trend_rules',
+    'dlt_blue_trend_rules',
 ]
 
 # 综合参数键
@@ -255,8 +218,6 @@ SETTING_LABELS_CHINESE = {
     'site_description': "网站描述",
     'admin_username': "管理员用户名",
     'admin_password': "管理员密码",
-    'ssq_data_source_url': "双色球数据源URL",
-    'dlt_data_source_url': "大乐透数据源URL",
     'news_data_source_url': "新闻数据源URL",
     'history_page_size': "历史数据每页显示数量",
     'history_stats_range_default': "统计数据默认范围",
@@ -286,9 +247,6 @@ SETTING_LABELS_CHINESE = {
     'ssq_red_omit_6_weight': "双色球红球：遗漏6期权重",
     'ssq_red_consecutive_3_prob': "双色球红球：连号3期概率",
     'ssq_red_consecutive_3_second_prob': "双色球红球：连号3期第二次概率",
-    'ssq_red_area_min_count': "双色球红球：分区最小数量",
-    'ssq_red_prev_2_draws_max_repeat': "双色球红球：近2期最大重复数",
-    'ssq_red_max_consecutive_balls': "双色球红球：最大连号数量",
     'ssq_red_omit_prob_threshold_1': "双色球红球：遗漏降概率阈值1对应的概率",
     'ssq_red_omit_prob_threshold_2': "双色球红球：遗漏降概率阈值2对应的概率",
     'ssq_red_omit_prob_threshold_3': "双色球红球：遗漏降概率阈值3对应的概率",
@@ -305,9 +263,6 @@ SETTING_LABELS_CHINESE = {
     'dlt_red_omit_5_weight': "大乐透红球：遗漏5期权重",
     'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重",
     'dlt_red_consecutive_3_prob': "大乐透红球：连号3期概率",
-    'dlt_red_area_min_count': "大乐透红球：分区最小数量",
-    'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
-    'dlt_red_max_consecutive_balls': "大乐透红球：最大连号数量",
     'dlt_red_omit_prob_threshold_1': "大乐透红球：遗漏降概率阈值1对应的概率",
     'dlt_red_omit_prob_threshold_2': "大乐透红球：遗漏降概率阈值2对应的概率",
     'dlt_red_omit_prob_threshold_3': "大乐透红球：遗漏降概率阈值3对应的概率",
@@ -320,18 +275,7 @@ SETTING_LABELS_CHINESE = {
     'fun_game_max_simulations': "趣味游戏：最大模拟次数",
 
     # 开奖日期设置
-    'ssq_draw_days': "双色球开奖日 (周几)",
-    'dlt_draw_days': "大乐透开奖日 (周几)",
-    'annual_holidays': "年度节假日 (不更新数据)",
     'fun_game_simulation_years': "趣味游戏：模拟年份范围",
-
-    # 蓝球近期出现频率规则
-    'ssq_blue_recent_occurrence_draws': "双色球蓝球：近期出现分析期数",
-    'ssq_blue_recent_occurrence_threshold': "双色球蓝球：近期出现频率阈值",
-    'ssq_blue_recent_occurrence_weight': "双色球蓝球：近期出现频率权重",
-    'dlt_blue_recent_occurrence_draws': "大乐透蓝球：近期出现分析期数",
-    'dlt_blue_recent_occurrence_threshold': "大乐透蓝球：近期出现频率阈值",
-    'dlt_blue_recent_occurrence_weight': "大乐透蓝球：近期出现频率权重",
 
     # 趣味游戏消息中文标签
     'fun_game_no_prize_message': "趣味游戏：未中奖消息",
@@ -404,7 +348,7 @@ def load_settings():
                 settings[key] = value
         
         # 确保所有百分比相关的设置项在加载时都转换为小数形式
-        percentage_keys = ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_blue_consecutive_5_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']
+        percentage_keys = ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_blue_consecutive_5_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3']
         for key in percentage_keys:
             if key in settings and isinstance(settings[key], (int, float)) and settings[key] > 1:
                 settings[key] = settings[key] / 100

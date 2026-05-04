@@ -31,8 +31,9 @@ def admin_required(f):
 def admin_login():
     if request.method == 'POST':
         password = request.form.get('password')
-        # 生产环境应使用哈希密码，这里简化
-        if password == ADMIN_PASSWORD: # 假设 ADMIN_PASSWORD 是明文，实际应是哈希值
+        # 从 CURRENT_SETTINGS 获取密码，确保修改后立即生效
+        admin_password = CURRENT_SETTINGS.get('admin_password', ADMIN_PASSWORD)
+        if password == admin_password:
             session['logged_in_admin'] = True
             flash('登录成功！', 'success')
             return redirect(url_for('admin_routes.admin_dashboard'))
@@ -189,7 +190,7 @@ def _process_config_settings_form(settings_keys, redirect_route):
                 elif isinstance(DEFAULT_SETTINGS.get(key), float):
                     try:
                         # 检查是否是百分比相关的key，如果是，则除以100
-                        if key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']:
+                        if key in ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_consecutive_3_prob', 'ssq_red_consecutive_3_second_prob', 'dlt_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3']:
                             processed_value = float(value) / 100
                             CURRENT_SETTINGS[key] = processed_value
                             current_app.logger.debug(f"  Processed percentage value for '{key}': '{processed_value}'")
@@ -368,6 +369,41 @@ def admin_data_update():
         # TODO: 添加定时任务控制逻辑
         return redirect(url_for('admin_routes.admin_data_update'))
     return render_template('admin/data_update.html')
+
+@bp.route('/change_password', methods=['GET', 'POST'])
+@admin_required
+def admin_change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        # 从 CURRENT_SETTINGS 获取当前密码，确保使用最新值
+        admin_password = CURRENT_SETTINGS.get('admin_password', ADMIN_PASSWORD)
+
+        # 验证当前密码
+        if current_password != admin_password:
+            flash('当前密码错误。', 'danger')
+            return redirect(url_for('admin_routes.admin_change_password'))
+
+        # 验证新密码
+        if len(new_password) < 6:
+            flash('新密码长度至少6位。', 'danger')
+            return redirect(url_for('admin_routes.admin_change_password'))
+
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致。', 'danger')
+            return redirect(url_for('admin_routes.admin_change_password'))
+
+        # 更新密码
+        CURRENT_SETTINGS['admin_password'] = new_password
+        save_settings(CURRENT_SETTINGS)
+
+        flash('密码修改成功！', 'success')
+        return redirect(url_for('admin_routes.admin_dashboard'))
+
+    return render_template('admin/change_password.html')
+
 
 @bp.route('/news_manage', methods=['GET', 'POST'])
 @admin_required
