@@ -10,12 +10,12 @@
     .ball-selector-grid {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 5px;
-        margin-bottom: 15px;
+        gap: 3px;
+        margin-bottom: 10px;
     }
     .ball-selector-grid .ball {
-        width: 40px;
-        height: 40px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
         display: flex;
         justify-content: center;
@@ -26,6 +26,7 @@
         background-color: #f8f9fa;
         transition: all 0.2s ease-in-out;
         margin: 0 auto;
+        font-size: 0.9em;
     }
     .ball-selector-grid .ball.selected-red {
         background-color: #dc3545;
@@ -37,7 +38,12 @@
         color: white;
         border-color: #0d6efd;
     }
-    .ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue) {
+    .ball-selector-grid .ball.highlight-draw {
+        background-color: #d4edff;
+        border-color: #7ec8e3;
+        color: #333;
+    }
+    .ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue):not(.highlight-draw) {
         background-color: #e9ecef;
     }
     .selected-balls-display {
@@ -517,8 +523,8 @@
             html += '</div>';
             contentDiv.innerHTML = html;
 
-            // 更新号码选择器的遗漏期数显示
-            updateSelectorOmissions(lotteryType, data.all_red_omissions, data.all_blue_omissions);
+            // 更新号码选择器的遗漏期数显示和当期开奖号码高亮
+            updateSelectorOmissions(lotteryType, data.all_red_omissions, data.all_blue_omissions, data.red_balls, data.blue_balls);
 
         } catch (error) {
             console.error('Error loading latest draw:', error);
@@ -553,13 +559,17 @@
     document.getElementById('dlt_next_draw_btn').addEventListener('click', () => handleNextDraw('dlt'));
 
     /**
-     * 更新号码选择器中每个号码下方的遗漏期数显示
+     * 更新号码选择器中每个号码下方的遗漏期数显示和当期开奖号码高亮
      */
-    function updateSelectorOmissions(lotteryType, allRedOmissions, allBlueOmissions) {
+    function updateSelectorOmissions(lotteryType, allRedOmissions, allBlueOmissions, drawRedBalls, drawBlueBalls) {
         const redSelector = document.getElementById(`${lotteryType}_red_selector`);
         const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
 
-        // 更新红球选择器的遗漏
+        // 将开奖号码转为Set以便快速查找
+        const drawRedSet = new Set(drawRedBalls || []);
+        const drawBlueSet = new Set(drawBlueBalls || []);
+
+        // 更新红球选择器的遗漏和高亮
         const redBalls = redSelector.querySelectorAll('.ball');
         redBalls.forEach(ball => {
             const value = parseInt(ball.dataset.ballValue);
@@ -582,9 +592,18 @@
             } else {
                 omissionSpan.classList.add('omission-low');
             }
+
+            // 高亮当期开奖号码（淡蓝色背景）
+            if (drawRedSet.has(value)) {
+                ball.classList.add('highlight-draw');
+                ball.dataset.isDrawBall = 'true';
+            } else {
+                ball.classList.remove('highlight-draw');
+                ball.dataset.isDrawBall = 'false';
+            }
         });
 
-        // 更新蓝球选择器的遗漏
+        // 更新蓝球选择器的遗漏和高亮
         const blueBalls = blueSelector.querySelectorAll('.ball');
         blueBalls.forEach(ball => {
             const value = parseInt(ball.dataset.ballValue);
@@ -604,6 +623,15 @@
                 omissionSpan.classList.add('omission-medium');
             } else {
                 omissionSpan.classList.add('omission-low');
+            }
+
+            // 高亮当期开奖号码（淡蓝色背景）
+            if (drawBlueSet.has(value)) {
+                ball.classList.add('highlight-draw');
+                ball.dataset.isDrawBall = 'true';
+            } else {
+                ball.classList.remove('highlight-draw');
+                ball.dataset.isDrawBall = 'false';
             }
         });
     }
@@ -635,8 +663,14 @@
             if (ballElement.classList.contains(className)) {
                 ballElement.classList.remove(className);
                 selectedSet.delete(value);
+                // 如果该号码是当期开奖号码，恢复淡蓝色高亮
+                if (ballElement.dataset.isDrawBall === 'true') {
+                    ballElement.classList.add('highlight-draw');
+                }
             } else {
                 ballElement.classList.add(className);
+                // 如果该号码是当期开奖号码，移除淡蓝色高亮，显示选中颜色
+                ballElement.classList.remove('highlight-draw');
                 selectedSet.add(value);
             }
             updateDisplay();
@@ -657,8 +691,20 @@
         clearSelectionBtn.addEventListener('click', function() {
             selectedRedBalls.clear();
             selectedBlueBalls.clear();
-            redSelector.querySelectorAll('.ball').forEach(b => b.classList.remove('selected-red'));
-            blueSelector.querySelectorAll('.ball').forEach(b => b.classList.remove('selected-blue'));
+            redSelector.querySelectorAll('.ball').forEach(b => {
+                b.classList.remove('selected-red');
+                // 如果该号码是当期开奖号码，恢复淡蓝色高亮
+                if (b.dataset.isDrawBall === 'true') {
+                    b.classList.add('highlight-draw');
+                }
+            });
+            blueSelector.querySelectorAll('.ball').forEach(b => {
+                b.classList.remove('selected-blue');
+                // 如果该号码是当期开奖号码，恢复淡蓝色高亮
+                if (b.dataset.isDrawBall === 'true') {
+                    b.classList.add('highlight-draw');
+                }
+            });
             updateDisplay();
         });
 
