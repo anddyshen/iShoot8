@@ -580,7 +580,7 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
 
 // Check Rules for Generated Numbers (using new API)
 async function checkGeneratedRules(lotteryType, redBallsStr, blueBallsStr) {
-    const modalBody = document.querySelector('#ruleCheckModal .modal-body'); // Output to modal body
+    const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body'); // Output to modal body
     modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
     const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
     ruleCheckModal.show(); // Show modal immediately
