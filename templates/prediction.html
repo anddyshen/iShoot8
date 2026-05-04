@@ -1,5 +1,5 @@
 <!-- templates/prediction.html -->
-<!-- 版本: 1.0.6 - 修复遗漏号码排序问题，改为按遗漏期数从多到少排列 -->
+<!-- 版本: 1.0.7 - 智能筛选改为checkbox形式，添加互斥逻辑 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -17,15 +17,15 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-right: 10px; /* 调整间距 */
+        margin-right: 10px;
         margin-bottom: 5px;
     }
     .lottery-ball-with-omission .lottery-ball {
-        margin-bottom: 2px; /* 球和遗漏期数之间的间距 */
+        margin-bottom: 2px;
     }
     .lottery-ball-with-omission .omission-text {
-        font-size: 0.75em; /* 遗漏期数小字体 */
-        color: #6c757d; /* 灰色 */
+        font-size: 0.75em;
+        color: #6c757d;
     }
     .rule-list {
         max-height: 300px;
@@ -43,10 +43,10 @@
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .prediction-result-card.rule-based {
-        background-color: #eeecd8; /* 淡黄色 */
+        background-color: #eeecd8;
     }
     .prediction-result-card.random-generated {
-        background-color: #b5e2ca; /* 淡绿色 */
+        background-color: #b5e2ca;
     }
     .prediction-result-card .card-title {
         font-size: 1.1em;
@@ -71,22 +71,36 @@
     @-webkit-keyframes spin {
         to { -webkit-transform: rotate(360deg); }
     }
-    /* 规则检查模态框样式 */
     .rule-check-modal-body .rule-item {
         margin-bottom: 5px;
         padding: 5px;
         border-radius: 3px;
     }
     .rule-check-modal-body .rule-item.passed {
-        background-color: #d4edda; /* 绿色背景 */
-        color: #155724; /* 深绿色文字 */
+        background-color: #d4edda;
+        color: #155724;
     }
     .rule-check-modal-body .rule-item.failed {
-        background-color: #f8d7da; /* 红色背景 */
-        color: #721c24; /* 深红色文字 */
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .smart-filter-checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background: #f8f9fa;
+    }
+    .smart-filter-checkbox-group .form-check-inline {
+        margin-right: 8px;
+        margin-bottom: 4px;
+    }
+    .smart-filter-checkbox-group .form-check-inline .form-check-input:checked ~ .form-check-label {
+        font-weight: bold;
     }
 </style>
-<!-- 引入 Chart.js for the pie chart -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
@@ -105,7 +119,6 @@
 <div id="ssq_prediction_section" class="lottery-section">
 <h2 class="mb-3">双色球筛选</h2>
 
-    <!-- 最新开奖号码 -->
     <div class="card mb-4">
         <div class="card-header">最新 {{ settings.prediction_latest_draws }} 期开奖号码</div>
         <div class="card-body">
@@ -127,7 +140,6 @@
 
     <div class="row">
         <div class="col-md-6">
-            <!-- 预测规则文字 -->
             <div class="card mb-4">
 <div class="card-header">双色球筛选规则 (后台配置)</div>
                 <div class="card-body rule-list" id="ssq_active_rules_display">
@@ -136,7 +148,6 @@
             </div>
         </div>
         <div class="col-md-6">
-            <!-- 遗漏期数最多的号码 -->
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>遗漏期数最多的号码</span>
@@ -169,7 +180,6 @@
         </div>
     </div>
 
-    <!-- 生成号码区域 -->
     <div class="card mb-4">
 <div class="card-header">生成筛选号码</div>
         <div class="card-body">
@@ -182,7 +192,7 @@
                     <button class="btn btn-success me-2" id="generate_ssq_prediction">生成规则号码</button>
                     <button class="btn btn-info me-2" id="generate_ssq_random">生成随机号码</button>
                     <button class="btn btn-secondary me-2" id="clear_ssq_generated_numbers">清除生成号码</button>
-                    <button class="btn btn-dark" id="copy_all_ssq_numbers">复制所有号码</button> <!-- 新增总按钮 -->
+                    <button class="btn btn-dark" id="copy_all_ssq_numbers">复制所有号码</button>
                 </div>
             </div>
 
@@ -201,19 +211,16 @@
 
             <h5>规则筛选号码 (单式)</h5>
             <div id="ssq_predicted_numbers_output">
-                <!-- 预测号码将在此处动态生成 -->
                 <p class="text-muted">点击"生成规则号码"按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
             <div id="ssq_random_numbers_output">
-                <!-- 随机号码将在此处动态生成 -->
                 <p class="text-muted">点击"生成真随机号码"按钮。</p>
             </div>
 
             <hr>
 
-            <!-- 智能筛选功能 -->
             <h5 class="mt-4">智能筛选号码</h5>
             <div class="card mb-3 border-info">
                 <div class="card-header bg-info text-white">
@@ -228,108 +235,248 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">分区原则 (1-11:12-22:23-33)</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_zone_ratio">
-                                        <option value="2:2:2" selected>2:2:2</option>
-                                        <option value="3:2:1">3:2:1</option>
-                                        <option value="3:1:2">3:1:2</option>
-                                        <option value="2:3:1">2:3:1</option>
-                                        <option value="2:1:3">2:1:3</option>
-                                        <option value="1:2:3">1:2:3</option>
-                                        <option value="1:3:2">1:3:2</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_zone_ratio">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="2:2:2" id="ssq_zone_2_2_2" checked>
+                                            <label class="form-check-label" for="ssq_zone_2_2_2">2:2:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="3:2:1" id="ssq_zone_3_2_1">
+                                            <label class="form-check-label" for="ssq_zone_3_2_1">3:2:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="3:1:2" id="ssq_zone_3_1_2">
+                                            <label class="form-check-label" for="ssq_zone_3_1_2">3:1:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="2:3:1" id="ssq_zone_2_3_1">
+                                            <label class="form-check-label" for="ssq_zone_2_3_1">2:3:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="2:1:3" id="ssq_zone_2_1_3">
+                                            <label class="form-check-label" for="ssq_zone_2_1_3">2:1:3</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1:2:3" id="ssq_zone_1_2_3">
+                                            <label class="form-check-label" for="ssq_zone_1_2_3">1:2:3</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1:3:2" id="ssq_zone_1_3_2">
+                                            <label class="form-check-label" for="ssq_zone_1_3_2">1:3:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_zone_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_zone_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">连号原则</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_consecutive">
-                                        <option value="1_group_2" selected>最多1组2连号</option>
-                                        <option value="no_consecutive">无连号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_consecutive">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1_group_2" id="ssq_cons_1_group_2" checked>
+                                            <label class="form-check-label" for="ssq_cons_1_group_2">最多1组2连号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="no_consecutive" id="ssq_cons_no">
+                                            <label class="form-check-label" for="ssq_cons_no">无连号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_cons_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_cons_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">与上期重号</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_repeat">
-                                        <option value="1_or_2" selected>1-2个重号</option>
-                                        <option value="1">1个重号</option>
-                                        <option value="2">2个重号</option>
-                                        <option value="0">无重号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_repeat">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1_or_2" id="ssq_repeat_1_2" checked>
+                                            <label class="form-check-label" for="ssq_repeat_1_2">1-2个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1" id="ssq_repeat_1">
+                                            <label class="form-check-label" for="ssq_repeat_1">1个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="2" id="ssq_repeat_2">
+                                            <label class="form-check-label" for="ssq_repeat_2">2个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="0" id="ssq_repeat_0">
+                                            <label class="form-check-label" for="ssq_repeat_0">无重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_repeat_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_repeat_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">遗漏号原则</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_omission_pattern">
-                                        <option value="4+1+1" selected>4热+1温+1冷</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_omission_pattern">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="4+1+1" id="ssq_omit_4_1_1" checked>
+                                            <label class="form-check-label" for="ssq_omit_4_1_1">4热+1温+1冷</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_omit_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_omit_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">奇偶比</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_odd_even">
-                                        <option value="3:3,2:4,4:2" selected>3:3 / 2:4 / 4:2</option>
-                                        <option value="3:3">3:3</option>
-                                        <option value="2:4">2:4</option>
-                                        <option value="4:2">4:2</option>
-                                        <option value="1:5">1:5</option>
-                                        <option value="5:1">5:1</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_odd_even">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="3:3" id="ssq_oe_3_3" checked>
+                                            <label class="form-check-label" for="ssq_oe_3_3">3:3</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="2:4" id="ssq_oe_2_4" checked>
+                                            <label class="form-check-label" for="ssq_oe_2_4">2:4</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="4:2" id="ssq_oe_4_2" checked>
+                                            <label class="form-check-label" for="ssq_oe_4_2">4:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="1:5" id="ssq_oe_1_5">
+                                            <label class="form-check-label" for="ssq_oe_1_5">1:5</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="5:1" id="ssq_oe_5_1">
+                                            <label class="form-check-label" for="ssq_oe_5_1">5:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_oe_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_oe_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">最大跨度</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_span">
-                                        <option value="gt_26" selected>≥26</option>
-                                        <option value="gt_24">≥24</option>
-                                        <option value="gt_20">≥20</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_span">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="gt_26" id="ssq_span_26" checked>
+                                            <label class="form-check-label" for="ssq_span_26">≥26</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="gt_24" id="ssq_span_24">
+                                            <label class="form-check-label" for="ssq_span_24">≥24</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="gt_20" id="ssq_span_20">
+                                            <label class="form-check-label" for="ssq_span_20">≥20</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_span_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_span_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">号码总和</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_sum">
-                                        <option value="70-129" selected>70-129</option>
-                                        <option value="80-120">80-120</option>
-                                        <option value="90-110">90-110</option>
-                                        <option value="60-140">60-140</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_sum">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="70-129" id="ssq_sum_70_129" checked>
+                                            <label class="form-check-label" for="ssq_sum_70_129">70-129</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="80-120" id="ssq_sum_80_120">
+                                            <label class="form-check-label" for="ssq_sum_80_120">80-120</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="90-110" id="ssq_sum_90_110">
+                                            <label class="form-check-label" for="ssq_sum_90_110">90-110</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="60-140" id="ssq_sum_60_140">
+                                            <label class="form-check-label" for="ssq_sum_60_140">60-140</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_sum_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_sum_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">同尾号</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_same_tail">
-                                        <option value="exactly_1" selected>有且只有1组</option>
-                                        <option value="at_least_1">至少1组</option>
-                                        <option value="none">无同尾号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_same_tail">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="exactly_1" id="ssq_tail_exactly_1" checked>
+                                            <label class="form-check-label" for="ssq_tail_exactly_1">有且只有1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="at_least_1" id="ssq_tail_at_least_1">
+                                            <label class="form-check-label" for="ssq_tail_at_least_1">至少1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="none" id="ssq_tail_none">
+                                            <label class="form-check-label" for="ssq_tail_none">无同尾号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_tail_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_tail_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">邻号(边号)</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_neighbor">
-                                        <option value="at_least_1" selected>至少1组</option>
-                                        <option value="at_least_2">至少2组</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_neighbor">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="at_least_1" id="ssq_neighbor_1" checked>
+                                            <label class="form-check-label" for="ssq_neighbor_1">至少1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="at_least_2" id="ssq_neighbor_2">
+                                            <label class="form-check-label" for="ssq_neighbor_2">至少2组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_neighbor_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_neighbor_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">AC值</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_ac_value">
-                                        <option value="6_or_7" selected>6或7</option>
-                                        <option value="5_to_8">5-8</option>
-                                        <option value="4_to_9">4-9</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_ac_value">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="6_or_7" id="ssq_ac_6_7" checked>
+                                            <label class="form-check-label" for="ssq_ac_6_7">6或7</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="5_to_8" id="ssq_ac_5_8">
+                                            <label class="form-check-label" for="ssq_ac_5_8">5-8</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="4_to_9" id="ssq_ac_4_9">
+                                            <label class="form-check-label" for="ssq_ac_4_9">4-9</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_ac_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_ac_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">蓝球遗漏</label>
-                                    <select class="form-select smart-filter-ssq" id="ssq_smart_blue_omission">
-                                        <option value="6-12_primary" selected>优先遗漏6-12期</option>
-                                        <option value="5-15_primary">优先遗漏5-15期</option>
-                                        <option value="any">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="ssq_smart_blue_omission">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="6-12_primary" id="ssq_blue_6_12" checked>
+                                            <label class="form-check-label" for="ssq_blue_6_12">优先遗漏6-12期</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq" type="checkbox" value="5-15_primary" id="ssq_blue_5_15">
+                                            <label class="form-check-label" for="ssq_blue_5_15">优先遗漏5-15期</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_blue_disabled">
+                                            <label class="form-check-label text-muted" for="ssq_blue_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -349,7 +496,6 @@
 
             <hr>
 
-            <!-- 复式预测功能 (4.3) -->
 <h5 class="mt-4">双色球复式筛选 (4.3)</h5>
             <div class="mb-3 row align-items-center">
                 <label for="ssq_complex_red_count" class="col-sm-3 col-form-label">红球数量 (7-20):</label>
@@ -378,14 +524,13 @@
         </div>
     </div>
 
-    <!-- 组合数及筛选饼状图 (移动到最下方) -->
     <div class="card mb-4" id="ssq_filter_overview_card" style="display: none;">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
             <p>总组合数: <span id="ssq_total_combinations_display">计算中...</span></p>
             <p>通过规则筛选掉的可能: <span id="ssq_filtered_by_rules_count_display">计算中...</span></p>
             <p>本次过滤掉号码率: <span id="ssq_filter_rate_display">计算中...</span></p>
-            <div style="width: 50%; height: 250px; margin: auto;"> <!-- 调整饼图大小 -->
+            <div style="width: 50%; height: 250px; margin: auto;">
                 <canvas id="ssq_filter_chart"></canvas>
             </div>
         </div>
@@ -395,7 +540,6 @@
 <div id="dlt_prediction_section" class="lottery-section" style="display: none;">
 <h2 class="mb-3">大乐透筛选</h2>
 
-    <!-- 最新开奖号码 -->
     <div class="card mb-4">
         <div class="card-header">最新 {{ settings.prediction_latest_draws }} 期开奖号码</div>
         <div class="card-body">
@@ -417,7 +561,6 @@
 
     <div class="row">
         <div class="col-md-6">
-            <!-- 预测规则文字 -->
             <div class="card mb-4">
 <div class="card-header">大乐透筛选规则 (后台配置)</div>
                 <div class="card-body rule-list" id="dlt_active_rules_display">
@@ -426,7 +569,6 @@
             </div>
         </div>
         <div class="col-md-6">
-            <!-- 遗漏期数最多的号码 -->
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>遗漏期数最多的号码</span>
@@ -459,7 +601,6 @@
         </div>
     </div>
 
-    <!-- 生成号码区域 -->
     <div class="card mb-4">
 <div class="card-header">生成筛选号码</div>
         <div class="card-body">
@@ -472,7 +613,7 @@
                     <button class="btn btn-success me-2" id="generate_dlt_prediction">生成规则号码</button>
                     <button class="btn btn-info me-2" id="generate_dlt_random">生成随机号码</button>
                     <button class="btn btn-secondary me-2" id="clear_dlt_generated_numbers">清除生成号码</button>
-                    <button class="btn btn-dark" id="copy_all_dlt_numbers">复制所有号码</button> <!-- 新增总按钮 -->
+                    <button class="btn btn-dark" id="copy_all_dlt_numbers">复制所有号码</button>
                 </div>
             </div>
 
@@ -491,19 +632,16 @@
 
             <h5>规则筛选号码 (单式)</h5>
             <div id="dlt_predicted_numbers_output">
-                <!-- 预测号码将在此处动态生成 -->
                 <p class="text-muted">点击"生成规则号码"按钮。</p>
             </div>
 
             <h5 class="mt-4">真随机号码</h5>
             <div id="dlt_random_numbers_output">
-                <!-- 随机号码将在此处动态生成 -->
                 <p class="text-muted">点击"生成真随机号码"按钮。</p>
             </div>
 
             <hr>
 
-            <!-- 智能筛选功能 - 大乐透 -->
             <h5 class="mt-4">智能筛选号码</h5>
             <div class="card mb-3 border-info">
                 <div class="card-header bg-info text-white">
@@ -518,116 +656,240 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">分区原则 (1-12:13-24:25-35)</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_zone_ratio">
-                                        <option value="1:2:2" selected>1:2:2</option>
-                                        <option value="2:2:1">2:2:1</option>
-                                        <option value="2:1:2">2:1:2</option>
-                                        <option value="1:1:3">1:1:3</option>
-                                        <option value="3:1:1">3:1:1</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_zone_ratio">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:2:1" id="dlt_zone_2_2_1" checked>
+                                            <label class="form-check-label" for="dlt_zone_2_2_1">2:2:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:1:1" id="dlt_zone_3_1_1">
+                                            <label class="form-check-label" for="dlt_zone_3_1_1">3:1:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:2:0" id="dlt_zone_3_2_0">
+                                            <label class="form-check-label" for="dlt_zone_3_2_0">3:2:0</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:1:2" id="dlt_zone_2_1_2">
+                                            <label class="form-check-label" for="dlt_zone_2_1_2">2:1:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:2:2" id="dlt_zone_1_2_2">
+                                            <label class="form-check-label" for="dlt_zone_1_2_2">1:2:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:3:1" id="dlt_zone_1_3_1">
+                                            <label class="form-check-label" for="dlt_zone_1_3_1">1:3:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_zone_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_zone_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">连号原则</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_consecutive">
-                                        <option value="0_or_1_group_2" selected>最多1组2连号</option>
-                                        <option value="no_consecutive">无连号</option>
-                                        <option value="1_group_2">有且只有1组2连号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_consecutive">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1_group_2" id="dlt_cons_1_group_2" checked>
+                                            <label class="form-check-label" for="dlt_cons_1_group_2">最多1组2连号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="no_consecutive" id="dlt_cons_no">
+                                            <label class="form-check-label" for="dlt_cons_no">无连号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_cons_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_cons_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">与上期重号</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_repeat">
-                                        <option value="0_or_1" selected>0-1个重号</option>
-                                        <option value="0">无重号</option>
-                                        <option value="1">1个重号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_repeat">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1_or_2" id="dlt_repeat_1_2" checked>
+                                            <label class="form-check-label" for="dlt_repeat_1_2">1-2个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1" id="dlt_repeat_1">
+                                            <label class="form-check-label" for="dlt_repeat_1">1个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="2" id="dlt_repeat_2">
+                                            <label class="form-check-label" for="dlt_repeat_2">2个重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="0" id="dlt_repeat_0">
+                                            <label class="form-check-label" for="dlt_repeat_0">无重号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_repeat_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_repeat_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">遗漏号原则</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_omission_pattern">
-                                        <option value="3:1:1" selected>3热+1温+1冷</option>
-                                        <option value="4:1:0">4热+1温+0冷</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_omission_pattern">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="3+1+1" id="dlt_omit_3_1_1" checked>
+                                            <label class="form-check-label" for="dlt_omit_3_1_1">3热+1温+1冷</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_omit_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_omit_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">奇偶比</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_odd_even">
-                                        <option value="3:2,2:3" selected>3:2 / 2:3</option>
-                                        <option value="3:2">3:2</option>
-                                        <option value="2:3">2:3</option>
-                                        <option value="4:1">4:1</option>
-                                        <option value="1:4">1:4</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_odd_even">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:2" id="dlt_oe_3_2" checked>
+                                            <label class="form-check-label" for="dlt_oe_3_2">3:2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:3" id="dlt_oe_2_3" checked>
+                                            <label class="form-check-label" for="dlt_oe_2_3">2:3</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="4:1" id="dlt_oe_4_1">
+                                            <label class="form-check-label" for="dlt_oe_4_1">4:1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:4" id="dlt_oe_1_4">
+                                            <label class="form-check-label" for="dlt_oe_1_4">1:4</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_oe_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_oe_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">最大跨度</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_span">
-                                        <option value="gt_24" selected>≥24</option>
-                                        <option value="gt_20">≥20</option>
-                                        <option value="gt_26">≥26</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_span">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="gt_26" id="dlt_span_26" checked>
+                                            <label class="form-check-label" for="dlt_span_26">≥26</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="gt_24" id="dlt_span_24">
+                                            <label class="form-check-label" for="dlt_span_24">≥24</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="gt_20" id="dlt_span_20">
+                                            <label class="form-check-label" for="dlt_span_20">≥20</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_span_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_span_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">号码总和</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_sum">
-                                        <option value="70-110" selected>70-110</option>
-                                        <option value="80-100">80-100</option>
-                                        <option value="60-120">60-120</option>
-                                        <option value="90-110">90-110</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_sum">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="70-129" id="dlt_sum_70_129" checked>
+                                            <label class="form-check-label" for="dlt_sum_70_129">70-129</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="80-120" id="dlt_sum_80_120">
+                                            <label class="form-check-label" for="dlt_sum_80_120">80-120</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="90-110" id="dlt_sum_90_110">
+                                            <label class="form-check-label" for="dlt_sum_90_110">90-110</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="60-140" id="dlt_sum_60_140">
+                                            <label class="form-check-label" for="dlt_sum_60_140">60-140</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_sum_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_sum_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">同尾号</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_same_tail">
-                                        <option value="exactly_1" selected>有且只有1组</option>
-                                        <option value="at_least_1">至少1组</option>
-                                        <option value="none">无同尾号</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_same_tail">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="exactly_1" id="dlt_tail_exactly_1" checked>
+                                            <label class="form-check-label" for="dlt_tail_exactly_1">有且只有1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="at_least_1" id="dlt_tail_at_least_1">
+                                            <label class="form-check-label" for="dlt_tail_at_least_1">至少1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="none" id="dlt_tail_none">
+                                            <label class="form-check-label" for="dlt_tail_none">无同尾号</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_tail_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_tail_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">邻号(边号)</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_neighbor">
-                                        <option value="at_least_1" selected>至少1组</option>
-                                        <option value="at_least_2">至少2组</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_neighbor">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="at_least_1" id="dlt_neighbor_1" checked>
+                                            <label class="form-check-label" for="dlt_neighbor_1">至少1组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="at_least_2" id="dlt_neighbor_2">
+                                            <label class="form-check-label" for="dlt_neighbor_2">至少2组</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_neighbor_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_neighbor_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">AC值</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_ac_value">
-                                        <option value="4_or_5" selected>4或5</option>
-                                        <option value="3_to_6">3-6</option>
-                                        <option value="4_to_7">4-7</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_ac_value">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="5_or_6" id="dlt_ac_5_6" checked>
+                                            <label class="form-check-label" for="dlt_ac_5_6">5或6</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="4_to_7" id="dlt_ac_4_7">
+                                            <label class="form-check-label" for="dlt_ac_4_7">4-7</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="3_to_8" id="dlt_ac_3_8">
+                                            <label class="form-check-label" for="dlt_ac_3_8">3-8</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_ac_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_ac_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">后区奇偶</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_blue_odd_even">
-                                        <option value="1:1" selected>1奇1偶</option>
-                                        <option value="2:0">全奇</option>
-                                        <option value="0:2">全偶</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">后区大小</label>
-                                    <select class="form-select smart-filter-dlt" id="dlt_smart_blue_size">
-                                        <option value="1:1" selected>1大1小</option>
-                                        <option value="2:0">全大</option>
-                                        <option value="0:2">全小</option>
-                                        <option value="disabled">不限制</option>
-                                    </select>
+                                    <label class="form-label">后区遗漏</label>
+                                    <div class="smart-filter-checkbox-group" id="dlt_smart_blue_omission">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="6-12_primary" id="dlt_blue_6_12" checked>
+                                            <label class="form-check-label" for="dlt_blue_6_12">优先遗漏6-12期</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt" type="checkbox" value="5-15_primary" id="dlt_blue_5_15">
+                                            <label class="form-check-label" for="dlt_blue_5_15">优先遗漏5-15期</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_blue_disabled">
+                                            <label class="form-check-label text-muted" for="dlt_blue_disabled">不限制</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -647,16 +909,15 @@
 
             <hr>
 
-            <!-- 复式预测功能 (4.3) -->
 <h5 class="mt-4">大乐透复式筛选 (4.3)</h5>
             <div class="mb-3 row align-items-center">
-                <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">红球数量 (6-20):</label>
+                <label for="dlt_complex_red_count" class="col-sm-3 col-form-label">红球数量 (7-20):</label>
                 <div class="col-sm-2">
-                    <input type="number" class="form-control" id="dlt_complex_red_count" value="6" min="6" max="20">
+                    <input type="number" class="form-control" id="dlt_complex_red_count" value="7" min="7" max="20">
                 </div>
-                <label for="dlt_complex_blue_count" class="col-sm-3 col-form-label">蓝球数量 (2-12):</label>
+                <label for="dlt_complex_blue_count" class="col-sm-3 col-form-label">蓝球数量 (1-12):</label>
                 <div class="col-sm-2">
-                    <input type="number" class="form-control" id="dlt_complex_blue_count" value="2" min="2" max="12">
+                    <input type="number" class="form-control" id="dlt_complex_blue_count" value="1" min="1" max="12">
                 </div>
                 <div class="col-sm-2">
                     <label for="dlt_complex_num_generate" class="col-form-label">生成组数:</label>
@@ -676,52 +937,100 @@
         </div>
     </div>
 
-    <!-- 组合数及筛选饼状图 (移动到最下方) -->
     <div class="card mb-4" id="dlt_filter_overview_card" style="display: none;">
         <div class="card-header">组合筛选概览</div>
         <div class="card-body">
             <p>总组合数: <span id="dlt_total_combinations_display">计算中...</span></p>
             <p>通过规则筛选掉的可能: <span id="dlt_filtered_by_rules_count_display">计算中...</span></p>
             <p>本次过滤掉号码率: <span id="dlt_filter_rate_display">计算中...</span></p>
-            <div style="width: 50%; height: 250px; margin: auto;"> <!-- 调整饼图大小 -->
+            <div style="width: 50%; height: 250px; margin: auto;">
                 <canvas id="dlt_filter_chart"></canvas>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Rule Check Modal -->
-<div class="modal fade" id="ruleCheckModal" tabindex="-1" aria-labelledby="ruleCheckModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="ruleCheckModalLabel">号码规则检查结果</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body rule-check-modal-body">
-                <!-- 规则检查结果将在此处动态加载 -->
-                <p class="text-muted">加载中...</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
-<!-- 确保在自定义脚本之前加载 Bootstrap 的 JS，特别是 Modal 组件 -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const defaultGenerationMode = "{{ prediction_generation_mode }}";
-        if (defaultGenerationMode === 'rule_based') {
-            document.getElementById('generate_ssq_prediction').click();
-        } else if (defaultGenerationMode === 'random') {
-            document.getElementById('generate_ssq_random').click();
+// ===== 互斥逻辑：当勾选"不限制"时，取消同组其他选项 =====
+document.querySelectorAll('.smart-filter-checkbox-group').forEach(function(group) {
+    group.addEventListener('change', function(e) {
+        var changed = e.target;
+        if (!changed.classList.contains('smart-filter-ssq') && !changed.classList.contains('smart-filter-dlt')) return;
+        var isDisabled = changed.classList.contains('smart-filter-disabled');
+        var checkboxes = group.querySelectorAll('.form-check-input');
+        if (isDisabled) {
+            // 勾选"不限制" → 取消同组其他所有选项
+            if (changed.checked) {
+                checkboxes.forEach(function(cb) {
+                    if (cb !== changed && !cb.classList.contains('smart-filter-disabled')) {
+                        cb.checked = false;
+                    }
+                });
+            }
+        } else {
+            // 勾选非"不限制"选项 → 取消"不限制"
+            if (changed.checked) {
+                checkboxes.forEach(function(cb) {
+                    if (cb.classList.contains('smart-filter-disabled')) {
+                        cb.checked = false;
+                    }
+                });
+            } else {
+                // 如果取消了所有非"不限制"选项，自动勾选"不限制"
+                var anyChecked = false;
+                checkboxes.forEach(function(cb) {
+                    if (!cb.classList.contains('smart-filter-disabled') && cb.checked) {
+                        anyChecked = true;
+                    }
+                });
+                if (!anyChecked) {
+                    checkboxes.forEach(function(cb) {
+                        if (cb.classList.contains('smart-filter-disabled')) {
+                            cb.checked = true;
+                        }
+                    });
+                }
+            }
         }
     });
+});
+
+// ===== 获取智能筛选参数 =====
+function getSmartFilterParams(prefix) {
+    var params = {};
+    var groups = document.querySelectorAll('#' + prefix + '_prediction_section .smart-filter-checkbox-group');
+    groups.forEach(function(group) {
+        var checked = group.querySelectorAll('.form-check-input:checked');
+        var values = [];
+        checked.forEach(function(cb) {
+            values.push(cb.value);
+        });
+        var groupId = group.id;
+        if (groupId.startsWith(prefix + '_smart_')) {
+            var key = groupId.substring((prefix + '_smart_').length);
+            params[key] = values;
+        }
+    });
+    return params;
+}
+
+// ===== 页面加载时初始化 =====
+document.addEventListener('DOMContentLoaded', function() {
+    // 确保每个checkbox组至少有一个选项被选中（默认选中"不限制"）
+    document.querySelectorAll('.smart-filter-checkbox-group').forEach(function(group) {
+        var anyChecked = false;
+        group.querySelectorAll('.form-check-input').forEach(function(cb) {
+            if (cb.checked) anyChecked = true;
+        });
+        if (!anyChecked) {
+            group.querySelectorAll('.smart-filter-disabled').forEach(function(cb) {
+                cb.checked = true;
+            });
+        }
+    });
+});
 </script>
 {% endblock %}

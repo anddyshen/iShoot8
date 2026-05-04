@@ -85,9 +85,12 @@ def check_consecutive_balls(red_balls, max_groups=1, max_length=2):
     if groups_count > max_groups:
         return False, groups_count, consecutive_groups
     
-    for g in consecutive_groups:
-        if len(g) > max_length:
-            return False, groups_count, consecutive_groups
+    # 只有当 max_groups > 0 时才检查 max_length
+    # 如果 max_groups == 0（无连号模式），不需要检查长度
+    if max_groups > 0:
+        for g in consecutive_groups:
+            if len(g) > max_length:
+                return False, groups_count, consecutive_groups
     
     return True, groups_count, consecutive_groups
 
@@ -109,19 +112,46 @@ def check_repeat_with_previous(red_balls, lottery_type, min_repeat=0, max_repeat
 
 def check_omission_rule_ssq(red_balls, red_omission, pattern="4+1+1"):
     """
-    检查遗漏号规则 - 双色球红球 "4+1+1" 原则
-    pattern: "4+1+1" 表示从遗漏0-4期选4个，遗漏5-9期选1个，遗漏10期以上选1个
+    检查遗漏号规则 - 双色球红球遗漏号原则
+    支持多种热温冷组合模式：
+    - "4+1+1": 热号3-5个，温号0-2个，冷号0-2个
+    - "4+2+0": 热号4个，温号2个，冷号0个
+    - "3+3+0": 热号3个，温号3个，冷号0个
+    - "3+2+1": 热号3个，温号2个，冷号1个
+    - "2+3+1": 热号2个，温号3个，冷号1个
+    - "2+2+2": 热号2个，温号2个，冷号2个
     """
-    if pattern == "4+1+1":
-        hot = [b for b in red_balls if red_omission.get(b, 0) <= 4]
-        warm = [b for b in red_balls if 5 <= red_omission.get(b, 0) <= 9]
-        cold = [b for b in red_balls if red_omission.get(b, 0) >= 10]
-        
-        if len(hot) == 4 and len(warm) == 1 and len(cold) == 1:
-            return True, f"热{len(hot)}温{len(warm)}冷{len(cold)}"
-        return False, f"热{len(hot)}温{len(warm)}冷{len(cold)}"
+    hot = [b for b in red_balls if red_omission.get(b, 0) <= 4]
+    warm = [b for b in red_balls if 5 <= red_omission.get(b, 0) <= 9]
+    cold = [b for b in red_balls if red_omission.get(b, 0) >= 10]
     
-    return True, ""
+    h, w, c = len(hot), len(warm), len(cold)
+    
+    if pattern == "4+1+1":
+        # 热号3-5个，温号0-2个，冷号0-2个
+        if 3 <= h <= 5 and w <= 2 and c <= 2 and h + w + c == 6:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "4+2+0":
+        if h == 4 and w == 2 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "3+3+0":
+        if h == 3 and w == 3 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "3+2+1":
+        if h == 3 and w == 2 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2+3+1":
+        if h == 2 and w == 3 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2+2+2":
+        if h == 2 and w == 2 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    else:
+        # 未知模式，使用宽松检查
+        if h + w + c == 6:
+            return True, f"热{h}温{w}冷{c}"
+    
+    return False, f"热{h}温{w}冷{c}"
 
 
 def check_omission_duplicate_limit(red_balls, red_omission, max_same=2):
@@ -158,27 +188,49 @@ def check_sum_range(balls, min_sum=70, max_sum=129):
     return min_sum <= total <= max_sum, total
 
 
-def check_same_tail(red_balls, expected_count=1):
+def check_same_tail(red_balls, mode="exactly_1"):
     """
-    检查同尾号 - 有且只有指定组数的同尾号
-    同尾号指个位数相同的号码，如 01, 11, 21, 31
+    检查同尾号 - 同尾号指个位数相同的号码，如 01, 11, 21, 31
+    mode: 
+      - "exactly_1": 有且只有1组同尾号
+      - "at_least_1": 至少1组同尾号
+      - "none": 无同尾号
+    返回: (是否通过, 同尾号组数)
     """
     tail_groups = Counter(b % 10 for b in red_balls)
     same_tail_groups = [tail for tail, count in tail_groups.items() if count >= 2]
-    return len(same_tail_groups) == expected_count, len(same_tail_groups)
+    count = len(same_tail_groups)
+    
+    if mode == "exactly_1":
+        return count == 1, count
+    elif mode == "at_least_1":
+        return count >= 1, count
+    elif mode == "none":
+        return count == 0, count
+    else:
+        return True, count
 
 
-def check_neighbor_numbers(red_balls, min_groups=1):
+def check_neighbor_numbers(red_balls, lottery_type, min_groups=1):
     """
-    检查邻号（边号）- 至少有一组相邻号码
-    邻号指数值相差1的号码对
+    检查邻号（边号）- 与上期开奖号码相差±1的号码
+    邻号定义：上期开奖号码的相邻号码（+1或-1）
+    例如上期有05，则04、06是邻号
     """
-    sorted_balls = sorted(red_balls)
-    neighbor_pairs = 0
-    for i in range(len(sorted_balls) - 1):
-        if sorted_balls[i+1] - sorted_balls[i] == 1:
-            neighbor_pairs += 1
-    return neighbor_pairs >= min_groups, neighbor_pairs
+    latest = get_latest_draw(lottery_type)
+    if not latest:
+        return True, 0
+    
+    prev_reds = set(latest.get_red_balls_list())
+    neighbor_count = 0
+    neighbor_balls = []
+    
+    for b in red_balls:
+        if (b - 1) in prev_reds or (b + 1) in prev_reds:
+            neighbor_count += 1
+            neighbor_balls.append(b)
+    
+    return neighbor_count >= min_groups, neighbor_count
 
 
 def check_ac_value(red_balls, target_values):
@@ -195,17 +247,19 @@ def check_ssq_blue_omission(blue_balls, blue_omission, primary_range=(6, 12), se
     检查蓝球遗漏规则
     primary_range: 优先选遗漏范围 (6-12期)
     secondary_prob: 15%概率出0-2期遗漏号
+    secondary_range: 次选遗漏范围 (0-2期)
+    返回: (是否通过, 描述信息)
     """
     for b in blue_balls:
         omission = blue_omission.get(b, 0)
+        # 只要蓝球在优先范围或次选范围内，就算通过
         if primary_range[0] <= omission <= primary_range[1]:
             continue
         elif secondary_range[0] <= omission <= secondary_range[1]:
-            # 允许，但概率较低 - 放宽条件，直接允许
             continue
         else:
-            # 其他遗漏期数也允许，但降低权重
-            continue
+            # 不在任何允许范围内，不通过
+            return False, f"蓝球{b}遗漏{omission}期不在允许范围"
     return True, ""
 
 
@@ -225,20 +279,47 @@ def check_dlt_front_zone_distribution(front_balls, target_ratios):
 
 def check_omission_rule_dlt(front_balls, red_omission, pattern="3:1:1"):
     """
-    检查遗漏号规则 - 大乐透前区 "3:1:1" 或 "4:1:0"
+    检查遗漏号规则 - 大乐透前区遗漏号原则
+    支持多种热温冷组合模式：
+    - "3:1:1": 热号2-4个，温号0-2个，冷号0-2个
+    - "4:1:0": 热号3-5个，温号0-2个，冷号0个
+    - "3:2:0": 热号3个，温号2个，冷号0个
+    - "2:2:1": 热号2个，温号2个，冷号1个
+    - "2:1:2": 热号2个，温号1个，冷号2个
+    - "1:2:2": 热号1个，温号2个，冷号2个
     """
     hot = [b for b in front_balls if red_omission.get(b, 0) <= 4]
     warm = [b for b in front_balls if 5 <= red_omission.get(b, 0) <= 9]
     cold = [b for b in front_balls if red_omission.get(b, 0) >= 10]
     
-    if pattern == "3:1:1":
-        if len(hot) == 3 and len(warm) == 1 and len(cold) == 1:
-            return True, f"热{len(hot)}温{len(warm)}冷{len(cold)}"
-    elif pattern == "4:1:0":
-        if len(hot) == 4 and len(warm) == 1 and len(cold) == 0:
-            return True, f"热{len(hot)}温{len(warm)}冷{len(cold)}"
+    h, w, c = len(hot), len(warm), len(cold)
     
-    return False, f"热{len(hot)}温{len(warm)}冷{len(cold)}"
+    if pattern == "3:1:1":
+        # 热号2-4个，温号0-2个，冷号0-2个
+        if 2 <= h <= 4 and w <= 2 and c <= 2 and h + w + c == 5:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "4:1:0":
+        # 热号3-5个，温号0-2个，冷号0个
+        if 3 <= h <= 5 and w <= 2 and c == 0 and h + w + c == 5:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "3:2:0":
+        if h == 3 and w == 2 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2:2:1":
+        if h == 2 and w == 2 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2:1:2":
+        if h == 2 and w == 1 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "1:2:2":
+        if h == 1 and w == 2 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    else:
+        # 未知模式，使用宽松检查
+        if h + w + c == 5:
+            return True, f"热{h}温{w}冷{c}"
+    
+    return False, f"热{h}温{w}冷{c}"
 
 
 def check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=1):
@@ -316,7 +397,7 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
     num_blue = 1 if lottery_type == 'ssq' else 2
     
     generated = []
-    max_attempts = 20000  # 增加尝试次数，因为多个条件组合需要更多尝试
+    max_attempts = 50000  # 增加尝试次数，因为多个条件组合需要更多尝试
     attempts = 0
     
     while len(generated) < count and attempts < max_attempts:
@@ -348,7 +429,16 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
 
 def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, options):
     """智能生成红球"""
-    max_attempts = 200
+    max_attempts = 500
+    
+    # 检查是否选择了"无连号"选项
+    consecutive_options = options.get('consecutive', None)
+    if consecutive_options is None:
+        no_consecutive_mode = False
+    else:
+        if isinstance(consecutive_options, str):
+            consecutive_options = [consecutive_options]
+        no_consecutive_mode = 'no_consecutive' in consecutive_options
     
     for _ in range(max_attempts):
         # 根据遗漏规则生成候选号码
@@ -389,15 +479,42 @@ def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, op
             temp_probs = list(probs)
             
             while len(selected) < num_red:
-                idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
-                selected.add(temp_candidates[idx])
-                temp_candidates.pop(idx)
-                temp_probs.pop(idx)
+                if not temp_candidates:
+                    break
+                
+                # 如果是无连号模式，先过滤掉会形成连号的候选号码
+                if no_consecutive_mode and selected:
+                    # 找出所有不会与已选号码形成连号的候选号码
+                    safe_candidates = []
+                    safe_probs = []
+                    for i, b in enumerate(temp_candidates):
+                        if not any(abs(b - s) == 1 for s in selected):
+                            safe_candidates.append(b)
+                            safe_probs.append(temp_probs[i])
+                    
+                    # 如果没有安全的候选号码，放弃本次尝试
+                    if not safe_candidates:
+                        break
+                    
+                    # 从安全候选号码中随机选择
+                    idx = random.choices(range(len(safe_candidates)), weights=safe_probs, k=1)[0]
+                    new_ball = safe_candidates[idx]
+                    # 找到在原始temp_candidates中的索引
+                    orig_idx = temp_candidates.index(new_ball)
+                else:
+                    idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
+                    new_ball = temp_candidates[idx]
+                    orig_idx = idx
+                
+                selected.add(new_ball)
+                temp_candidates.pop(orig_idx)
+                temp_probs.pop(orig_idx)
                 if temp_probs:
                     total = sum(temp_probs)
                     temp_probs = [w / total for w in temp_probs]
             
-            return sorted(list(selected))
+            if len(selected) == num_red:
+                return sorted(list(selected))
         except Exception:
             continue
     
@@ -471,146 +588,191 @@ def _validate_all_rules(lottery_type, red_balls, blue_balls, red_omission, blue_
 
 
 def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, options):
-    """验证双色球所有规则"""
+    """验证双色球所有规则 - 支持多选合集"""
     
-    # 1. 分区原则
-    zone_ratio = options.get('zone_ratio', '2:2:2')
-    if zone_ratio != 'disabled':
-        passed, _ = check_ssq_red_zone_distribution(red_balls, zone_ratio)
+    # 1. 分区原则 - 支持多选
+    zone_ratios = options.get('zone_ratio', ['2:2:2'])
+    if isinstance(zone_ratios, str):
+        zone_ratios = [zone_ratios]
+    if 'disabled' not in zone_ratios:
+        passed = any(check_ssq_red_zone_distribution(red_balls, ratio)[0] for ratio in zone_ratios)
         if not passed:
             return False
     
-    # 2. 连号号码原则
-    consecutive_option = options.get('consecutive', '1_group_2')
-    if consecutive_option != 'disabled':
-        if consecutive_option == 'no_consecutive':
-            passed, _, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
-        elif consecutive_option == '1_group_2':
-            passed, _, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
-        else:
-            passed = True
+    # 2. 连号号码原则 - 支持多选
+    consecutive_options = options.get('consecutive', None)
+    if consecutive_options is None:
+        pass  # 没有提供连号选项，视为不限制
+    else:
+        if isinstance(consecutive_options, str):
+            consecutive_options = [consecutive_options]
+        if 'disabled' not in consecutive_options:
+            passed = False
+            for opt in consecutive_options:
+                if opt == 'no_consecutive':
+                    p, count, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
+                    if p and count == 0: passed = True; break
+                elif opt == '1_group_2':
+                    # 最多1组2连号：允许0组或1组，但不能超过1组
+                    p, count, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
+                    if p and count <= 1: passed = True; break
+            if not passed:
+                return False
+    
+    # 3. 与上期重号原则 - 支持多选
+    repeat_options = options.get('repeat', ['1_or_2'])
+    if isinstance(repeat_options, str):
+        repeat_options = [repeat_options]
+    if 'disabled' not in repeat_options:
+        passed = False
+        for opt in repeat_options:
+            if opt == '1':
+                p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=1, max_repeat=1)
+                if p: passed = True; break
+            elif opt == '2':
+                p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=2, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '1_or_2':
+                p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=1, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '0':
+                p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=0)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 3. 与上期重号原则
-    repeat_option = options.get('repeat', '1_or_2')
-    if repeat_option != 'disabled':
-        if repeat_option == '1':
-            passed, count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=1, max_repeat=1)
-        elif repeat_option == '2':
-            passed, count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=2, max_repeat=2)
-        elif repeat_option == '1_or_2':
-            passed, count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=1, max_repeat=2)
-        elif repeat_option == '0':
-            passed, count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=0)
-        else:
-            passed = True
+    # 4. 遗漏号原则 - 支持多选
+    omission_patterns = options.get('omission_pattern', ['4+1+1'])
+    if isinstance(omission_patterns, str):
+        omission_patterns = [omission_patterns]
+    if 'disabled' not in omission_patterns:
+        passed = any(check_omission_rule_ssq(red_balls, red_omission, pattern)[0] for pattern in omission_patterns)
         if not passed:
             return False
     
-    # 4. 遗漏号原则
-    omission_pattern = options.get('omission_pattern', '4+1+1')
-    if omission_pattern != 'disabled':
-        passed, _ = check_omission_rule_ssq(red_balls, red_omission, omission_pattern)
-        if not passed:
-            return False
-    
-    # 5. 遗漏期数一样的不超过2个
+    # 5. 遗漏期数一样的不超过3个（放宽条件，原为2个）
     if options.get('omission_duplicate_limit', True):
-        passed, _ = check_omission_duplicate_limit(red_balls, red_omission, max_same=2)
+        passed, _ = check_omission_duplicate_limit(red_balls, red_omission, max_same=3)
         if not passed:
             return False
     
-    # 6. 奇偶原则
-    odd_even = options.get('odd_even', '3:3,2:4,4:2')
-    if odd_even != 'disabled':
-        targets = odd_even.split(',')
-        passed, _ = check_odd_even_ratio(red_balls, targets)
+    # 6. 奇偶原则 - 支持多选
+    odd_even_options = options.get('odd_even', ['3:3', '2:4', '4:2'])
+    if isinstance(odd_even_options, str):
+        odd_even_options = odd_even_options.split(',')
+    if 'disabled' not in odd_even_options:
+        passed, _ = check_odd_even_ratio(red_balls, odd_even_options)
         if not passed:
             return False
     
-    # 7. 最大跨度原则
-    span_option = options.get('span', 'gt_26')
-    if span_option != 'disabled':
-        if span_option == 'gt_26':
-            passed, _ = check_max_span(red_balls, min_span=26)
-        elif span_option == 'gt_24':
-            passed, _ = check_max_span(red_balls, min_span=24)
-        elif span_option == 'gt_20':
-            passed, _ = check_max_span(red_balls, min_span=20)
-        else:
-            passed = True
+    # 7. 最大跨度原则 - 支持多选
+    span_options = options.get('span', ['gt_26'])
+    if isinstance(span_options, str):
+        span_options = [span_options]
+    if 'disabled' not in span_options:
+        passed = False
+        for opt in span_options:
+            if opt == 'gt_26':
+                p, _ = check_max_span(red_balls, min_span=26)
+                if p: passed = True; break
+            elif opt == 'gt_24':
+                p, _ = check_max_span(red_balls, min_span=24)
+                if p: passed = True; break
+            elif opt == 'gt_20':
+                p, _ = check_max_span(red_balls, min_span=20)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 8. 号码总和原则
-    sum_option = options.get('sum', '70-129')
-    if sum_option != 'disabled':
-        if sum_option == '70-129':
-            passed, _ = check_sum_range(red_balls, 70, 129)
-        elif sum_option == '80-120':
-            passed, _ = check_sum_range(red_balls, 80, 120)
-        elif sum_option == '90-110':
-            passed, _ = check_sum_range(red_balls, 90, 110)
-        elif sum_option == '60-140':
-            passed, _ = check_sum_range(red_balls, 60, 140)
-        else:
-            passed = True
+    # 8. 号码总和原则 - 支持多选
+    sum_options = options.get('sum', ['70-129'])
+    if isinstance(sum_options, str):
+        sum_options = [sum_options]
+    if 'disabled' not in sum_options:
+        passed = False
+        for opt in sum_options:
+            if opt == '70-129':
+                p, _ = check_sum_range(red_balls, 70, 129)
+                if p: passed = True; break
+            elif opt == '80-120':
+                p, _ = check_sum_range(red_balls, 80, 120)
+                if p: passed = True; break
+            elif opt == '90-110':
+                p, _ = check_sum_range(red_balls, 90, 110)
+                if p: passed = True; break
+            elif opt == '60-140':
+                p, _ = check_sum_range(red_balls, 60, 140)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 9. 同尾号原则
-    tail_option = options.get('same_tail', 'exactly_1')
-    if tail_option != 'disabled':
-        if tail_option == 'exactly_1':
-            passed, count = check_same_tail(red_balls, 1)
-            passed = (count == 1)
-        elif tail_option == 'at_least_1':
-            passed, count = check_same_tail(red_balls, 0)
-            passed = (count >= 1)
-        elif tail_option == 'none':
-            passed, count = check_same_tail(red_balls, 0)
-            passed = (count == 0)
-        else:
-            passed = True
+    # 9. 同尾号原则 - 支持多选
+    tail_options = options.get('same_tail', ['exactly_1'])
+    if isinstance(tail_options, str):
+        tail_options = [tail_options]
+    if 'disabled' not in tail_options:
+        passed = False
+        for opt in tail_options:
+            if opt == 'exactly_1':
+                p, _ = check_same_tail(red_balls, 'exactly_1')
+                if p: passed = True; break
+            elif opt == 'at_least_1':
+                p, _ = check_same_tail(red_balls, 'at_least_1')
+                if p: passed = True; break
+            elif opt == 'none':
+                p, _ = check_same_tail(red_balls, 'none')
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 10. 邻号原则
-    neighbor_option = options.get('neighbor', 'at_least_1')
-    if neighbor_option != 'disabled':
-        if neighbor_option == 'at_least_1':
-            passed, _ = check_neighbor_numbers(red_balls, 1)
-        elif neighbor_option == 'at_least_2':
-            passed, _ = check_neighbor_numbers(red_balls, 2)
-        else:
-            passed = True
+    # 10. 邻号原则 - 支持多选
+    neighbor_options = options.get('neighbor', ['at_least_1'])
+    if isinstance(neighbor_options, str):
+        neighbor_options = [neighbor_options]
+    if 'disabled' not in neighbor_options:
+        passed = False
+        for opt in neighbor_options:
+            if opt == 'at_least_1':
+                p, _ = check_neighbor_numbers(red_balls, 'ssq', 1)
+                if p: passed = True; break
+            elif opt == 'at_least_2':
+                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 11. AC值原则
-    ac_option = options.get('ac_value', '6_or_7')
-    if ac_option != 'disabled':
-        if ac_option == '6_or_7':
-            passed, _ = check_ac_value(red_balls, [6, 7])
-        elif ac_option == '5_to_8':
-            passed, _ = check_ac_value(red_balls, [5, 6, 7, 8])
-        elif ac_option == '4_to_9':
-            passed, _ = check_ac_value(red_balls, [4, 5, 6, 7, 8, 9])
-        else:
-            passed = True
+    # 11. AC值原则 - 支持多选
+    ac_options = options.get('ac_value', ['6_or_7'])
+    if isinstance(ac_options, str):
+        ac_options = [ac_options]
+    if 'disabled' not in ac_options:
+        passed = False
+        for opt in ac_options:
+            if opt == '6_or_7':
+                p, _ = check_ac_value(red_balls, [6, 7])
+                if p: passed = True; break
+            elif opt == '5_to_8':
+                p, _ = check_ac_value(red_balls, [5, 6, 7, 8])
+                if p: passed = True; break
+            elif opt == '4_to_9':
+                p, _ = check_ac_value(red_balls, [4, 5, 6, 7, 8, 9])
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 12. 蓝球原则
-    blue_option = options.get('blue_omission', '6-12_primary')
-    if blue_option != 'disabled' and blue_option != 'any':
-        if blue_option == '6-12_primary':
-            passed, _ = check_ssq_blue_omission(blue_balls, blue_omission, (6, 12), 0.15, (0, 2))
-        elif blue_option == '5-15_primary':
-            passed, _ = check_ssq_blue_omission(blue_balls, blue_omission, (5, 15), 0.15, (0, 2))
-        else:
-            passed = True
+    # 12. 蓝球原则 - 支持多选
+    blue_options = options.get('blue_omission', ['6-12_primary'])
+    if isinstance(blue_options, str):
+        blue_options = [blue_options]
+    if 'disabled' not in blue_options and 'any' not in blue_options:
+        passed = False
+        for opt in blue_options:
+            if opt == '6-12_primary':
+                p, _ = check_ssq_blue_omission(blue_balls, blue_omission, (6, 12), 0.15, (0, 2))
+                if p: passed = True; break
+            elif opt == '5-15_primary':
+                p, _ = check_ssq_blue_omission(blue_balls, blue_omission, (5, 15), 0.15, (0, 2))
+                if p: passed = True; break
         if not passed:
             return False
     
@@ -618,49 +780,67 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
 
 
 def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, options):
-    """验证大乐透所有规则"""
+    """验证大乐透所有规则 - 支持多选合集"""
     
-    # 1. 分区原则 - 前端发送的键名是 zone_ratio
-    zone_ratio = options.get('zone_ratio', '1:2:2')
-    if zone_ratio != 'disabled':
-        targets = [zone_ratio]  # 前端发送的是单个值如 "1:2:2"，需要转为列表
-        passed, _ = check_dlt_front_zone_distribution(front_balls, targets)
+    # 1. 分区原则 - 支持多选
+    zone_ratios = options.get('zone_ratio', ['1:2:2', '2:2:1', '2:1:2'])
+    if isinstance(zone_ratios, str):
+        zone_ratios = [zone_ratios]
+    if 'disabled' not in zone_ratios:
+        passed, _ = check_dlt_front_zone_distribution(front_balls, zone_ratios)
         if not passed:
             return False
     
-    # 2. 连号号码原则 - 前端发送的键名是 consecutive
-    consecutive_option = options.get('consecutive', '0_or_1_group_2')
-    if consecutive_option != 'disabled':
-        if consecutive_option == 'no_consecutive':
-            passed, _, _ = check_consecutive_balls(front_balls, max_groups=0, max_length=0)
-        elif consecutive_option == '0_or_1_group_2':
-            passed, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
-        elif consecutive_option == '1_group_2':
-            passed, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
-            passed = passed and count == 1
-        else:
-            passed = True
+    # 2. 连号号码原则 - 支持多选
+    consecutive_options = options.get('consecutive', None)
+    if consecutive_options is None:
+        pass  # 没有提供连号选项，视为不限制
+    else:
+        if isinstance(consecutive_options, str):
+            consecutive_options = [consecutive_options]
+        if 'disabled' not in consecutive_options:
+            passed = False
+            for opt in consecutive_options:
+                if opt == 'no_consecutive':
+                    p, count, _ = check_consecutive_balls(front_balls, max_groups=0, max_length=0)
+                    if p and count == 0: passed = True; break
+                elif opt == '0_or_1_group_2':
+                    p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
+                    if p and count <= 1: passed = True; break
+                elif opt == '1_group_2':
+                    p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
+                    if p and count == 1: passed = True; break
+            if not passed:
+                return False
+    
+    # 3. 与上期重号原则 - 支持多选
+    repeat_options = options.get('repeat', ['1_or_2'])
+    if isinstance(repeat_options, str):
+        repeat_options = [repeat_options]
+    if 'disabled' not in repeat_options:
+        passed = False
+        for opt in repeat_options:
+            if opt == '1':
+                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=1)
+                if p: passed = True; break
+            elif opt == '2':
+                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=2, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '1_or_2':
+                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '0':
+                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=0)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 3. 与上期重号原则 - 前端发送的键名是 repeat
-    repeat_option = options.get('repeat', '0_or_1')
-    if repeat_option != 'disabled':
-        if repeat_option == '0':
-            passed, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=0)
-        elif repeat_option == '1':
-            passed, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=1)
-        elif repeat_option == '0_or_1':
-            passed, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=1)
-        else:
-            passed = True
-        if not passed:
-            return False
-    
-    # 4. 遗漏号原则 - 前端发送的键名是 omission_pattern
-    omission_pattern = options.get('omission_pattern', '3:1:1')
-    if omission_pattern != 'disabled':
-        passed, _ = check_omission_rule_dlt(front_balls, red_omission, omission_pattern)
+    # 4. 遗漏号原则 - 支持多选
+    omission_patterns = options.get('omission_pattern', ['3:1:1'])
+    if isinstance(omission_patterns, str):
+        omission_patterns = [omission_patterns]
+    if 'disabled' not in omission_patterns:
+        passed = any(check_omission_rule_dlt(front_balls, red_omission, pattern)[0] for pattern in omission_patterns)
         if not passed:
             return False
     
@@ -670,104 +850,155 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
         if not passed:
             return False
     
-    # 6. 奇偶原则 - 前端发送的键名是 odd_even
-    odd_even = options.get('odd_even', '3:2,2:3')
-    if odd_even != 'disabled':
-        targets = odd_even.split(',')
-        passed, _ = check_odd_even_ratio(front_balls, targets)
+    # 6. 奇偶原则 - 支持多选
+    odd_even_options = options.get('odd_even', ['3:2', '2:3'])
+    if isinstance(odd_even_options, str):
+        odd_even_options = odd_even_options.split(',')
+    if 'disabled' not in odd_even_options:
+        passed, _ = check_odd_even_ratio(front_balls, odd_even_options)
         if not passed:
             return False
     
-    # 7. 最大跨度原则 - 前端发送的键名是 span
-    span_option = options.get('span', 'gt_24')
-    if span_option != 'disabled':
-        if span_option == 'gt_24':
-            passed, _ = check_max_span(front_balls, min_span=24)
-        elif span_option == 'gt_20':
-            passed, _ = check_max_span(front_balls, min_span=20)
-        elif span_option == 'gt_26':
-            passed, _ = check_max_span(front_balls, min_span=26)
-        else:
-            passed = True
+    # 7. 最大跨度原则 - 支持多选
+    span_options = options.get('span', ['gt_26'])
+    if isinstance(span_options, str):
+        span_options = [span_options]
+    if 'disabled' not in span_options:
+        passed = False
+        for opt in span_options:
+            if opt == 'gt_26':
+                p, _ = check_max_span(front_balls, min_span=26)
+                if p: passed = True; break
+            elif opt == 'gt_24':
+                p, _ = check_max_span(front_balls, min_span=24)
+                if p: passed = True; break
+            elif opt == 'gt_20':
+                p, _ = check_max_span(front_balls, min_span=20)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 8. 号码总和原则 - 前端发送的键名是 sum
-    sum_option = options.get('sum', '70-110')
-    if sum_option != 'disabled':
-        if sum_option == '70-110':
-            passed, _ = check_sum_range(front_balls, 70, 110)
-        elif sum_option == '80-100':
-            passed, _ = check_sum_range(front_balls, 80, 100)
-        elif sum_option == '60-120':
-            passed, _ = check_sum_range(front_balls, 60, 120)
-        elif sum_option == '90-110':
-            passed, _ = check_sum_range(front_balls, 90, 110)
-        else:
-            passed = True
+    # 8. 号码总和原则 - 支持多选
+    sum_options = options.get('sum', ['70-129'])
+    if isinstance(sum_options, str):
+        sum_options = [sum_options]
+    if 'disabled' not in sum_options:
+        passed = False
+        for opt in sum_options:
+            if opt == '70-129':
+                p, _ = check_sum_range(front_balls, 70, 129)
+                if p: passed = True; break
+            elif opt == '80-120':
+                p, _ = check_sum_range(front_balls, 80, 120)
+                if p: passed = True; break
+            elif opt == '90-110':
+                p, _ = check_sum_range(front_balls, 90, 110)
+                if p: passed = True; break
+            elif opt == '60-140':
+                p, _ = check_sum_range(front_balls, 60, 140)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 9. 同尾号原则 - 前端发送的键名是 same_tail
-    tail_option = options.get('same_tail', 'exactly_1')
-    if tail_option != 'disabled':
-        if tail_option == 'exactly_1':
-            passed, count = check_same_tail(front_balls, 1)
-            passed = (count == 1)
-        elif tail_option == 'at_least_1':
-            passed, count = check_same_tail(front_balls, 0)
-            passed = (count >= 1)
-        elif tail_option == 'none':
-            passed, count = check_same_tail(front_balls, 0)
-            passed = (count == 0)
-        else:
-            passed = True
+    # 9. 同尾号原则 - 支持多选
+    tail_options = options.get('same_tail', ['exactly_1'])
+    if isinstance(tail_options, str):
+        tail_options = [tail_options]
+    if 'disabled' not in tail_options:
+        passed = False
+        for opt in tail_options:
+            if opt == 'exactly_1':
+                p, _ = check_same_tail(front_balls, 'exactly_1')
+                if p: passed = True; break
+            elif opt == 'at_least_1':
+                p, _ = check_same_tail(front_balls, 'at_least_1')
+                if p: passed = True; break
+            elif opt == 'none':
+                p, _ = check_same_tail(front_balls, 'none')
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 10. 邻号原则 - 前端发送的键名是 neighbor
-    neighbor_option = options.get('neighbor', 'at_least_1')
-    if neighbor_option != 'disabled':
-        if neighbor_option == 'at_least_1':
-            passed, _ = check_neighbor_numbers(front_balls, 1)
-        elif neighbor_option == 'at_least_2':
-            passed, _ = check_neighbor_numbers(front_balls, 2)
-        else:
-            passed = True
+    # 10. 邻号原则 - 支持多选
+    neighbor_options = options.get('neighbor', ['at_least_1'])
+    if isinstance(neighbor_options, str):
+        neighbor_options = [neighbor_options]
+    if 'disabled' not in neighbor_options:
+        passed = False
+        for opt in neighbor_options:
+            if opt == 'at_least_1':
+                p, _ = check_neighbor_numbers(front_balls, 'dlt', 1)
+                if p: passed = True; break
+            elif opt == 'at_least_2':
+                p, _ = check_neighbor_numbers(front_balls, 'dlt', 2)
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 11. AC值原则 - 前端发送的键名是 ac_value
-    ac_option = options.get('ac_value', '4_or_5')
-    if ac_option != 'disabled':
-        if ac_option == '4_or_5':
-            passed, _ = check_ac_value(front_balls, [4, 5])
-        elif ac_option == '3_to_6':
-            passed, _ = check_ac_value(front_balls, [3, 4, 5, 6])
-        elif ac_option == '4_to_7':
-            passed, _ = check_ac_value(front_balls, [4, 5, 6, 7])
-        else:
-            passed = True
+    # 11. AC值原则 - 支持多选
+    ac_options = options.get('ac_value', ['6_or_7'])
+    if isinstance(ac_options, str):
+        ac_options = [ac_options]
+    if 'disabled' not in ac_options:
+        passed = False
+        for opt in ac_options:
+            if opt == '6_or_7':
+                p, _ = check_ac_value(front_balls, [6, 7])
+                if p: passed = True; break
+            elif opt == '5_to_8':
+                p, _ = check_ac_value(front_balls, [5, 6, 7, 8])
+                if p: passed = True; break
+            elif opt == '4_to_9':
+                p, _ = check_ac_value(front_balls, [4, 5, 6, 7, 8, 9])
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 12. 后区遗漏选号原则
-    if options.get('blue_omission_enabled', True):
+    # 12. 蓝球后区原则
+    # 遗漏规则
+    blue_omission_options = options.get('blue_omission', ['5-15_primary'])
+    if isinstance(blue_omission_options, str):
+        blue_omission_options = [blue_omission_options]
+    if 'disabled' not in blue_omission_options and 'any' not in blue_omission_options:
         passed, _ = check_dlt_blue_omission(blue_balls, blue_omission)
         if not passed:
             return False
     
-    # 13. 后区奇偶组合 - 前端发送的键名是 blue_odd_even
-    blue_oe = options.get('blue_odd_even', '1:1')
-    if blue_oe != 'disabled':
-        passed, _ = check_dlt_blue_odd_even(blue_balls, blue_oe)
+    # 后区奇偶
+    blue_odd_even_options = options.get('blue_odd_even', ['1:1'])
+    if isinstance(blue_odd_even_options, str):
+        blue_odd_even_options = [blue_odd_even_options]
+    if 'disabled' not in blue_odd_even_options:
+        passed = False
+        for opt in blue_odd_even_options:
+            if opt == '1:1':
+                p, _ = check_dlt_blue_odd_even(blue_balls, '1:1')
+                if p: passed = True; break
+            elif opt == '2:0':
+                p, _ = check_dlt_blue_odd_even(blue_balls, '2:0')
+                if p: passed = True; break
+            elif opt == '0:2':
+                p, _ = check_dlt_blue_odd_even(blue_balls, '0:2')
+                if p: passed = True; break
         if not passed:
             return False
     
-    # 14. 后区大小组合 - 前端发送的键名是 blue_size
-    blue_size = options.get('blue_size', '1:1')
-    if blue_size != 'disabled':
-        passed, _ = check_dlt_blue_size(blue_balls, blue_size)
+    # 后区大小
+    blue_size_options = options.get('blue_size', ['1:1'])
+    if isinstance(blue_size_options, str):
+        blue_size_options = [blue_size_options]
+    if 'disabled' not in blue_size_options:
+        passed = False
+        for opt in blue_size_options:
+            if opt == '1:1':
+                p, _ = check_dlt_blue_size(blue_balls, '1:1')
+                if p: passed = True; break
+            elif opt == '2:0':
+                p, _ = check_dlt_blue_size(blue_balls, '2:0')
+                if p: passed = True; break
+            elif opt == '0:2':
+                p, _ = check_dlt_blue_size(blue_balls, '0:2')
+                if p: passed = True; break
         if not passed:
             return False
     
@@ -775,21 +1006,28 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
 
 
 def _calculate_stats(lottery_type, red_balls, blue_balls):
-    """计算号码统计信息"""
-    if lottery_type == 'ssq':
-        red_size_midpoint = CURRENT_SETTINGS.get('ssq_red_size_midpoint', 17)
-        blue_size_midpoint = CURRENT_SETTINGS.get('ssq_blue_size_midpoint', 9)
-    else:
-        red_size_midpoint = CURRENT_SETTINGS.get('dlt_front_size_midpoint', 18)
-        blue_size_midpoint = CURRENT_SETTINGS.get('dlt_back_size_midpoint', 7)
+    """计算号码组合的统计信息"""
+    red_odd = sum(1 for b in red_balls if b % 2 == 1)
+    red_even = len(red_balls) - red_odd
+    red_sum = calculate_sum_per_draw(red_balls)
+    red_span = calculate_span_per_draw(red_balls)
+    red_small = sum(1 for b in red_balls if b <= (17 if lottery_type == 'ssq' else 18))
+    red_large = len(red_balls) - red_small
+    
+    blue_odd = sum(1 for b in blue_balls if b % 2 == 1)
+    blue_even = len(blue_balls) - blue_odd
+    blue_sum = calculate_sum_per_draw(blue_balls)
+    blue_span = calculate_span_per_draw(blue_balls)
+    blue_small = sum(1 for b in blue_balls if b <= (8 if lottery_type == 'ssq' else 6))
+    blue_large = len(blue_balls) - blue_small
     
     return {
-        'red_odd_even_ratio': calculate_odd_even_ratio_per_draw(red_balls),
-        'red_sum': calculate_sum_per_draw(red_balls),
-        'red_span': calculate_span_per_draw(red_balls),
-        'red_size_ratio': calculate_size_ratio_per_draw(red_balls, red_size_midpoint),
-        'blue_odd_even_ratio': calculate_odd_even_ratio_per_draw(blue_balls),
-        'blue_sum': calculate_sum_per_draw(blue_balls),
-        'blue_span': calculate_span_per_draw(blue_balls),
-        'blue_size_ratio': calculate_size_ratio_per_draw(blue_balls, blue_size_midpoint),
+        'red_odd_even_ratio': f"{red_odd}:{red_even}",
+        'red_sum': red_sum,
+        'red_span': red_span,
+        'red_size_ratio': f"{red_small}:{red_large}",
+        'blue_odd_even_ratio': f"{blue_odd}:{blue_even}",
+        'blue_sum': blue_sum,
+        'blue_span': blue_span,
+        'blue_size_ratio': f"{blue_small}:{blue_large}"
     }
