@@ -140,11 +140,23 @@ def check_omission_rule_ssq(red_balls, red_omission, pattern="4+1+1"):
     elif pattern == "3+2+1":
         if h == 3 and w == 2 and c == 1:
             return True, f"热{h}温{w}冷{c}"
+    elif pattern == "3+1+2":
+        if h == 3 and w == 1 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
     elif pattern == "2+3+1":
         if h == 2 and w == 3 and c == 1:
             return True, f"热{h}温{w}冷{c}"
     elif pattern == "2+2+2":
         if h == 2 and w == 2 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2+4+0":
+        if h == 2 and w == 4 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "1+4+1":
+        if h == 1 and w == 4 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "1+5+0":
+        if h == 1 and w == 5 and c == 0:
             return True, f"热{h}温{w}冷{c}"
     else:
         # 未知模式，使用宽松检查
@@ -313,6 +325,21 @@ def check_omission_rule_dlt(front_balls, red_omission, pattern="3:1:1"):
             return True, f"热{h}温{w}冷{c}"
     elif pattern == "1:2:2":
         if h == 1 and w == 2 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "3+2+0":
+        if h == 3 and w == 2 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2+2+1":
+        if h == 2 and w == 2 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "2+1+2":
+        if h == 2 and w == 1 and c == 2:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "1+3+1":
+        if h == 1 and w == 3 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "1+4+0":
+        if h == 1 and w == 4 and c == 0:
             return True, f"热{h}温{w}冷{c}"
     else:
         # 未知模式，使用宽松检查
