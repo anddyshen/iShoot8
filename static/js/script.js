@@ -904,9 +904,6 @@ function updateFilterStatsDisplay(lotteryType, statsData) {
 document.addEventListener('DOMContentLoaded', function() {
     // Ensure the correct tab is active on load
     document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq') and loadActiveRules('ssq', 'ssq_active_rules_display')
-    
-    // Default to generating rule-based numbers for SSQ on page load
-    generatePredictedNumbers('ssq');
 });
 document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-random-btn')) {
@@ -1219,4 +1216,42 @@ document.getElementById('dlt_smart_filter_output').addEventListener('click', fun
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
     }
+});
+
+// ==================== 智能筛选复选框互斥逻辑 ====================
+document.addEventListener('DOMContentLoaded', function() {
+    const smartFilterGroups = [
+        'ssq_smart_zone_ratio', 'ssq_smart_consecutive', 'ssq_smart_repeat',
+        'ssq_smart_omission_pattern', 'ssq_smart_odd_even', 'ssq_smart_span',
+        'ssq_smart_sum', 'ssq_smart_same_tail', 'ssq_smart_neighbor',
+        'ssq_smart_ac_value', 'ssq_smart_blue_omission',
+        'dlt_smart_zone_ratio', 'dlt_smart_consecutive', 'dlt_smart_repeat',
+        'dlt_smart_omission_pattern', 'dlt_smart_odd_even', 'dlt_smart_span',
+        'dlt_smart_sum', 'dlt_smart_same_tail', 'dlt_smart_neighbor',
+        'dlt_smart_ac_value', 'dlt_smart_blue_odd_even', 'dlt_smart_blue_size'
+    ];
+    
+    smartFilterGroups.forEach(function(groupId) {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        
+        group.addEventListener('change', function(e) {
+            const changedCheckbox = e.target;
+            if (!changedCheckbox.classList.contains('form-check-input')) return;
+            
+            const isDisabled = changedCheckbox.classList.contains('smart-filter-disabled');
+            
+            if (isDisabled && changedCheckbox.checked) {
+                const siblings = group.querySelectorAll('.form-check-input:not(.smart-filter-disabled)');
+                siblings.forEach(function(sibling) {
+                    sibling.checked = false;
+                });
+            } else if (!isDisabled && changedCheckbox.checked) {
+                const disabledCheckbox = group.querySelector('.smart-filter-disabled');
+                if (disabledCheckbox) {
+                    disabledCheckbox.checked = false;
+                }
+            }
+        });
+    });
 });

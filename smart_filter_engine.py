@@ -428,8 +428,8 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
 
 
 def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, options):
-    """智能生成红球"""
-    max_attempts = 500
+    """智能生成红球 - 使用纯随机生成，然后由验证函数过滤"""
+    max_attempts = 2000
     
     # 检查是否选择了"无连号"选项
     consecutive_options = options.get('consecutive', None)
@@ -441,77 +441,23 @@ def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, op
         no_consecutive_mode = 'no_consecutive' in consecutive_options
     
     for _ in range(max_attempts):
-        # 根据遗漏规则生成候选号码
-        candidates = list(range(1, red_range + 1))
-        
-        # 根据遗漏规则分配权重
-        weights = []
-        for b in candidates:
-            omission = red_omission.get(b, 0)
-            w = 1.0
-            
-            if lottery_type == 'ssq':
-                # 双色球：4+1+1 原则的权重分配
-                if omission <= 4:
-                    w = 3.0  # 热号权重高
-                elif 5 <= omission <= 9:
-                    w = 2.0  # 温号
-                else:
-                    w = 1.5  # 冷号
-            else:
-                # 大乐透：3:1:1 或 4:1:0 原则
-                if omission <= 4:
-                    w = 3.0
-                elif 5 <= omission <= 9:
-                    w = 2.0
-                else:
-                    w = 1.5
-            
-            weights.append(w)
-        
-        # 加权采样
-        total = sum(weights)
-        probs = [w / total for w in weights]
-        
         try:
-            selected = set()
-            temp_candidates = list(candidates)
-            temp_probs = list(probs)
+            # 使用纯随机生成，不施加任何权重偏好
+            # 这样验证函数可以公平地检查所有规则
+            candidates = list(range(1, red_range + 1))
+            random.shuffle(candidates)
             
-            while len(selected) < num_red:
-                if not temp_candidates:
+            selected = set()
+            for b in candidates:
+                if len(selected) >= num_red:
                     break
                 
-                # 如果是无连号模式，先过滤掉会形成连号的候选号码
+                # 如果是无连号模式，检查是否会形成连号
                 if no_consecutive_mode and selected:
-                    # 找出所有不会与已选号码形成连号的候选号码
-                    safe_candidates = []
-                    safe_probs = []
-                    for i, b in enumerate(temp_candidates):
-                        if not any(abs(b - s) == 1 for s in selected):
-                            safe_candidates.append(b)
-                            safe_probs.append(temp_probs[i])
-                    
-                    # 如果没有安全的候选号码，放弃本次尝试
-                    if not safe_candidates:
-                        break
-                    
-                    # 从安全候选号码中随机选择
-                    idx = random.choices(range(len(safe_candidates)), weights=safe_probs, k=1)[0]
-                    new_ball = safe_candidates[idx]
-                    # 找到在原始temp_candidates中的索引
-                    orig_idx = temp_candidates.index(new_ball)
-                else:
-                    idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
-                    new_ball = temp_candidates[idx]
-                    orig_idx = idx
+                    if any(abs(b - s) == 1 for s in selected):
+                        continue
                 
-                selected.add(new_ball)
-                temp_candidates.pop(orig_idx)
-                temp_probs.pop(orig_idx)
-                if temp_probs:
-                    total = sum(temp_probs)
-                    temp_probs = [w / total for w in temp_probs]
+                selected.add(b)
             
             if len(selected) == num_red:
                 return sorted(list(selected))
@@ -781,15 +727,19 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
 
 def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, options):
     """验证大乐透所有规则 - 支持多选合集"""
+    import logging
+    logger = logging.getLogger(__name__)
     
     # 1. 分区原则 - 支持多选
-    zone_ratios = options.get('zone_ratio', ['1:2:2', '2:2:1', '2:1:2'])
+    zone_ratios = options.get('zone_ratio', ['2:2:1'])
     if isinstance(zone_ratios, str):
         zone_ratios = [zone_ratios]
     if 'disabled' not in zone_ratios:
-        passed, _ = check_dlt_front_zone_distribution(front_balls, zone_ratios)
+        passed, actual = check_dlt_front_zone_distribution(front_balls, zone_ratios)
         if not passed:
+            logger.debug(f"DLT FAIL: zone_ratio. balls={front_balls}, actual={actual}, expected={zone_ratios}")
             return False
+        logger.debug(f"DLT PASS: zone_ratio. actual={actual}")
     
     # 2. 连号号码原则 - 支持多选
     consecutive_options = options.get('consecutive', None)
@@ -804,14 +754,13 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
                 if opt == 'no_consecutive':
                     p, count, _ = check_consecutive_balls(front_balls, max_groups=0, max_length=0)
                     if p and count == 0: passed = True; break
-                elif opt == '0_or_1_group_2':
-                    p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
-                    if p and count <= 1: passed = True; break
                 elif opt == '1_group_2':
                     p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
-                    if p and count == 1: passed = True; break
+                    if p and count <= 1: passed = True; break
             if not passed:
+                logger.debug(f"DLT FAIL: consecutive. balls={front_balls}, options={consecutive_options}")
                 return False
+            logger.debug(f"DLT PASS: consecutive.")
     
     # 3. 与上期重号原则 - 支持多选
     repeat_options = options.get('repeat', ['1_or_2'])
@@ -821,84 +770,123 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
         passed = False
         for opt in repeat_options:
             if opt == '1':
-                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=1)
+                p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=1)
                 if p: passed = True; break
             elif opt == '2':
-                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=2, max_repeat=2)
+                p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=2, max_repeat=2)
                 if p: passed = True; break
             elif opt == '1_or_2':
-                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=2)
+                p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=2)
                 if p: passed = True; break
             elif opt == '0':
-                p, _ = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=0)
+                p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=0)
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: repeat. balls={front_balls}, options={repeat_options}, count={count}")
             return False
+        logger.debug(f"DLT PASS: repeat. count={count}")
     
     # 4. 遗漏号原则 - 支持多选
-    omission_patterns = options.get('omission_pattern', ['3:1:1'])
+    omission_patterns = options.get('omission_pattern', ['3+1+1'])
     if isinstance(omission_patterns, str):
         omission_patterns = [omission_patterns]
     if 'disabled' not in omission_patterns:
-        passed = any(check_omission_rule_dlt(front_balls, red_omission, pattern)[0] for pattern in omission_patterns)
+        # 将前端格式 (3+1+1) 转换为后端格式 (3:1:1)
+        converted_patterns = []
+        for p in omission_patterns:
+            converted_patterns.append(p.replace('+', ':'))
+        passed = False
+        last_result = ""
+        for pattern in converted_patterns:
+            p, result = check_omission_rule_dlt(front_balls, red_omission, pattern)
+            if p: passed = True; break
+            last_result = result
         if not passed:
+            logger.debug(f"DLT FAIL: omission_pattern. balls={front_balls}, patterns={converted_patterns}, result={last_result}")
             return False
+        logger.debug(f"DLT PASS: omission_pattern. result={last_result}")
     
     # 5. 遗漏期数一样的不超过1个
     if options.get('omission_duplicate_limit', True):
-        passed, _ = check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=1)
+        passed, msg = check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=1)
         if not passed:
+            logger.debug(f"DLT FAIL: omission_duplicate. balls={front_balls}, msg={msg}")
             return False
+        logger.debug(f"DLT PASS: omission_duplicate.")
     
     # 6. 奇偶原则 - 支持多选
     odd_even_options = options.get('odd_even', ['3:2', '2:3'])
     if isinstance(odd_even_options, str):
         odd_even_options = odd_even_options.split(',')
     if 'disabled' not in odd_even_options:
-        passed, _ = check_odd_even_ratio(front_balls, odd_even_options)
+        passed, actual = check_odd_even_ratio(front_balls, odd_even_options)
         if not passed:
+            logger.debug(f"DLT FAIL: odd_even. balls={front_balls}, actual={actual}, expected={odd_even_options}")
             return False
+        logger.debug(f"DLT PASS: odd_even. actual={actual}")
     
     # 7. 最大跨度原则 - 支持多选
-    span_options = options.get('span', ['gt_26'])
+    span_options = options.get('span', ['gt_28'])
     if isinstance(span_options, str):
         span_options = [span_options]
     if 'disabled' not in span_options:
         passed = False
         for opt in span_options:
-            if opt == 'gt_26':
-                p, _ = check_max_span(front_balls, min_span=26)
+            if opt == 'gt_28':
+                p, span = check_max_span(front_balls, min_span=28)
+                if p: passed = True; break
+            elif opt == 'gt_26':
+                p, span = check_max_span(front_balls, min_span=26)
+                if p: passed = True; break
+            elif opt == 'gt_25':
+                p, span = check_max_span(front_balls, min_span=25)
                 if p: passed = True; break
             elif opt == 'gt_24':
-                p, _ = check_max_span(front_balls, min_span=24)
+                p, span = check_max_span(front_balls, min_span=24)
+                if p: passed = True; break
+            elif opt == 'gt_22':
+                p, span = check_max_span(front_balls, min_span=22)
                 if p: passed = True; break
             elif opt == 'gt_20':
-                p, _ = check_max_span(front_balls, min_span=20)
+                p, span = check_max_span(front_balls, min_span=20)
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: span. balls={front_balls}, span={span}, options={span_options}")
             return False
+        logger.debug(f"DLT PASS: span. span={span}")
     
     # 8. 号码总和原则 - 支持多选
-    sum_options = options.get('sum', ['70-129'])
+    sum_options = options.get('sum', ['80-140'])
     if isinstance(sum_options, str):
         sum_options = [sum_options]
     if 'disabled' not in sum_options:
         passed = False
         for opt in sum_options:
-            if opt == '70-129':
-                p, _ = check_sum_range(front_balls, 70, 129)
+            if opt == '80-140':
+                p, total = check_sum_range(front_balls, 80, 140)
+                if p: passed = True; break
+            elif opt == '90-130':
+                p, total = check_sum_range(front_balls, 90, 130)
+                if p: passed = True; break
+            elif opt == '70-150':
+                p, total = check_sum_range(front_balls, 70, 150)
+                if p: passed = True; break
+            elif opt == '70-129':
+                p, total = check_sum_range(front_balls, 70, 129)
                 if p: passed = True; break
             elif opt == '80-120':
-                p, _ = check_sum_range(front_balls, 80, 120)
+                p, total = check_sum_range(front_balls, 80, 120)
                 if p: passed = True; break
             elif opt == '90-110':
-                p, _ = check_sum_range(front_balls, 90, 110)
+                p, total = check_sum_range(front_balls, 90, 110)
                 if p: passed = True; break
             elif opt == '60-140':
-                p, _ = check_sum_range(front_balls, 60, 140)
+                p, total = check_sum_range(front_balls, 60, 140)
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: sum. balls={front_balls}, total={total}, options={sum_options}")
             return False
+        logger.debug(f"DLT PASS: sum. total={total}")
     
     # 9. 同尾号原则 - 支持多选
     tail_options = options.get('same_tail', ['exactly_1'])
@@ -908,16 +896,18 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
         passed = False
         for opt in tail_options:
             if opt == 'exactly_1':
-                p, _ = check_same_tail(front_balls, 'exactly_1')
+                p, count = check_same_tail(front_balls, 'exactly_1')
                 if p: passed = True; break
             elif opt == 'at_least_1':
-                p, _ = check_same_tail(front_balls, 'at_least_1')
+                p, count = check_same_tail(front_balls, 'at_least_1')
                 if p: passed = True; break
             elif opt == 'none':
-                p, _ = check_same_tail(front_balls, 'none')
+                p, count = check_same_tail(front_balls, 'none')
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: same_tail. balls={front_balls}, count={count}, options={tail_options}")
             return False
+        logger.debug(f"DLT PASS: same_tail. count={count}")
     
     # 10. 邻号原则 - 支持多选
     neighbor_options = options.get('neighbor', ['at_least_1'])
@@ -927,32 +917,42 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
         passed = False
         for opt in neighbor_options:
             if opt == 'at_least_1':
-                p, _ = check_neighbor_numbers(front_balls, 'dlt', 1)
+                p, count = check_neighbor_numbers(front_balls, 'dlt', 1)
                 if p: passed = True; break
             elif opt == 'at_least_2':
-                p, _ = check_neighbor_numbers(front_balls, 'dlt', 2)
+                p, count = check_neighbor_numbers(front_balls, 'dlt', 2)
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: neighbor. balls={front_balls}, count={count}, options={neighbor_options}")
             return False
+        logger.debug(f"DLT PASS: neighbor. count={count}")
     
     # 11. AC值原则 - 支持多选
-    ac_options = options.get('ac_value', ['6_or_7'])
+    ac_options = options.get('ac_value', ['5_or_6'])
     if isinstance(ac_options, str):
         ac_options = [ac_options]
     if 'disabled' not in ac_options:
         passed = False
         for opt in ac_options:
-            if opt == '6_or_7':
-                p, _ = check_ac_value(front_balls, [6, 7])
+            if opt == '5_or_6':
+                p, ac = check_ac_value(front_balls, [5, 6])
+                if p: passed = True; break
+            elif opt == '4_to_7':
+                p, ac = check_ac_value(front_balls, [4, 5, 6, 7])
+                if p: passed = True; break
+            elif opt == '6_or_7':
+                p, ac = check_ac_value(front_balls, [6, 7])
                 if p: passed = True; break
             elif opt == '5_to_8':
-                p, _ = check_ac_value(front_balls, [5, 6, 7, 8])
+                p, ac = check_ac_value(front_balls, [5, 6, 7, 8])
                 if p: passed = True; break
             elif opt == '4_to_9':
-                p, _ = check_ac_value(front_balls, [4, 5, 6, 7, 8, 9])
+                p, ac = check_ac_value(front_balls, [4, 5, 6, 7, 8, 9])
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: ac_value. balls={front_balls}, ac={ac}, options={ac_options}")
             return False
+        logger.debug(f"DLT PASS: ac_value. ac={ac}")
     
     # 12. 蓝球后区原则
     # 遗漏规则
@@ -960,47 +960,53 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
     if isinstance(blue_omission_options, str):
         blue_omission_options = [blue_omission_options]
     if 'disabled' not in blue_omission_options and 'any' not in blue_omission_options:
-        passed, _ = check_dlt_blue_omission(blue_balls, blue_omission)
+        passed, msg = check_dlt_blue_omission(blue_balls, blue_omission)
         if not passed:
+            logger.debug(f"DLT FAIL: blue_omission. blue_balls={blue_balls}, msg={msg}")
             return False
+        logger.debug(f"DLT PASS: blue_omission.")
     
     # 后区奇偶
-    blue_odd_even_options = options.get('blue_odd_even', ['1:1'])
+    blue_odd_even_options = options.get('blue_odd_even', ['1_odd_1_even'])
     if isinstance(blue_odd_even_options, str):
         blue_odd_even_options = [blue_odd_even_options]
     if 'disabled' not in blue_odd_even_options:
         passed = False
         for opt in blue_odd_even_options:
-            if opt == '1:1':
-                p, _ = check_dlt_blue_odd_even(blue_balls, '1:1')
+            if opt == '1_odd_1_even':
+                p, actual = check_dlt_blue_odd_even(blue_balls, '1:1')
                 if p: passed = True; break
-            elif opt == '2:0':
-                p, _ = check_dlt_blue_odd_even(blue_balls, '2:0')
+            elif opt == '2_odd':
+                p, actual = check_dlt_blue_odd_even(blue_balls, '2:0')
                 if p: passed = True; break
-            elif opt == '0:2':
-                p, _ = check_dlt_blue_odd_even(blue_balls, '0:2')
+            elif opt == '2_even':
+                p, actual = check_dlt_blue_odd_even(blue_balls, '0:2')
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: blue_odd_even. blue_balls={blue_balls}, actual={actual}, options={blue_odd_even_options}")
             return False
+        logger.debug(f"DLT PASS: blue_odd_even. actual={actual}")
     
     # 后区大小
-    blue_size_options = options.get('blue_size', ['1:1'])
+    blue_size_options = options.get('blue_size', ['1_big_1_small'])
     if isinstance(blue_size_options, str):
         blue_size_options = [blue_size_options]
     if 'disabled' not in blue_size_options:
         passed = False
         for opt in blue_size_options:
-            if opt == '1:1':
-                p, _ = check_dlt_blue_size(blue_balls, '1:1')
+            if opt == '1_big_1_small':
+                p, actual = check_dlt_blue_size(blue_balls, '1:1')
                 if p: passed = True; break
-            elif opt == '2:0':
-                p, _ = check_dlt_blue_size(blue_balls, '2:0')
+            elif opt == '2_big':
+                p, actual = check_dlt_blue_size(blue_balls, '2:0')
                 if p: passed = True; break
-            elif opt == '0:2':
-                p, _ = check_dlt_blue_size(blue_balls, '0:2')
+            elif opt == '2_small':
+                p, actual = check_dlt_blue_size(blue_balls, '0:2')
                 if p: passed = True; break
         if not passed:
+            logger.debug(f"DLT FAIL: blue_size. blue_balls={blue_balls}, actual={actual}, options={blue_size_options}")
             return False
+        logger.debug(f"DLT PASS: blue_size. actual={actual}")
     
     return True
 

@@ -100,15 +100,18 @@
     .smart-filter-checkbox-group .form-check-inline .form-check-input:checked ~ .form-check-label {
         font-weight: bold;
     }
-    .section-card .card-header {
+    .section-card .card-header .collapse-toggle {
         cursor: pointer;
         user-select: none;
+        display: inline-flex;
+        align-items: center;
     }
-    .section-card .card-header:hover {
+    .section-card .card-header .collapse-toggle:hover {
         opacity: 0.8;
     }
     .section-card .card-header .collapse-icon {
         transition: transform 0.3s ease;
+        cursor: pointer;
     }
     .section-card .card-header .collapse-icon.collapsed {
         transform: rotate(-90deg);
@@ -196,8 +199,8 @@
 
     <!-- ===== 规则筛选号码 (单式) ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 规则筛选号码 (单式)</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="true"></i> 规则筛选号码 (单式)</span>
             <div>
                 <button class="btn btn-success btn-sm me-1" id="generate_ssq_prediction">生成规则号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_generated_numbers">清除号码</button>
@@ -229,8 +232,8 @@
 
     <!-- ===== 真随机号码 ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 真随机号码</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="true"></i> 真随机号码</span>
             <div>
                 <button class="btn btn-info btn-sm me-1" id="generate_ssq_random">生成随机号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_random_numbers">清除号码</button>
@@ -248,10 +251,10 @@
 
     <!-- ===== 智能筛选号码 ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#ssq_smart_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 智能筛选号码</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_smart_section_collapse" aria-expanded="true"></i> 智能筛选号码</span>
             <div>
-                <button class="btn btn-primary btn-sm me-1" id="generate_ssq_smart_filter">生成智能筛选号码</button>
+                <button class="btn btn-primary btn-sm me-1" id="generate_ssq_smart_filter">生成智能号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_smart_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_ssq_smart_numbers">复制所有号码</button>
             </div>
@@ -526,10 +529,10 @@
         </div>
     </div>
 
-    <!-- ===== 双色球复式筛选 ===== -->
+    <!-- ===== 规则筛选号码（复式） ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#ssq_complex_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 双色球复式筛选 (4.3)</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_complex_section_collapse" aria-expanded="true"></i> 规则筛选号码（复式）</span>
             <div>
                 <button class="btn btn-warning btn-sm me-1" id="generate_ssq_complex_prediction">生成复式号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_complex_generated_numbers">清除号码</button>
@@ -639,8 +642,8 @@
 
     <!-- ===== 规则筛选号码 (单式) ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 规则筛选号码 (单式)</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="true"></i> 规则筛选号码 (单式)</span>
             <div>
                 <button class="btn btn-success btn-sm me-1" id="generate_dlt_prediction">生成规则号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_generated_numbers">清除号码</button>
@@ -672,8 +675,8 @@
 
     <!-- ===== 真随机号码 ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 真随机号码</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="true"></i> 真随机号码</span>
             <div>
                 <button class="btn btn-info btn-sm me-1" id="generate_dlt_random">生成随机号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_random_numbers">清除号码</button>
@@ -691,10 +694,10 @@
 
     <!-- ===== 智能筛选号码 ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#dlt_smart_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 智能筛选号码</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_smart_section_collapse" aria-expanded="true"></i> 智能筛选号码</span>
             <div>
-                <button class="btn btn-primary btn-sm me-1" id="generate_dlt_smart_filter">生成智能筛选号码</button>
+                <button class="btn btn-primary btn-sm me-1" id="generate_dlt_smart_filter">生成智能号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_smart_numbers">清除号码</button>
                 <button class="btn btn-dark btn-sm" id="copy_all_dlt_smart_numbers">复制所有号码</button>
             </div>
@@ -716,32 +719,32 @@
                                         <label class="form-label">分区原则 (1-12:13-24:25-35)</label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_zone_ratio">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:2:3" id="dlt_zone_2_2_3" checked>
-                                                <label class="form-check-label" for="dlt_zone_2_2_3">2:2:3</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:2:1" id="dlt_zone_2_2_1" checked>
+                                                <label class="form-check-label" for="dlt_zone_2_2_1">2:2:1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:2:2" id="dlt_zone_3_2_2">
-                                                <label class="form-check-label" for="dlt_zone_3_2_2">3:2:2</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:1:2" id="dlt_zone_2_1_2">
+                                                <label class="form-check-label" for="dlt_zone_2_1_2">2:1:2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:3:2" id="dlt_zone_2_3_2">
-                                                <label class="form-check-label" for="dlt_zone_2_3_2">2:3:2</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:2:2" id="dlt_zone_1_2_2">
+                                                <label class="form-check-label" for="dlt_zone_1_2_2">1:2:2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:1:3" id="dlt_zone_3_1_3">
-                                                <label class="form-check-label" for="dlt_zone_3_1_3">3:1:3</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:1:1" id="dlt_zone_3_1_1">
+                                                <label class="form-check-label" for="dlt_zone_3_1_1">3:1:1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:2:4" id="dlt_zone_1_2_4">
-                                                <label class="form-check-label" for="dlt_zone_1_2_4">1:2:4</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:3:1" id="dlt_zone_1_3_1">
+                                                <label class="form-check-label" for="dlt_zone_1_3_1">1:3:1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:3:3" id="dlt_zone_1_3_3">
-                                                <label class="form-check-label" for="dlt_zone_1_3_3">1:3:3</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1:1:3" id="dlt_zone_1_1_3">
+                                                <label class="form-check-label" for="dlt_zone_1_1_3">1:1:3</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:1:4" id="dlt_zone_2_1_4">
-                                                <label class="form-check-label" for="dlt_zone_2_1_4">2:1:4</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:2:0" id="dlt_zone_3_2_0">
+                                                <label class="form-check-label" for="dlt_zone_3_2_0">3:2:0</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_zone_disabled">
@@ -982,10 +985,10 @@
         </div>
     </div>
 
-    <!-- ===== 大乐透复式筛选 ===== -->
+    <!-- ===== 规则筛选号码（复式） ===== -->
     <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#dlt_complex_section_collapse" aria-expanded="true">
-            <span><i class="bi bi-chevron-down collapse-icon me-2"></i> 大乐透复式筛选 (4.3)</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_complex_section_collapse" aria-expanded="true"></i> 规则筛选号码（复式）</span>
             <div>
                 <button class="btn btn-warning btn-sm me-1" id="generate_dlt_complex_prediction">生成复式号码</button>
                 <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_complex_generated_numbers">清除号码</button>
