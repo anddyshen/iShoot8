@@ -345,155 +345,47 @@ SETTING_LABELS_CHINESE = {
     'ssq_blue_trend_rules': "双色球蓝球趋势规则",
     'dlt_red_trend_rules': "大乐透红球趋势规则",
     'dlt_blue_trend_rules': "大乐透蓝球趋势规则",
-}
 
-SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
+    # 趋势规则名称中文标签
+    'odd_even_ratio': "奇偶比",
+    'size_ratio': "大小比",
+    'prime_composite_ratio': "质合比",
+    'remainder_012_ratio': "012路比",
+    'consecutive_length': "连号长度和组数",
+    'sum_range': "和值范围",
+    'average_range': "均值范围",
+    'span_range': "跨度范围",
+    'ac_value_range': "AC值范围",
+    'omission_range': "遗漏值范围",
+    'prev_draw_repeat': "上期重复数",
+    'head_tail_range': "龙头凤尾",
+    'blue_strategy': "蓝球策略",
 
-def load_settings():
-    if not os.path.exists(SETTINGS_FILE):
-        os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(DEFAULT_SETTINGS, f, indent=4, ensure_ascii=False)
-        return DEFAULT_SETTINGS
-    with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-        settings = json.load(f)
-        # 合并默认设置，确保新参数有默认值
-        for key, value in DEFAULT_SETTINGS.items():
-            if key not in settings:
-                settings[key] = value
-        
-        # 确保所有百分比相关的设置项在加载时都转换为小数形式
-        percentage_keys = ['ssq_blue_consecutive_3_prob', 'ssq_blue_consecutive_5_prob', 'ssq_red_omit_1_weight', 'ssq_red_omit_2_weight', 'ssq_red_omit_3_weight', 'ssq_red_omit_4_weight', 'ssq_red_omit_5_weight', 'ssq_red_omit_6_weight', 'ssq_red_omit_12_prob', 'ssq_red_omit_13_prob', 'ssq_red_omit_14_prob', 'ssq_red_omit_prob_threshold_1', 'ssq_red_omit_prob_threshold_2', 'ssq_red_omit_prob_threshold_3', 'dlt_blue_repeat_prob', 'dlt_blue_consecutive_5_prob', 'dlt_red_omit_1_weight', 'dlt_red_omit_2_weight', 'dlt_red_omit_3_weight', 'dlt_red_omit_4_weight', 'dlt_red_omit_5_weight', 'dlt_red_omit_6_weight', 'dlt_red_consecutive_3_prob', 'dlt_red_omit_prob_threshold_1', 'dlt_red_omit_prob_threshold_2', 'dlt_red_omit_prob_threshold_3', 'ssq_blue_recent_occurrence_weight', 'dlt_blue_recent_occurrence_weight']
-        for key in percentage_keys:
-            if key in settings and isinstance(settings[key], (int, float)) and settings[key] > 1:
-                settings[key] = settings[key] / 100
-        
-        return settings
-
-def save_settings(settings):
-    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(settings, f, indent=4, ensure_ascii=False)
-
-# 加载初始设置
-CURRENT_SETTINGS = load_settings()
-
-# 确保 instance 目录存在
-os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-
-# --- 统计维度解释文本 ---
-STAT_EXPLANATIONS = {
-    'red_frequency': "统计每个红球号码在指定范围内的出现次数和频率百分比。",
-    'red_omission': "统计每个红球号码当前的遗漏期数和历史最大遗漏期数。",
-    'red_size_ratio': "将红球号码范围划分为“大”和“小”两个区域，统计开奖号码中大小号的比例。双色球红球通常以17为界（1-16小，17-33大），大乐透前区以18为界（1-17小，18-35大）。",
-    'red_prime_composite_ratio': "统计红球开奖号码中质数和合数的比例。质数：只能被1和自身整除的数（如2,3,5,7,11,13,17,19,23,29,31）。合数：除了1和自身外，还能被其他数整除的数（如4,6,8,9,10,12,14,15,16...）。1既非质数也非合数。",
-    'red_012_way_ratio': "将红球号码除以3，根据余数分为0路、1路、2路。统计开奖号码中0路、1路、2路号码的比例。",
-    'red_consecutive_groups': "统计红球开奖号码中连续数字的组数（例如：1,2,3 算一组）。",
-    'red_max_consecutive_length': "统计红球开奖号码中最长连号的长度（例如：1,2,3,4 最长连号为4）。",
-    'red_repeated_counts': "统计当前红球开奖号码与前一期红球开奖号码中重复出现的数字数量。",
-    'red_span': "红球开奖号码中最大数字与最小数字之差。",
-    'red_head': "红球开奖号码中最小的数字（龙头）。",
-    'red_tail': "红球开奖号码中最大的数字（凤尾）。",
-    'red_ac_value': "红球AC值是彩票号码组合中任意两个号码差值的绝对值，然后统计这些差值中不重复的个数，再减去 (N-1) (N为开奖号码个数)。AC值反映了号码的离散程度。",
-
-    'blue_frequency': "统计每个蓝球号码在指定范围内的出现次数和频率百分比。",
-    'blue_omission': "统计每个蓝球号码当前的遗漏期数和历史最大遗漏期数。",
-    'blue_size_ratio': "将蓝球号码范围划分为“大”和“小”两个区域，统计开奖号码中大小号的比例。双色球蓝球通常以9为界（1-8小，9-16大），大乐透后区以7为界（1-6小，7-12大）。",
-    'blue_prime_composite_ratio': "统计蓝球开奖号码中质数和合数的比例。质数：只能被1和自身整除的数。合数：除了1和自身外，还能被其他数整除的数。1既非质数也非合数。",
-    'blue_012_way_ratio': "将蓝球号码除以3，根据余数分为0路、1路、2路。统计开奖号码中0路、1路、2路号码的比例。",
-    'blue_repeated_counts': "统计当前蓝球开奖号码与前一期蓝球开奖号码中重复出现的数字数量。",
-    'blue_head': "蓝球开奖号码中最小的数字（龙头）。",
-    'blue_tail': "蓝球开奖号码中最大的数字（凤尾）。",
-}
-
-# --- 后台设置项的中文标题映射 ---
-SETTING_LABELS_CHINESE = {
-    'site_name': "网站名称",
-    'site_description': "网站描述",
-    'admin_username': "管理员用户名",
-    'admin_password': "管理员密码",
-    'ssq_data_source_url': "双色球数据源URL",
-    'dlt_data_source_url': "大乐透数据源URL",
-    'news_data_source_url': "新闻数据源URL",
-    'history_page_size': "历史数据每页显示数量",
-    'history_stats_range_default': "统计数据默认范围",
-    
-    # 大小号分界点
-    'ssq_red_size_midpoint': "双色球红球大小号分界点",
-    'ssq_blue_size_midpoint': "双色球蓝球大小号分界点",
-    'dlt_front_size_midpoint': "大乐透前区大小号分界点",
-    'dlt_back_size_midpoint': "大乐透后区大小号分界点",
-
-    # 预测相关设置
-    'prediction_latest_draws': "预测页面：显示最新开奖期数",
-    'prediction_omitted_red_balls': "预测页面：显示遗漏最多红球数量",
-    'prediction_omitted_blue_balls': "预测页面：显示遗漏最多蓝球数量",
-    'prediction_generated_count': "预测页面：默认生成号码组数",
-
-    # 双色球预测规则权重/概率
-    'ssq_blue_omit_latest_draws': "双色球蓝球：遗漏分析期数",
-    'ssq_blue_consecutive_3_prob': "双色球蓝球：连号3期概率",
-    'ssq_blue_consecutive_5_prob': "双色球蓝球：连号5期概率",
-    'ssq_red_omit_1_weight': "双色球红球：遗漏1期权重，每球平均概率 3.03%",
-    'ssq_red_omit_2_weight': "双色球红球：遗漏2期权重",
-    'ssq_red_omit_3_weight': "双色球红球：遗漏3期权重",
-    'ssq_red_omit_4_weight': "双色球红球：遗漏4期权重",
-    'ssq_red_omit_5_weight': "双色球红球：遗漏5期权重",
-    'ssq_red_omit_6_weight': "双色球红球：遗漏6期权重",
-    'ssq_red_consecutive_3_prob': "双色球红球：连号3期概率",
-    'ssq_red_consecutive_3_second_prob': "双色球红球：连号3期第二次概率",
-    'ssq_red_area_min_count': "双色球红球：分区最小数量",
-    'ssq_red_prev_2_draws_max_repeat': "双色球红球：近2期最大重复数",
-    'ssq_red_max_consecutive_balls': "双色球红球：最大连号数量",
-    'ssq_red_omit_prob_threshold_1': "双色球红球：遗漏降概率阈值1对应的概率",
-    'ssq_red_omit_prob_threshold_2': "双色球红球：遗漏降概率阈值2对应的概率",
-    'ssq_red_omit_prob_threshold_3': "双色球红球：遗漏降概率阈值3对应的概率",
-    'ssq_red_omit_threshold_1': "双色球红球：遗漏降概率阈值1",
-    'ssq_red_omit_threshold_2': "双色球红球：遗漏降概率阈值2",
-    'ssq_red_omit_threshold_3': "双色球红球：遗漏降概率阈值3",
-    
-    'dlt_blue_repeat_prob': "大乐透蓝球：重复概率",
-    'dlt_blue_consecutive_5_prob': "大乐透蓝球：连号5期概率",
-    'dlt_red_omit_1_weight': "大乐透红球：遗漏1期权重，每球平均概率 2.857%",
-    'dlt_red_omit_2_weight': "大乐透红球：遗漏2期权重",
-    'dlt_red_omit_3_weight': "大乐透红球：遗漏3期权重",
-    'dlt_red_omit_4_weight': "大乐透红球：遗漏4期权重",
-    'dlt_red_omit_5_weight': "大乐透红球：遗漏5期权重",
-    'dlt_red_omit_6_weight': "大乐透红球：遗漏6期权重",
-    'dlt_red_consecutive_3_prob': "大乐透红球：连号3期概率",
-    'dlt_red_area_min_count': "大乐透红球：分区最小数量",
-    'dlt_red_prev_2_draws_max_repeat': "大乐透红球：近2期最大重复数",
-    'dlt_red_max_consecutive_balls': "大乐透红球：最大连号数量",
-    'dlt_red_omit_prob_threshold_1': "大乐透红球：遗漏降概率阈值1对应的概率",
-    'dlt_red_omit_prob_threshold_2': "大乐透红球：遗漏降概率阈值2对应的概率",
-    'dlt_red_omit_prob_threshold_3': "大乐透红球：遗漏降概率阈值3对应的概率",
-    'dlt_red_omit_threshold_1': "大乐透红球：遗漏降概率阈值1",
-    'dlt_red_omit_threshold_2': "大乐透红球：遗漏降概率阈值2",
-    'dlt_red_omit_threshold_3': "大乐透红球：遗漏降概率阈值3",
-
-    # 对奖中心设置
-    'prize_check_range': "对奖中心：检查范围",
-    'fun_game_max_simulations': "趣味游戏：最大模拟次数",
-
-    # 开奖日期设置
-    'ssq_draw_days': "双色球开奖日 (周几)",
-    'dlt_draw_days': "大乐透开奖日 (周几)",
-    'annual_holidays': "年度节假日 (不更新数据)",
-    'fun_game_simulation_years': "趣味游戏：模拟年份范围",
-
-    # 蓝球近期出现频率规则
-    'ssq_blue_recent_occurrence_draws': "双色球蓝球：近期出现分析期数",
-    'ssq_blue_recent_occurrence_threshold': "双色球蓝球：近期出现频率阈值",
-    'ssq_blue_recent_occurrence_weight': "双色球蓝球：近期出现频率权重",
-    'dlt_blue_recent_occurrence_draws': "大乐透蓝球：近期出现分析期数",
-    'dlt_blue_recent_occurrence_threshold': "大乐透蓝球：近期出现频率阈值",
-    'dlt_blue_recent_occurrence_weight': "大乐透蓝球：近期出现频率权重",
-
-    # 趣味游戏消息中文标签
-    'fun_game_no_prize_message': "趣味游戏：未中奖消息",
-    'fun_game_prize_message': "趣味游戏：中奖消息",
-
-    # 趋势设置
-    'lookback_periods': "趋势计算回溯期数",
+    # 趋势规则参数中文标签
+    'target_ratio': "目标比例",
+    'min_sum': "最小和值",
+    'max_sum': "最大和值",
+    'min_avg': "最小均值",
+    'max_avg': "最大均值",
+    'min_span': "最小跨度",
+    'max_span': "最大跨度",
+    'min_ac': "最小AC值",
+    'max_ac': "最大AC值",
+    'min_omit': "最小遗漏值",
+    'max_omit': "最大遗漏值",
+    'omit_type': "遗漏类型",
+    'min_repeat': "最小重复数",
+    'max_repeat': "最大重复数",
+    'min_head': "最小龙头",
+    'max_head': "最大龙头",
+    'min_tail': "最小凤尾",
+    'max_tail': "最大凤尾",
+    'min_len': "最小连号长度",
+    'max_len': "最大连号长度",
+    'max_groups': "最大连号组数",
+    'strategy_type': "策略类型",
+    'threshold': "阈值",
+    'draws': "分析期数",
 }
 
 SETTINGS_FILE = os.path.join(BASE_DIR, 'instance', 'settings.json')
