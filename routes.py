@@ -515,6 +515,97 @@ def prize_check():
                            CURRENT_SETTINGS=CURRENT_SETTINGS # 传递 CURRENT_SETTINGS 到模板
                            )
 
+@bp.route('/api/prize_check/latest_draws', methods=['GET'])
+def api_prize_check_latest_draws():
+    """
+    获取指定彩票类型的最新开奖号码及每个号码的遗漏期数。
+    支持 offset 参数用于前一期/后一期导航。
+    """
+    lottery_type = request.args.get('lottery_type')
+    offset_str = request.args.get('offset', '0')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        offset = int(offset_str)
+        if offset < 0:
+            raise ValueError("Offset cannot be negative.")
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
+
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    red_ball_range = 33 if lottery_type == 'ssq' else 35
+    blue_ball_range = 16 if lottery_type == 'ssq' else 12
+
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    if not all_draws:
+        return jsonify({'error': 'No historical data available.'}), 404
+
+    max_offset = len(all_draws) - 1
+    if offset > max_offset:
+        offset = max_offset
+
+    # 获取当前显示期数的开奖数据
+    current_draw = all_draws[offset]
+    display_red_balls = current_draw.get_red_balls_list()
+    display_blue_balls = current_draw.get_blue_balls_list()
+
+    # 计算遗漏数据（从当前期往后计算）
+    draws_for_omission = all_draws[offset:]
+
+    # 计算红球遗漏
+    red_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, red_ball_range, 'red')
+    red_omissions = {item['ball']: item['current_omission'] for item in red_stats_list}
+
+    # 计算蓝球遗漏
+    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, blue_ball_range, 'blue')
+    blue_omissions = {item['ball']: item['current_omission'] for item in blue_stats_list}
+
+    # 为当前开奖号码构建带遗漏的数据
+    red_balls_with_omission = []
+    for ball in display_red_balls:
+        red_balls_with_omission.append({
+            'ball': ball,
+            'omission': red_omissions.get(ball, 0)
+        })
+
+    blue_balls_with_omission = []
+    for ball in display_blue_balls:
+        blue_balls_with_omission.append({
+            'ball': ball,
+            'omission': blue_omissions.get(ball, 0)
+        })
+
+    # 构建所有号码的遗漏数据（用于号码选择器显示）
+    all_red_omissions = []
+    for ball_num in range(1, red_ball_range + 1):
+        all_red_omissions.append({
+            'ball': ball_num,
+            'omission': red_omissions.get(ball_num, 0)
+        })
+
+    all_blue_omissions = []
+    for ball_num in range(1, blue_ball_range + 1):
+        all_blue_omissions.append({
+            'ball': ball_num,
+            'omission': blue_omissions.get(ball_num, 0)
+        })
+
+    return jsonify({
+        'issue': current_draw.issue,
+        'draw_date': current_draw.draw_date.strftime('%Y-%m-%d'),
+        'red_balls': display_red_balls,
+        'blue_balls': display_blue_balls,
+        'red_balls_with_omission': red_balls_with_omission,
+        'blue_balls_with_omission': blue_balls_with_omission,
+        'all_red_omissions': all_red_omissions,
+        'all_blue_omissions': all_blue_omissions,
+        'max_offset': max_offset,
+        'current_offset': offset
+    })
+
+
 @bp.route('/api/check_prizes', methods=['POST'])
 def api_check_prizes():
     data = request.get_json()
