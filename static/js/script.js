@@ -1,8 +1,31 @@
 // static/js/script.js
-// 版本: 1.0.0
+// 版本: 1.1.0
 document.addEventListener('DOMContentLoaded', function() {
     // 可以在这里添加一些全局的JavaScript交互逻辑
     console.log("iShoot website loaded.");
+
+    // --- 实时时钟：显示北京时间 ---
+    function updateClock() {
+        const clockElement = document.getElementById('live-clock');
+        if (!clockElement) return;
+        
+        // 获取当前UTC时间，然后加上8小时得到北京时间
+        const now = new Date();
+        const beijingTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+        
+        const year = beijingTime.getFullYear();
+        const month = String(beijingTime.getMonth() + 1).padStart(2, '0');
+        const day = String(beijingTime.getDate()).padStart(2, '0');
+        const hours = String(beijingTime.getHours()).padStart(2, '0');
+        const minutes = String(beijingTime.getMinutes()).padStart(2, '0');
+        const seconds = String(beijingTime.getSeconds()).padStart(2, '0');
+        
+        clockElement.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    
+    // 立即更新一次，然后每秒更新
+    updateClock();
+    setInterval(updateClock, 1000);
 
     // --- 历史数据页面彩球高亮逻辑 ---
     const historyTableContainer = document.querySelector('.table-responsive');
