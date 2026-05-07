@@ -254,20 +254,38 @@ def check_ac_value(red_balls, target_values):
     return ac in target_values, ac
 
 
-def check_ssq_blue_omission(blue_balls, blue_omission, primary_range=(6, 12), secondary_prob=0.15, secondary_range=(0, 2)):
+def check_ssq_blue_omission(blue_balls, blue_omission, mode="6-12_primary"):
     """
     检查蓝球遗漏规则
-    primary_range: 优先选遗漏范围 (6-12期)
-    secondary_prob: 15%概率出0-2期遗漏号
-    secondary_range: 次选遗漏范围 (0-2期)
+    mode: 
+      - "6-12_primary": 优先遗漏6-12期，次选0-2期
+      - "5-15_primary": 优先遗漏5-15期，次选0-2期
+      - "0-2_primary": 优先遗漏0-2期
+      - "0-4_primary": 优先遗漏0-4期
     返回: (是否通过, 描述信息)
     """
+    if mode == "6-12_primary":
+        primary_range = (6, 12)
+        secondary_range = (0, 2)
+    elif mode == "5-15_primary":
+        primary_range = (5, 15)
+        secondary_range = (0, 2)
+    elif mode == "0-2_primary":
+        primary_range = (0, 2)
+        secondary_range = None
+    elif mode == "0-4_primary":
+        primary_range = (0, 4)
+        secondary_range = None
+    else:
+        return True, ""
+    
     for b in blue_balls:
         omission = blue_omission.get(b, 0)
-        # 只要蓝球在优先范围或次选范围内，就算通过
+        # 检查是否在优先范围内
         if primary_range[0] <= omission <= primary_range[1]:
             continue
-        elif secondary_range[0] <= omission <= secondary_range[1]:
+        # 如果有次选范围，检查是否在次选范围内
+        elif secondary_range and secondary_range[0] <= omission <= secondary_range[1]:
             continue
         else:
             # 不在任何允许范围内，不通过
@@ -358,24 +376,42 @@ def check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=1):
     return True, ""
 
 
-def check_dlt_blue_omission(blue_balls, blue_omission):
+def check_dlt_blue_omission(blue_balls, blue_omission, mode="5-15_primary"):
     """
     检查大乐透后区遗漏规则
-    主选：至少一个号码来自遗漏5-15期
-    放宽条件：只要至少有一个号码在5-15期范围内即可
+    mode:
+      - "5-15_primary": 至少一个号码来自遗漏5-15期
+      - "0-2_primary": 优先遗漏0-2期
+      - "0-4_primary": 优先遗漏0-4期
+    返回: (是否通过, 描述信息)
     """
-    has_warm = False
-    for b in blue_balls:
-        omission = blue_omission.get(b, 0)
-        if 5 <= omission <= 15:
-            has_warm = True
-            break
-    
-    if not has_warm:
-        return False, "后区没有遗漏5-15期的号码"
-    
-    # 放宽条件：不再对遗漏0-2期和16期以上的号码做概率限制
-    return True, ""
+    if mode == "5-15_primary":
+        # 至少一个号码来自遗漏5-15期
+        has_warm = False
+        for b in blue_balls:
+            omission = blue_omission.get(b, 0)
+            if 5 <= omission <= 15:
+                has_warm = True
+                break
+        if not has_warm:
+            return False, "后区没有遗漏5-15期的号码"
+        return True, ""
+    elif mode == "0-2_primary":
+        # 所有号码应在遗漏0-2期范围内
+        for b in blue_balls:
+            omission = blue_omission.get(b, 0)
+            if not (0 <= omission <= 2):
+                return False, f"后区{b}遗漏{omission}期不在0-2期范围"
+        return True, ""
+    elif mode == "0-4_primary":
+        # 所有号码应在遗漏0-4期范围内
+        for b in blue_balls:
+            omission = blue_omission.get(b, 0)
+            if not (0 <= omission <= 4):
+                return False, f"后区{b}遗漏{omission}期不在0-4期范围"
+        return True, ""
+    else:
+        return True, ""
 
 
 def check_dlt_blue_odd_even(blue_balls, target="1:1"):
@@ -740,11 +776,8 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
     if 'disabled' not in blue_options and 'any' not in blue_options:
         passed = False
         for opt in blue_options:
-            if opt == '6-12_primary':
-                p, _ = check_ssq_blue_omission(blue_balls, blue_omission, (6, 12), 0.15, (0, 2))
-                if p: passed = True; break
-            elif opt == '5-15_primary':
-                p, _ = check_ssq_blue_omission(blue_balls, blue_omission, (5, 15), 0.15, (0, 2))
+            if opt in ['6-12_primary', '5-15_primary', '0-2_primary', '0-4_primary']:
+                p, _ = check_ssq_blue_omission(blue_balls, blue_omission, mode=opt)
                 if p: passed = True; break
         if not passed:
             return False
@@ -987,7 +1020,11 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
     if isinstance(blue_omission_options, str):
         blue_omission_options = [blue_omission_options]
     if 'disabled' not in blue_omission_options and 'any' not in blue_omission_options:
-        passed, msg = check_dlt_blue_omission(blue_balls, blue_omission)
+        passed = False
+        for opt in blue_omission_options:
+            if opt in ['5-15_primary', '0-2_primary', '0-4_primary']:
+                p, msg = check_dlt_blue_omission(blue_balls, blue_omission, mode=opt)
+                if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: blue_omission. blue_balls={blue_balls}, msg={msg}")
             return False

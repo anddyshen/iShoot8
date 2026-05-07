@@ -1029,7 +1029,7 @@ document.getElementById('dlt_complex_prediction_output').addEventListener('click
 function getSmartFilterOptions(lotteryType) {
     const options = {};
     
-    // 辅助函数：从checkbox组获取选中的值（排除"不限制"）
+    // 辅助函数：从checkbox/radio组获取选中的值（排除"不限制"）
     function getCheckedValues(groupId) {
         const group = document.getElementById(groupId);
         if (!group) return [];
@@ -1039,6 +1039,14 @@ function getSmartFilterOptions(lotteryType) {
             values.push(cb.value);
         });
         return values;
+    }
+    
+    // 辅助函数：从radio组获取选中的单个值（排除"不限制"）
+    function getRadioValue(groupId) {
+        const group = document.getElementById(groupId);
+        if (!group) return null;
+        const checked = group.querySelector('.form-check-input:checked:not(.smart-filter-disabled)');
+        return checked ? checked.value : null;
     }
     
     // 辅助函数：检查"不限制"是否被选中
@@ -1055,16 +1063,16 @@ function getSmartFilterOptions(lotteryType) {
         options.zone_ratio = zoneValues;
     }
     
-    // 连号原则
-    const consValues = getCheckedValues(`${lotteryType}_smart_consecutive`);
-    if (consValues.length > 0 && !isDisabled(`${lotteryType}_smart_consecutive`)) {
-        options.consecutive = consValues;
+    // 连号原则（radio按钮，单值）
+    const consValue = getRadioValue(`${lotteryType}_smart_consecutive`);
+    if (consValue && !isDisabled(`${lotteryType}_smart_consecutive`)) {
+        options.consecutive = [consValue];
     }
     
-    // 与上期重号
-    const repeatValues = getCheckedValues(`${lotteryType}_smart_repeat`);
-    if (repeatValues.length > 0 && !isDisabled(`${lotteryType}_smart_repeat`)) {
-        options.repeat = repeatValues;
+    // 与上期重号（radio按钮，单值）
+    const repeatValue = getRadioValue(`${lotteryType}_smart_repeat`);
+    if (repeatValue && !isDisabled(`${lotteryType}_smart_repeat`)) {
+        options.repeat = [repeatValue];
     }
     
     // 遗漏号原则
@@ -1079,41 +1087,42 @@ function getSmartFilterOptions(lotteryType) {
         options.odd_even = oeValues;
     }
     
-    // 最大跨度
-    const spanValues = getCheckedValues(`${lotteryType}_smart_span`);
-    if (spanValues.length > 0 && !isDisabled(`${lotteryType}_smart_span`)) {
-        options.span = spanValues;
+    // 最大跨度（radio按钮，单值）
+    const spanValue = getRadioValue(`${lotteryType}_smart_span`);
+    if (spanValue && !isDisabled(`${lotteryType}_smart_span`)) {
+        options.span = [spanValue];
     }
     
-    // 号码总和
-    const sumValues = getCheckedValues(`${lotteryType}_smart_sum`);
-    if (sumValues.length > 0 && !isDisabled(`${lotteryType}_smart_sum`)) {
-        options.sum = sumValues;
+    // 号码总和（radio按钮，单值）
+    const sumValue = getRadioValue(`${lotteryType}_smart_sum`);
+    if (sumValue && !isDisabled(`${lotteryType}_smart_sum`)) {
+        options.sum = [sumValue];
     }
     
-    // 同尾号
-    const tailValues = getCheckedValues(`${lotteryType}_smart_same_tail`);
-    if (tailValues.length > 0 && !isDisabled(`${lotteryType}_smart_same_tail`)) {
-        options.same_tail = tailValues;
+    // 同尾号（radio按钮，单值）
+    const tailValue = getRadioValue(`${lotteryType}_smart_same_tail`);
+    if (tailValue && !isDisabled(`${lotteryType}_smart_same_tail`)) {
+        options.same_tail = [tailValue];
     }
     
-    // 邻号(边号)
-    const neighborValues = getCheckedValues(`${lotteryType}_smart_neighbor`);
-    if (neighborValues.length > 0 && !isDisabled(`${lotteryType}_smart_neighbor`)) {
-        options.neighbor = neighborValues;
+    // 邻号(边号)（radio按钮，单值）
+    const neighborValue = getRadioValue(`${lotteryType}_smart_neighbor`);
+    if (neighborValue && !isDisabled(`${lotteryType}_smart_neighbor`)) {
+        options.neighbor = [neighborValue];
     }
     
-    // AC值
-    const acValues = getCheckedValues(`${lotteryType}_smart_ac_value`);
-    if (acValues.length > 0 && !isDisabled(`${lotteryType}_smart_ac_value`)) {
-        options.ac_value = acValues;
+    // AC值（radio按钮，单值）
+    const acValue = getRadioValue(`${lotteryType}_smart_ac_value`);
+    if (acValue && !isDisabled(`${lotteryType}_smart_ac_value`)) {
+        options.ac_value = [acValue];
     }
     
     // 蓝球相关（不同彩票类型不同）
     if (lotteryType === 'ssq') {
-        const blueValues = getCheckedValues(`${lotteryType}_smart_blue_omission`);
-        if (blueValues.length > 0 && !isDisabled(`${lotteryType}_smart_blue_omission`)) {
-            options.blue_omission = blueValues;
+        // 蓝球遗漏（radio按钮，单值）
+        const blueValue = getRadioValue(`${lotteryType}_smart_blue_omission`);
+        if (blueValue && !isDisabled(`${lotteryType}_smart_blue_omission`)) {
+            options.blue_omission = [blueValue];
         }
     } else if (lotteryType === 'dlt') {
         const blueOeValues = getCheckedValues(`${lotteryType}_smart_blue_odd_even`);
@@ -1123,6 +1132,11 @@ function getSmartFilterOptions(lotteryType) {
         const blueSizeValues = getCheckedValues(`${lotteryType}_smart_blue_size`);
         if (blueSizeValues.length > 0 && !isDisabled(`${lotteryType}_smart_blue_size`)) {
             options.blue_size = blueSizeValues;
+        }
+        // 后区遗漏（radio按钮，单值）
+        const dltBlueValue = getRadioValue(`${lotteryType}_smart_blue_omission`);
+        if (dltBlueValue && !isDisabled(`${lotteryType}_smart_blue_omission`)) {
+            options.blue_omission = [dltBlueValue];
         }
     }
     

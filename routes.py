@@ -1310,13 +1310,9 @@ def api_smart_filter_check():
             from smart_filter_engine import check_ssq_blue_omission
             passed = False
             for opt in blue_options:
-                if opt == '6-12_primary':
-                    p, msg = check_ssq_blue_omission(blue_balls, blue_omission, (6, 12), 0.15, (0, 2))
-                elif opt == '5-15_primary':
-                    p, msg = check_ssq_blue_omission(blue_balls, blue_omission, (5, 15), 0.15, (0, 2))
-                else:
-                    continue
-                if p: passed = True; break
+                if opt in ['6-12_primary', '5-15_primary', '0-2_primary', '0-4_primary']:
+                    p, msg = check_ssq_blue_omission(blue_balls, blue_omission, mode=opt)
+                    if p: passed = True; break
             results['蓝球遗漏'] = {'passed': passed, 'message': '通过' if passed else '不符合蓝球遗漏规则'}
     else:
         blue_omission_options = options.get('blue_omission', [])
@@ -1324,7 +1320,11 @@ def api_smart_filter_check():
             blue_omission_options = [blue_omission_options]
         if blue_omission_options and 'disabled' not in blue_omission_options:
             from smart_filter_engine import check_dlt_blue_omission
-            passed, msg = check_dlt_blue_omission(blue_balls, blue_omission)
+            passed = False
+            for opt in blue_omission_options:
+                if opt in ['5-15_primary', '0-2_primary', '0-4_primary']:
+                    p, msg = check_dlt_blue_omission(blue_balls, blue_omission, mode=opt)
+                    if p: passed = True; break
             results['后区遗漏'] = {'passed': passed, 'message': '通过' if passed else f'不符合: {msg}'}
 
         blue_oe_options = options.get('blue_odd_even', [])
