@@ -515,6 +515,78 @@ def prize_check():
                            CURRENT_SETTINGS=CURRENT_SETTINGS # 传递 CURRENT_SETTINGS 到模板
                            )
 
+@bp.route('/api/prize_check/next_prediction', methods=['GET'])
+def api_prize_check_next_prediction():
+    """
+    获取指定彩票类型的"下期"开奖号码。
+    当查看第 N 期时，"下期号码"显示第 N-1 期（即下一期）的实际开奖号码。
+    用于对奖中心页面的"下期号码"高亮显示。
+    """
+    lottery_type = request.args.get('lottery_type')
+    offset_str = request.args.get('offset', '0')
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    try:
+        offset = int(offset_str)
+        if offset < 0:
+            raise ValueError("Offset cannot be negative.")
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
+
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    if not all_draws:
+        return jsonify({'error': 'No historical data available.'}), 404
+
+    max_offset = len(all_draws) - 1
+    if offset > max_offset:
+        offset = max_offset
+
+    # 获取当前显示期数的开奖数据
+    current_draw = all_draws[offset]
+
+    # "下期号码" = 下一期（offset-1）的实际开奖号码
+    # 数据按期号降序排列，offset=0 是最新一期
+    # 所以 offset-1 是下一期（更晚一期，更接近最新），offset+1 是上一期（更早一期）
+    # 当 offset=0（最新一期）时，没有"下一期"数据
+    next_offset = offset - 1
+    if next_offset < 0:
+        # 没有下一期数据
+        return jsonify({
+            'issue': current_draw.issue,
+            'draw_date': current_draw.draw_date.strftime('%Y-%m-%d'),
+            'next_red_balls': [],
+            'next_blue_balls': [],
+            'is_latest': True,  # 没有下一期，视为"最新"
+            'has_next': False,
+            'max_offset': max_offset,
+            'current_offset': offset
+        })
+
+    next_draw = all_draws[next_offset]
+    next_red_balls = next_draw.get_red_balls_list()
+    next_blue_balls = next_draw.get_blue_balls_list()
+
+    # 判断是否是最新一期（offset=0），最新一期时没有"下一期"数据
+    is_latest = (offset == 0)
+
+    return jsonify({
+        'issue': current_draw.issue,
+        'draw_date': current_draw.draw_date.strftime('%Y-%m-%d'),
+        'next_issue': next_draw.issue,
+        'next_draw_date': next_draw.draw_date.strftime('%Y-%m-%d'),
+        'next_red_balls': next_red_balls,
+        'next_blue_balls': next_blue_balls,
+        'is_latest': is_latest,
+        'has_next': True,
+        'max_offset': max_offset,
+        'current_offset': offset
+    })
+
+
 @bp.route('/api/prize_check/latest_draws', methods=['GET'])
 def api_prize_check_latest_draws():
     """

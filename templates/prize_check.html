@@ -43,7 +43,12 @@
         border-color: #7ec8e3;
         color: #333;
     }
-    .ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue):not(.highlight-draw) {
+    .ball-selector-grid .ball.highlight-next-draw {
+        background-color: #ffe0b2;
+        border-color: #ffb74d;
+        color: #333;
+    }
+    .ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue):not(.highlight-draw):not(.highlight-next-draw) {
         background-color: #e9ecef;
     }
     .selected-balls-display {
@@ -191,6 +196,12 @@
         <div class="card-header">输入您的号码</div>
         <div class="card-body">
             <div class="mb-3">
+                <div class="btn-group mb-2" role="group" aria-label="号码高亮模式">
+                    <input type="radio" class="btn-check" name="ssq_highlight_mode" id="ssq_highlight_current" value="current" autocomplete="off" checked>
+                    <label class="btn btn-outline-info btn-sm" for="ssq_highlight_current">当期中奖号码高亮</label>
+                    <input type="radio" class="btn-check" name="ssq_highlight_mode" id="ssq_highlight_next" value="next" autocomplete="off">
+                    <label class="btn btn-outline-warning btn-sm" for="ssq_highlight_next">下期中奖号码高亮</label>
+                </div>
                 <label class="form-label">红球 (1-33, 可选任意数量)</label>
                 <div class="ball-selector-grid" id="ssq_red_selector">
                     {% for i in range(1, 34) %}
@@ -308,6 +319,12 @@
         <div class="card-header">输入您的号码</div>
         <div class="card-body">
             <div class="mb-3">
+                <div class="btn-group mb-2" role="group" aria-label="号码高亮模式">
+                    <input type="radio" class="btn-check" name="dlt_highlight_mode" id="dlt_highlight_current" value="current" autocomplete="off" checked>
+                    <label class="btn btn-outline-info btn-sm" for="dlt_highlight_current">当期中奖号码高亮</label>
+                    <input type="radio" class="btn-check" name="dlt_highlight_mode" id="dlt_highlight_next" value="next" autocomplete="off">
+                    <label class="btn btn-outline-warning btn-sm" for="dlt_highlight_next">下期中奖号码高亮</label>
+                </div>
                 <label class="form-label">红球 (1-35, 可选任意数量)</label>
                 <div class="ball-selector-grid" id="dlt_red_selector">
                     {% for i in range(1, 36) %}
@@ -1029,6 +1046,210 @@
         document.getElementById('dlt_candidate_list').innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
         updateFunGameTip('dlt');
     });
+
+    // ========== 当期/下期号码高亮模式切换 ==========
+    // 存储每个彩票类型的显示模式: 'current' 或 'next'
+    const displayModes = {
+        ssq: 'current',
+        dlt: 'current'
+    };
+    // 存储每个彩票类型的下期开奖号码
+    const nextDrawPredictions = {
+        ssq: null,
+        dlt: null
+    };
+
+    /**
+     * 加载下期开奖号码
+     */
+    async function loadNextDrawPrediction(lotteryType) {
+        const offset = drawOffsets[lotteryType];
+        try {
+            const response = await fetch(`/api/prize_check/next_prediction?lottery_type=${lotteryType}&offset=${offset}`);
+            const data = await response.json();
+            if (data.error) {
+                console.error('Failed to load next prediction:', data.error);
+                nextDrawPredictions[lotteryType] = null;
+                return;
+            }
+            nextDrawPredictions[lotteryType] = data;
+        } catch (error) {
+            console.error('Error loading next prediction:', error);
+            nextDrawPredictions[lotteryType] = null;
+        }
+    }
+
+    /**
+     * 切换号码选择器的高亮显示模式
+     */
+    function switchDisplayMode(lotteryType, mode) {
+        displayModes[lotteryType] = mode;
+        const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+        const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+
+        if (mode === 'current') {
+            // 先清除所有橙色高亮
+            redSelector.querySelectorAll('.ball.highlight-next-draw').forEach(ball => {
+                ball.classList.remove('highlight-next-draw');
+            });
+            blueSelector.querySelectorAll('.ball.highlight-next-draw').forEach(ball => {
+                ball.classList.remove('highlight-next-draw');
+            });
+            // 当期模式：用淡蓝色高亮显示当期开奖号码
+            // 重新加载最新开奖数据以恢复淡蓝色高亮
+            loadLatestDraw(lotteryType);
+        } else if (mode === 'next') {
+            // 下期模式：用淡橙色高亮显示下一期的实际开奖号码
+            const prediction = nextDrawPredictions[lotteryType];
+            if (!prediction) {
+                showNoNextDrawMessage(lotteryType);
+                return;
+            }
+
+            // 判断是否有下一期数据
+            // is_latest=true (offset=0, 最新一期) 或 has_next=false (最早一期, 无下一期) 时，没有下期号码可显示
+            if (prediction.is_latest || prediction.has_next === false) {
+                showNoNextDrawMessage(lotteryType);
+                return;
+            }
+
+            // 隐藏"没有最新号码可以显示"提示
+            hideNoNextDrawMessage(lotteryType);
+
+            const nextRedSet = new Set(prediction.next_red_balls);
+            const nextBlueSet = new Set(prediction.next_blue_balls);
+
+            // 清除所有淡蓝色高亮，应用淡橙色高亮
+            const redBalls = redSelector.querySelectorAll('.ball');
+            redBalls.forEach(ball => {
+                // 移除淡蓝色高亮
+                ball.classList.remove('highlight-draw');
+                const value = parseInt(ball.dataset.ballValue);
+                // 如果该号码是下期开奖号码，添加淡橙色高亮
+                if (nextRedSet.has(value)) {
+                    ball.classList.add('highlight-next-draw');
+                    ball.dataset.isDrawBall = 'true';
+                } else {
+                    ball.classList.remove('highlight-next-draw');
+                    ball.dataset.isDrawBall = 'false';
+                }
+            });
+
+            const blueBalls = blueSelector.querySelectorAll('.ball');
+            blueBalls.forEach(ball => {
+                ball.classList.remove('highlight-draw');
+                const value = parseInt(ball.dataset.ballValue);
+                if (nextBlueSet.has(value)) {
+                    ball.classList.add('highlight-next-draw');
+                    ball.dataset.isDrawBall = 'true';
+                } else {
+                    ball.classList.remove('highlight-next-draw');
+                    ball.dataset.isDrawBall = 'false';
+                }
+            });
+        }
+    }
+
+    /**
+     * 显示"没有最新中奖号码可以显示"的提示
+     */
+    function showNoNextDrawMessage(lotteryType) {
+        const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+        const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+
+        // 清除所有高亮
+        redSelector.querySelectorAll('.ball').forEach(ball => {
+            ball.classList.remove('highlight-draw', 'highlight-next-draw');
+            ball.dataset.isDrawBall = 'false';
+        });
+        blueSelector.querySelectorAll('.ball').forEach(ball => {
+            ball.classList.remove('highlight-draw', 'highlight-next-draw');
+            ball.dataset.isDrawBall = 'false';
+        });
+
+        // 显示提示信息（在号码选择器上方显示）
+        const cardBody = document.querySelector(`#${lotteryType}_check_section .card-body`);
+        let existingTip = document.getElementById(`${lotteryType}_no_next_tip`);
+        if (!existingTip) {
+            existingTip = document.createElement('div');
+            existingTip.id = `${lotteryType}_no_next_tip`;
+            existingTip.className = 'alert alert-warning py-1 mb-2';
+            existingTip.style.fontSize = '0.9em';
+            // 插入到按钮组后面
+            const btnGroup = document.getElementById(`${lotteryType}_highlight_current`).closest('.btn-group');
+            btnGroup.parentNode.insertBefore(existingTip, btnGroup.nextSibling);
+        }
+        existingTip.textContent = '没有最新中奖号码可以显示';
+        existingTip.style.display = 'block';
+    }
+
+    /**
+     * 隐藏"没有最新号码可以显示"的提示
+     */
+    function hideNoNextDrawMessage(lotteryType) {
+        const tip = document.getElementById(`${lotteryType}_no_next_tip`);
+        if (tip) {
+            tip.style.display = 'none';
+        }
+    }
+
+    /**
+     * 设置高亮模式切换 radio button 事件
+     */
+    function setupHighlightModeToggle(lotteryType) {
+        const currentRadio = document.getElementById(`${lotteryType}_highlight_current`);
+        const nextRadio = document.getElementById(`${lotteryType}_highlight_next`);
+
+        currentRadio.addEventListener('change', function() {
+            if (this.checked && displayModes[lotteryType] !== 'current') {
+                hideNoNextDrawMessage(lotteryType);
+                switchDisplayMode(lotteryType, 'current');
+            }
+        });
+
+        nextRadio.addEventListener('change', function() {
+            if (this.checked && displayModes[lotteryType] !== 'next') {
+                // 加载下期预测数据
+                loadNextDrawPrediction(lotteryType).then(() => {
+                    switchDisplayMode(lotteryType, 'next');
+                });
+            }
+        });
+    }
+
+    // 设置高亮模式切换 radio button
+    setupHighlightModeToggle('ssq');
+    setupHighlightModeToggle('dlt');
+
+    // 重写 loadLatestDraw 以在切换期数时保持当前显示模式
+    const originalLoadLatestDraw = loadLatestDraw;
+    loadLatestDraw = async function(lotteryType) {
+        await originalLoadLatestDraw(lotteryType);
+        // 加载完成后，根据当前显示模式重新应用高亮
+        if (displayModes[lotteryType] === 'next') {
+            // 重新加载下期预测数据并切换显示
+            await loadNextDrawPrediction(lotteryType);
+            switchDisplayMode(lotteryType, 'next');
+        }
+    };
+
+    // 重写 updateSelectorOmissions 以在"下期"模式下不添加淡蓝色高亮
+    const originalUpdateSelectorOmissions = updateSelectorOmissions;
+    updateSelectorOmissions = function(lotteryType, allRedOmissions, allBlueOmissions, drawRedBalls, drawBlueBalls) {
+        // 先调用原始函数
+        originalUpdateSelectorOmissions(lotteryType, allRedOmissions, allBlueOmissions, drawRedBalls, drawBlueBalls);
+        // 如果当前是"下期"模式，移除所有淡蓝色高亮
+        if (displayModes[lotteryType] === 'next') {
+            const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+            const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+            redSelector.querySelectorAll('.ball.highlight-draw').forEach(ball => {
+                ball.classList.remove('highlight-draw');
+            });
+            blueSelector.querySelectorAll('.ball.highlight-draw').forEach(ball => {
+                ball.classList.remove('highlight-draw');
+            });
+        }
+    };
 
     // ========== 页面初始化 ==========
     // 加载最新开奖号码
