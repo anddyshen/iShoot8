@@ -128,8 +128,16 @@ def check_omission_rule_ssq(red_balls, red_omission, pattern="4+1+1"):
     h, w, c = len(hot), len(warm), len(cold)
     
     if pattern == "4+1+1":
-        # 热号3-5个，温号0-2个，冷号0-2个
-        if 3 <= h <= 5 and w <= 2 and c <= 2 and h + w + c == 6:
+        # 热号4个，温号1个，冷号1个（精确匹配，不允许偏差）
+        if h == 4 and w == 1 and c == 1:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "5+1+0":
+        # 热号5个，温号1个，冷号0个
+        if h == 5 and w == 1 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "5+0+1":
+        # 热号5个，温号0个，冷号1个
+        if h == 5 and w == 0 and c == 1:
             return True, f"热{h}温{w}冷{c}"
     elif pattern == "4+2+0":
         if h == 4 and w == 2 and c == 0:
@@ -491,7 +499,7 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
 
 
 def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, options):
-    """智能生成红球 - 使用纯随机生成，然后由验证函数过滤"""
+    """智能生成红球 - 根据遗漏规则加权随机生成，然后由验证函数过滤"""
     max_attempts = 2000
     
     # 检查是否选择了"无连号"选项
@@ -503,24 +511,143 @@ def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, op
             consecutive_options = [consecutive_options]
         no_consecutive_mode = 'no_consecutive' in consecutive_options
     
+    # 获取遗漏号原则选项，用于加权生成
+    omission_patterns = options.get('omission_pattern', None)
+    if isinstance(omission_patterns, str):
+        omission_patterns = [omission_patterns]
+    
+    # 计算每个号码的权重，基于遗漏值和选择的遗漏号原则
+    candidates = list(range(1, red_range + 1))
+    weights = []
+    
+    for b in candidates:
+        omission = red_omission.get(b, 0)
+        w = 1.0
+        
+        if omission_patterns and 'disabled' not in omission_patterns:
+            # 根据遗漏值分类
+            is_hot = omission <= 4
+            is_warm = 5 <= omission <= 9
+            is_cold = omission >= 10
+            
+            # 根据选择的模式调整权重
+            for pattern in omission_patterns:
+                if pattern == '4+1+1':
+                    # 热号4个，温号1个，冷号1个 - 热号权重最高以生成4个热号
+                    if is_hot: w = max(w, 3.0)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 2.0)
+                elif pattern == '4+2+0':
+                    if is_hot: w = max(w, 3.0)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '3+3+0':
+                    if is_hot: w = max(w, 2.0)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '3+2+1':
+                    if is_hot: w = max(w, 2.5)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '3+1+2':
+                    if is_hot: w = max(w, 2.5)
+                    elif is_warm: w = max(w, 1.5)
+                    elif is_cold: w = max(w, 2.0)
+                elif pattern == '2+3+1':
+                    if is_hot: w = max(w, 1.5)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '2+2+2':
+                    if is_hot: w = max(w, 2.0)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 2.0)
+                elif pattern == '2+4+0':
+                    if is_hot: w = max(w, 1.5)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '1+4+1':
+                    if is_hot: w = max(w, 1.0)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '1+5+0':
+                    if is_hot: w = max(w, 1.0)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '5+1+0':
+                    # 热号5个，温号1个，冷号0个
+                    if is_hot: w = max(w, 3.5)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '5+0+1':
+                    # 热号5个，温号0个，冷号1个
+                    if is_hot: w = max(w, 3.5)
+                    elif is_warm: w = max(w, 0.3)
+                    elif is_cold: w = max(w, 2.0)
+                # DLT patterns
+                elif pattern == '3+1+1':
+                    if is_hot: w = max(w, 3.0)
+                    elif is_warm: w = max(w, 1.5)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '4+1+0':
+                    if is_hot: w = max(w, 3.0)
+                    elif is_warm: w = max(w, 1.5)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '3+2+0':
+                    if is_hot: w = max(w, 2.5)
+                    elif is_warm: w = max(w, 2.5)
+                    elif is_cold: w = max(w, 0.3)
+                elif pattern == '2+2+1':
+                    if is_hot: w = max(w, 2.0)
+                    elif is_warm: w = max(w, 2.0)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '2+1+2':
+                    if is_hot: w = max(w, 2.0)
+                    elif is_warm: w = max(w, 1.5)
+                    elif is_cold: w = max(w, 2.0)
+                elif pattern == '1+3+1':
+                    if is_hot: w = max(w, 1.0)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 1.5)
+                elif pattern == '1+4+0':
+                    if is_hot: w = max(w, 1.0)
+                    elif is_warm: w = max(w, 3.0)
+                    elif is_cold: w = max(w, 0.3)
+        else:
+            # 没有选择遗漏号原则，使用默认权重（偏向热号）
+            if omission <= 4:
+                w = 2.0
+            elif omission <= 9:
+                w = 1.5
+            else:
+                w = 1.0
+        
+        weights.append(w)
+    
     for _ in range(max_attempts):
         try:
-            # 使用纯随机生成，不施加任何权重偏好
-            # 这样验证函数可以公平地检查所有规则
-            candidates = list(range(1, red_range + 1))
-            random.shuffle(candidates)
+            # 使用加权随机生成
+            temp_candidates = list(candidates)
+            temp_weights = list(weights)
             
             selected = set()
-            for b in candidates:
-                if len(selected) >= num_red:
+            while len(selected) < num_red:
+                if not temp_candidates:
                     break
+                total = sum(temp_weights)
+                probs = [w / total for w in temp_weights]
+                idx = random.choices(range(len(temp_candidates)), weights=probs, k=1)[0]
+                b = temp_candidates[idx]
                 
                 # 如果是无连号模式，检查是否会形成连号
                 if no_consecutive_mode and selected:
                     if any(abs(b - s) == 1 for s in selected):
+                        temp_candidates.pop(idx)
+                        temp_weights.pop(idx)
                         continue
                 
                 selected.add(b)
+                temp_candidates.pop(idx)
+                temp_weights.pop(idx)
             
             if len(selected) == num_red:
                 return sorted(list(selected))

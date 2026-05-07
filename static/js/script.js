@@ -1125,13 +1125,15 @@ function getSmartFilterOptions(lotteryType) {
             options.blue_omission = [blueValue];
         }
     } else if (lotteryType === 'dlt') {
-        const blueOeValues = getCheckedValues(`${lotteryType}_smart_blue_odd_even`);
-        if (blueOeValues.length > 0 && !isDisabled(`${lotteryType}_smart_blue_odd_even`)) {
-            options.blue_odd_even = blueOeValues;
+        // 后区奇偶（radio按钮，单值）
+        const blueOeValue = getRadioValue(`${lotteryType}_smart_blue_odd_even`);
+        if (blueOeValue && !isDisabled(`${lotteryType}_smart_blue_odd_even`)) {
+            options.blue_odd_even = [blueOeValue];
         }
-        const blueSizeValues = getCheckedValues(`${lotteryType}_smart_blue_size`);
-        if (blueSizeValues.length > 0 && !isDisabled(`${lotteryType}_smart_blue_size`)) {
-            options.blue_size = blueSizeValues;
+        // 后区大小（radio按钮，单值）
+        const blueSizeValue = getRadioValue(`${lotteryType}_smart_blue_size`);
+        if (blueSizeValue && !isDisabled(`${lotteryType}_smart_blue_size`)) {
+            options.blue_size = [blueSizeValue];
         }
         // 后区遗漏（radio按钮，单值）
         const dltBlueValue = getRadioValue(`${lotteryType}_smart_blue_omission`);

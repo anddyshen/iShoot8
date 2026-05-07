@@ -1199,9 +1199,12 @@ def api_smart_filter_check():
             last_result = ""
             for pattern in omission_patterns:
                 p, result = check_omission_rule_ssq(red_balls, red_omission, pattern)
-                if p: passed = True; break
+                if p: 
+                    passed = True
+                    last_result = result
+                    break
                 last_result = result
-            results['遗漏号原则'] = {'passed': passed, 'message': f'热温冷分布: {last_result}' if not passed else f'通过, 分布: {last_result}'}
+            results['遗漏号原则'] = {'passed': passed, 'message': f'通过, 分布: {last_result}' if passed else f'不符合, 实际分布: {last_result}'}
         else:
             from smart_filter_engine import check_omission_rule_dlt
             passed = False
@@ -1209,9 +1212,12 @@ def api_smart_filter_check():
             for pattern in omission_patterns:
                 converted = pattern.replace('+', ':')
                 p, result = check_omission_rule_dlt(red_balls, red_omission, converted)
-                if p: passed = True; break
+                if p: 
+                    passed = True
+                    last_result = result
+                    break
                 last_result = result
-            results['遗漏号原则'] = {'passed': passed, 'message': f'热温冷分布: {last_result}' if not passed else f'通过, 分布: {last_result}'}
+            results['遗漏号原则'] = {'passed': passed, 'message': f'通过, 分布: {last_result}' if passed else f'不符合, 实际分布: {last_result}'}
 
     # 奇偶比
     odd_even_options = options.get('odd_even', [])
