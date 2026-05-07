@@ -1177,6 +1177,7 @@ async function generateSmartFilterNumbers(lotteryType) {
                             <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
                             <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
                         </div>
+                        <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                         <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                         <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                     </div>`;
@@ -1222,8 +1223,68 @@ document.getElementById('clear_dlt_smart_numbers').addEventListener('click', () 
 document.getElementById('copy_all_ssq_smart_numbers').addEventListener('click', () => copyAllSmartFilterNumbers('ssq'));
 document.getElementById('copy_all_dlt_smart_numbers').addEventListener('click', () => copyAllSmartFilterNumbers('dlt'));
 
+// 检查智能筛选规则（对比当前选中的智能筛选选项）
+async function checkSmartFilterRules(lotteryType, redBallsStr, blueBallsStr) {
+    const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body');
+    modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+    const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
+    ruleCheckModal.show();
+
+    // 获取当前选中的智能筛选选项
+    const options = getSmartFilterOptions(lotteryType);
+    console.log(`Frontend: Checking smart filter rules for ${lotteryType}: Red=${redBallsStr}, Blue=${blueBallsStr}, Options:`, options);
+
+    try {
+        const response = await fetch('/api/prediction/smart_filter_check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lottery_type: lotteryType,
+                red_balls: redBallsStr,
+                blue_balls: blueBallsStr,
+                options: options
+            })
+        });
+        const data = await response.json();
+
+        console.log(`Frontend: Received smart filter check response for ${lotteryType}:`, data);
+
+        if (data.error) {
+            modalBody.innerHTML = `<p class="text-danger">智能筛选规则检查失败: ${data.error}</p>`;
+            return;
+        }
+
+        let html = '';
+        let allPassed = true;
+        for (const ruleKey in data) {
+            const ruleResult = data[ruleKey];
+            const statusClass = ruleResult.passed ? 'passed' : 'failed';
+            if (!ruleResult.passed) allPassed = false;
+            html += `<div class="rule-item ${statusClass}">
+                        <strong>${ruleKey}</strong> ${ruleResult.message}
+                    </div>`;
+        }
+        
+        // 添加总体结果
+        const overallClass = allPassed ? 'passed' : 'failed';
+        const overallText = allPassed ? '✅ 所有智能筛选规则均通过！' : '❌ 部分智能筛选规则未通过！';
+        html = `<div class="rule-item ${overallClass}" style="font-size: 1.1em; margin-bottom: 10px;">
+                    <strong>${overallText}</strong>
+                </div>` + html;
+        
+        modalBody.innerHTML = html;
+
+    } catch (error) {
+        console.error(`Frontend: Error checking smart filter rules for ${lotteryType}:`, error);
+        modalBody.innerHTML = '<p class="text-danger">智能筛选规则检查失败。</p>';
+    }
+}
+
 // 智能筛选输出区域的事件委托（用于检查规则和复制按钮）
 document.getElementById('ssq_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('check-smart-filter-rules-btn')) {
+        checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('check-generated-rules-btn')) {
         checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
@@ -1233,6 +1294,9 @@ document.getElementById('ssq_smart_filter_output').addEventListener('click', fun
 });
 
 document.getElementById('dlt_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('check-smart-filter-rules-btn')) {
+        checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('check-generated-rules-btn')) {
         checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }

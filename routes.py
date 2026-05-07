@@ -1096,6 +1096,264 @@ def get_draw_data_for_clipboard():
 
 # ==================== 智能筛选 API ====================
 
+@bp.route('/api/prediction/smart_filter_check', methods=['POST'])
+def api_smart_filter_check():
+    """
+    检查指定号码组合是否符合当前智能筛选规则
+    返回每个规则的检查结果
+    """
+    data = request.get_json()
+    lottery_type = data.get('lottery_type')
+    red_balls_str = data.get('red_balls')
+    blue_balls_str = data.get('blue_balls')
+    options = data.get('options', {})
+
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    if not red_balls_str or not blue_balls_str:
+        return jsonify({'error': 'Missing red_balls or blue_balls data'}), 400
+
+    try:
+        red_balls = format_lottery_numbers(red_balls_str)
+        blue_balls = format_lottery_numbers(blue_balls_str)
+    except Exception as e:
+        return jsonify({'error': f'Invalid lottery balls format: {e}'}), 400
+
+    # 获取遗漏数据用于检查
+    from smart_filter_engine import get_omission_data, get_latest_draws_for_smart
+    all_draws = get_latest_draws_for_smart(lottery_type, 200)
+    red_omission, blue_omission = get_omission_data(lottery_type, all_draws)
+
+    # 使用 smart_filter_engine 中的验证函数
+    from smart_filter_engine import _validate_all_rules
+
+    # 构建结果
+    results = {}
+    
+    # 分区原则
+    zone_ratios = options.get('zone_ratio', [])
+    if isinstance(zone_ratios, str):
+        zone_ratios = [zone_ratios]
+    if zone_ratios and 'disabled' not in zone_ratios:
+        if lottery_type == 'ssq':
+            from smart_filter_engine import check_ssq_red_zone_distribution
+            passed = False
+            actual = ""
+            for ratio in zone_ratios:
+                p, a = check_ssq_red_zone_distribution(red_balls, ratio)
+                if p: passed = True; actual = a; break
+                actual = a
+            results['分区原则'] = {'passed': passed, 'message': f'实际分布: {actual}, 期望: {",".join(zone_ratios)}' if not passed else f'通过, 分布: {actual}'}
+        else:
+            from smart_filter_engine import check_dlt_front_zone_distribution
+            passed, actual = check_dlt_front_zone_distribution(red_balls, zone_ratios)
+            results['分区原则'] = {'passed': passed, 'message': f'实际分布: {actual}, 期望: {",".join(zone_ratios)}' if not passed else f'通过, 分布: {actual}'}
+
+    # 连号原则
+    consecutive_options = options.get('consecutive', [])
+    if isinstance(consecutive_options, str):
+        consecutive_options = [consecutive_options]
+    if consecutive_options and 'disabled' not in consecutive_options:
+        from smart_filter_engine import check_consecutive_balls
+        passed = False
+        for opt in consecutive_options:
+            if opt == 'no_consecutive':
+                p, count, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
+                if p and count == 0: passed = True; break
+            elif opt == '1_group_2':
+                p, count, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
+                if p and count <= 1: passed = True; break
+        results['连号原则'] = {'passed': passed, 'message': '通过' if passed else '不符合连号规则'}
+
+    # 与上期重号
+    repeat_options = options.get('repeat', [])
+    if isinstance(repeat_options, str):
+        repeat_options = [repeat_options]
+    if repeat_options and 'disabled' not in repeat_options:
+        from smart_filter_engine import check_repeat_with_previous
+        passed = False
+        for opt in repeat_options:
+            if opt == '1':
+                p, count = check_repeat_with_previous(red_balls, lottery_type, min_repeat=1, max_repeat=1)
+                if p: passed = True; break
+            elif opt == '2':
+                p, count = check_repeat_with_previous(red_balls, lottery_type, min_repeat=2, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '1_or_2':
+                p, count = check_repeat_with_previous(red_balls, lottery_type, min_repeat=1, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '0':
+                p, count = check_repeat_with_previous(red_balls, lottery_type, min_repeat=0, max_repeat=0)
+                if p: passed = True; break
+        results['与上期重号'] = {'passed': passed, 'message': f'重号数量: {count}' if not passed else f'通过, 重号: {count}'}
+
+    # 遗漏号原则
+    omission_patterns = options.get('omission_pattern', [])
+    if isinstance(omission_patterns, str):
+        omission_patterns = [omission_patterns]
+    if omission_patterns and 'disabled' not in omission_patterns:
+        if lottery_type == 'ssq':
+            from smart_filter_engine import check_omission_rule_ssq
+            passed = False
+            last_result = ""
+            for pattern in omission_patterns:
+                p, result = check_omission_rule_ssq(red_balls, red_omission, pattern)
+                if p: passed = True; break
+                last_result = result
+            results['遗漏号原则'] = {'passed': passed, 'message': f'热温冷分布: {last_result}' if not passed else f'通过, 分布: {last_result}'}
+        else:
+            from smart_filter_engine import check_omission_rule_dlt
+            passed = False
+            last_result = ""
+            for pattern in omission_patterns:
+                converted = pattern.replace('+', ':')
+                p, result = check_omission_rule_dlt(red_balls, red_omission, converted)
+                if p: passed = True; break
+                last_result = result
+            results['遗漏号原则'] = {'passed': passed, 'message': f'热温冷分布: {last_result}' if not passed else f'通过, 分布: {last_result}'}
+
+    # 奇偶比
+    odd_even_options = options.get('odd_even', [])
+    if isinstance(odd_even_options, str):
+        odd_even_options = odd_even_options.split(',')
+    if odd_even_options and 'disabled' not in odd_even_options:
+        from smart_filter_engine import check_odd_even_ratio
+        passed, actual = check_odd_even_ratio(red_balls, odd_even_options)
+        results['奇偶比'] = {'passed': passed, 'message': f'实际: {actual}, 期望: {",".join(odd_even_options)}' if not passed else f'通过, 奇偶比: {actual}'}
+
+    # 最大跨度
+    span_options = options.get('span', [])
+    if isinstance(span_options, str):
+        span_options = [span_options]
+    if span_options and 'disabled' not in span_options:
+        from smart_filter_engine import check_max_span
+        passed = False
+        actual_span = 0
+        for opt in span_options:
+            min_span = int(opt.replace('gt_', ''))
+            p, s = check_max_span(red_balls, min_span=min_span)
+            actual_span = s
+            if p: passed = True; break
+        results['最大跨度'] = {'passed': passed, 'message': f'实际跨度: {actual_span}' if not passed else f'通过, 跨度: {actual_span}'}
+
+    # 号码总和
+    sum_options = options.get('sum', [])
+    if isinstance(sum_options, str):
+        sum_options = [sum_options]
+    if sum_options and 'disabled' not in sum_options:
+        from smart_filter_engine import check_sum_range
+        passed = False
+        actual_sum = 0
+        for opt in sum_options:
+            parts = opt.split('-')
+            min_s, max_s = int(parts[0]), int(parts[1])
+            p, s = check_sum_range(red_balls, min_s, max_s)
+            actual_sum = s
+            if p: passed = True; break
+        results['号码总和'] = {'passed': passed, 'message': f'实际和值: {actual_sum}' if not passed else f'通过, 和值: {actual_sum}'}
+
+    # 同尾号
+    tail_options = options.get('same_tail', [])
+    if isinstance(tail_options, str):
+        tail_options = [tail_options]
+    if tail_options and 'disabled' not in tail_options:
+        from smart_filter_engine import check_same_tail
+        passed = False
+        for opt in tail_options:
+            p, count = check_same_tail(red_balls, opt)
+            if p: passed = True; break
+        results['同尾号'] = {'passed': passed, 'message': '通过' if passed else '不符合同尾号规则'}
+
+    # 邻号(边号)
+    neighbor_options = options.get('neighbor', [])
+    if isinstance(neighbor_options, str):
+        neighbor_options = [neighbor_options]
+    if neighbor_options and 'disabled' not in neighbor_options:
+        from smart_filter_engine import check_neighbor_numbers
+        passed = False
+        for opt in neighbor_options:
+            min_g = 1 if opt == 'at_least_1' else 2
+            p, count = check_neighbor_numbers(red_balls, lottery_type, min_g)
+            if p: passed = True; break
+        results['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else '不符合邻号规则'}
+
+    # AC值
+    ac_options = options.get('ac_value', [])
+    if isinstance(ac_options, str):
+        ac_options = [ac_options]
+    if ac_options and 'disabled' not in ac_options:
+        from smart_filter_engine import check_ac_value
+        passed = False
+        for opt in ac_options:
+            if opt == '6_or_7':
+                p, ac = check_ac_value(red_balls, [6, 7])
+            elif opt == '5_to_8':
+                p, ac = check_ac_value(red_balls, [5, 6, 7, 8])
+            elif opt == '4_to_9':
+                p, ac = check_ac_value(red_balls, [4, 5, 6, 7, 8, 9])
+            elif opt == '5_or_6':
+                p, ac = check_ac_value(red_balls, [5, 6])
+            elif opt == '4_to_7':
+                p, ac = check_ac_value(red_balls, [4, 5, 6, 7])
+            else:
+                continue
+            if p: passed = True; break
+        results['AC值'] = {'passed': passed, 'message': f'实际AC值: {ac}' if not passed else f'通过, AC值: {ac}'}
+
+    # 蓝球相关
+    if lottery_type == 'ssq':
+        blue_options = options.get('blue_omission', [])
+        if isinstance(blue_options, str):
+            blue_options = [blue_options]
+        if blue_options and 'disabled' not in blue_options:
+            from smart_filter_engine import check_ssq_blue_omission
+            passed = False
+            for opt in blue_options:
+                if opt == '6-12_primary':
+                    p, msg = check_ssq_blue_omission(blue_balls, blue_omission, (6, 12), 0.15, (0, 2))
+                elif opt == '5-15_primary':
+                    p, msg = check_ssq_blue_omission(blue_balls, blue_omission, (5, 15), 0.15, (0, 2))
+                else:
+                    continue
+                if p: passed = True; break
+            results['蓝球遗漏'] = {'passed': passed, 'message': '通过' if passed else '不符合蓝球遗漏规则'}
+    else:
+        blue_omission_options = options.get('blue_omission', [])
+        if isinstance(blue_omission_options, str):
+            blue_omission_options = [blue_omission_options]
+        if blue_omission_options and 'disabled' not in blue_omission_options:
+            from smart_filter_engine import check_dlt_blue_omission
+            passed, msg = check_dlt_blue_omission(blue_balls, blue_omission)
+            results['后区遗漏'] = {'passed': passed, 'message': '通过' if passed else f'不符合: {msg}'}
+
+        blue_oe_options = options.get('blue_odd_even', [])
+        if isinstance(blue_oe_options, str):
+            blue_oe_options = [blue_oe_options]
+        if blue_oe_options and 'disabled' not in blue_oe_options:
+            from smart_filter_engine import check_dlt_blue_odd_even
+            passed = False
+            for opt in blue_oe_options:
+                target = '1:1' if opt == '1_odd_1_even' else ('2:0' if opt == '2_odd' else '0:2')
+                p, actual = check_dlt_blue_odd_even(blue_balls, target)
+                if p: passed = True; break
+            results['后区奇偶'] = {'passed': passed, 'message': '通过' if passed else '不符合后区奇偶规则'}
+
+        blue_size_options = options.get('blue_size', [])
+        if isinstance(blue_size_options, str):
+            blue_size_options = [blue_size_options]
+        if blue_size_options and 'disabled' not in blue_size_options:
+            from smart_filter_engine import check_dlt_blue_size
+            passed = False
+            for opt in blue_size_options:
+                target = '1:1' if opt == '1_big_1_small' else ('2:0' if opt == '2_big' else '0:2')
+                p, actual = check_dlt_blue_size(blue_balls, target)
+                if p: passed = True; break
+            results['后区大小'] = {'passed': passed, 'message': '通过' if passed else '不符合后区大小规则'}
+
+    return jsonify(results)
+
+
 @bp.route('/api/prediction/smart_filter', methods=['POST'])
 def api_smart_filter():
     """
