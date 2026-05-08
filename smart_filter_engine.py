@@ -231,11 +231,12 @@ def check_same_tail(red_balls, mode="exactly_1"):
         return True, count
 
 
-def check_neighbor_numbers(red_balls, lottery_type, min_groups=1):
+def check_neighbor_numbers(red_balls, lottery_type, min_groups=1, mode='at_least'):
     """
     检查邻号（边号）- 与上期开奖号码相差±1的号码
     邻号定义：上期开奖号码的相邻号码（+1或-1）
     例如上期有05，则04、06是邻号
+    mode: 'at_least' - 至少min_groups个, 'exactly' - 正好min_groups个
     """
     latest = get_latest_draw(lottery_type)
     if not latest:
@@ -250,7 +251,10 @@ def check_neighbor_numbers(red_balls, lottery_type, min_groups=1):
             neighbor_count += 1
             neighbor_balls.append(b)
     
-    return neighbor_count >= min_groups, neighbor_count
+    if mode == 'at_least':
+        return neighbor_count >= min_groups, neighbor_count
+    else:
+        return neighbor_count == min_groups, neighbor_count
 
 
 def check_ac_value(red_balls, target_values):
@@ -283,6 +287,12 @@ def check_ssq_blue_omission(blue_balls, blue_omission, mode="6-12_primary"):
         secondary_range = None
     elif mode == "0-4_primary":
         primary_range = (0, 4)
+        secondary_range = None
+    elif mode == "0":
+        primary_range = (0, 0)
+        secondary_range = None
+    elif mode == "0-5_primary":
+        primary_range = (0, 5)
         secondary_range = None
     else:
         return True, ""
@@ -869,10 +879,13 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         passed = False
         for opt in neighbor_options:
             if opt == 'at_least_1':
-                p, _ = check_neighbor_numbers(red_balls, 'ssq', 1)
+                p, _ = check_neighbor_numbers(red_balls, 'ssq', 1, 'at_least')
                 if p: passed = True; break
             elif opt == 'at_least_2':
-                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2)
+                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2, 'at_least')
+                if p: passed = True; break
+            elif opt == 'exactly_2':
+                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2, 'exactly')
                 if p: passed = True; break
         if not passed:
             return False
@@ -886,6 +899,12 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         for opt in ac_options:
             if opt == '6_or_7':
                 p, _ = check_ac_value(red_balls, [6, 7])
+                if p: passed = True; break
+            elif opt == '8':
+                p, _ = check_ac_value(red_balls, [8])
+                if p: passed = True; break
+            elif opt == '6':
+                p, _ = check_ac_value(red_balls, [6])
                 if p: passed = True; break
             elif opt == '5_to_8':
                 p, _ = check_ac_value(red_balls, [5, 6, 7, 8])
@@ -903,7 +922,7 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
     if 'disabled' not in blue_options and 'any' not in blue_options:
         passed = False
         for opt in blue_options:
-            if opt in ['6-12_primary', '5-15_primary', '0-2_primary', '0-4_primary']:
+            if opt in ['6-12_primary', '5-15_primary', '0-2_primary', '0-4_primary', '0', '0-5_primary']:
                 p, _ = check_ssq_blue_omission(blue_balls, blue_omission, mode=opt)
                 if p: passed = True; break
         if not passed:
@@ -1037,6 +1056,9 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             elif opt == 'gt_20':
                 p, span = check_max_span(front_balls, min_span=20)
                 if p: passed = True; break
+            elif opt == 'gt_19':
+                p, span = check_max_span(front_balls, min_span=19)
+                if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: span. balls={front_balls}, span={span}, options={span_options}")
             return False
@@ -1104,10 +1126,13 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
         passed = False
         for opt in neighbor_options:
             if opt == 'at_least_1':
-                p, count = check_neighbor_numbers(front_balls, 'dlt', 1)
+                p, count = check_neighbor_numbers(front_balls, 'dlt', 1, 'at_least')
+                if p: passed = True; break
+            elif opt == 'exactly_1':
+                p, count = check_neighbor_numbers(front_balls, 'dlt', 1, 'exactly')
                 if p: passed = True; break
             elif opt == 'at_least_2':
-                p, count = check_neighbor_numbers(front_balls, 'dlt', 2)
+                p, count = check_neighbor_numbers(front_balls, 'dlt', 2, 'at_least')
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: neighbor. balls={front_balls}, count={count}, options={neighbor_options}")
@@ -1121,7 +1146,10 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
     if 'disabled' not in ac_options:
         passed = False
         for opt in ac_options:
-            if opt == '5_or_6':
+            if opt == '5':
+                p, ac = check_ac_value(front_balls, [5])
+                if p: passed = True; break
+            elif opt == '5_or_6':
                 p, ac = check_ac_value(front_balls, [5, 6])
                 if p: passed = True; break
             elif opt == '4_to_7':
