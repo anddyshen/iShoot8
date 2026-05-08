@@ -133,6 +133,59 @@ class TrendProbabilities(db.Model):
         return f"<TrendProbabilities {self.lottery_type}-{self.lookback_period}-{self.trend_metric}-{self.metric_value}>"
 
 
+class SmartFilterStats(db.Model):
+    """
+    智能筛选规则统计表
+    记录每期开奖号码的智能筛选规则实际值，并统计各值出现的频率（取前3名）
+    """
+    __tablename__ = 'smart_filter_stats'
+
+    id = db.Column(db.Integer, primary_key=True)
+    lottery_type = db.Column(db.String(10), nullable=False)  # 'ssq' 或 'dlt'
+    issue = db.Column(db.String(10), nullable=False)  # 期号
+    draw_date = db.Column(db.Date, nullable=False)  # 开奖日期
+    rule_name = db.Column(db.String(50), nullable=False)  # 规则名称，如 'zone_ratio', 'odd_even', 'sum' 等
+    rule_value = db.Column(db.String(100), nullable=False)  # 该期该规则的实际值，如 '2:2:2', '3:3', '102' 等
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 记录创建时间
+
+    __table_args__ = (
+        db.Index('idx_smart_filter_stats_lottery_issue', 'lottery_type', 'issue'),
+        db.Index('idx_smart_filter_stats_rule', 'lottery_type', 'rule_name', 'rule_value'),
+    )
+
+    def __repr__(self):
+        return f"<SmartFilterStats {self.lottery_type}-{self.issue}-{self.rule_name}={self.rule_value}>"
+
+
+class SmartFilterStatsRanking(db.Model):
+    """
+    智能筛选规则值排名表
+    记录每个规则各值出现的频率，取前3名，按频率降序排列
+    每次更新数据时重新计算
+    按不同回溯期数分别统计（50, 100, 200, 500, 0=全部）
+    """
+    __tablename__ = 'smart_filter_stats_ranking'
+
+    id = db.Column(db.Integer, primary_key=True)
+    lottery_type = db.Column(db.String(10), nullable=False)  # 'ssq' 或 'dlt'
+    lookback_period = db.Column(db.Integer, nullable=False, default=100)  # 回溯期数: 50, 100, 200, 500, 0(全部)
+    rule_name = db.Column(db.String(50), nullable=False)  # 规则名称
+    rule_value = db.Column(db.String(100), nullable=False)  # 规则值
+    frequency = db.Column(db.Integer, nullable=False)  # 出现次数
+    percentage = db.Column(db.Float, nullable=False, default=0.0)  # 出现百分比 (0-100)
+    rank = db.Column(db.Integer, nullable=False)  # 排名 (1, 2, 3)
+    total_draws = db.Column(db.Integer, nullable=False)  # 统计的总期数
+    last_updated_issue = db.Column(db.String(10), nullable=False)  # 最后更新时的期号
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
+
+    __table_args__ = (
+        db.UniqueConstraint('lottery_type', 'lookback_period', 'rule_name', 'rank', name='_smart_filter_ranking_uc'),
+    )
+
+    def __repr__(self):
+        return f"<SmartFilterStatsRanking {self.lottery_type}-{self.lookback_period}-{self.rule_name} #{self.rank}: {self.rule_value}({self.frequency}/{self.percentage:.1f}%)>"
+
+
 # 首次运行生成随机管理路由前缀
 def generate_admin_route_prefix():
     chars = string.ascii_lowercase + string.digits

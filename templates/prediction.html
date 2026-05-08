@@ -264,20 +264,30 @@
         </div>
         <div class="collapse" id="ssq_smart_section_collapse">
             <div class="card-body">
-                <div class="card mb-3 border-info">
-                    <div class="card-header smart-filter-settings-header">
-                        <i class="bi bi-funnel"></i> 智能筛选规则设置
-                        <button class="btn btn-sm btn-light float-end" type="button" data-bs-toggle="collapse" data-bs-target="#ssq_smart_filter_collapse" aria-expanded="false">
-                            展开/收起
-                        </button>
-                    </div>
-                    <div class="collapse" id="ssq_smart_filter_collapse">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">分区原则 (1-11:12-22:23-33)</label>
-                                        <div class="smart-filter-checkbox-group" id="ssq_smart_zone_ratio">
+                    <div class="card mb-3 border-info">
+                        <div class="card-header smart-filter-settings-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-funnel"></i> 智能筛选规则设置</span>
+                            <div class="d-flex align-items-center">
+                                <label class="me-2 mb-0" style="font-size:0.85rem;font-weight:normal;">统计期数:</label>
+                                <select class="form-select form-select-sm" id="ssq_smart_filter_period" style="width:auto;" onchange="loadSmartFilterStats('ssq', this.value)">
+                                    <option value="50">50期</option>
+                                    <option value="100" selected>100期</option>
+                                    <option value="200">200期</option>
+                                    <option value="500">500期</option>
+                                    <option value="0">全部</option>
+                                </select>
+                                <button class="btn btn-sm btn-light ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#ssq_smart_filter_collapse" aria-expanded="false">
+                                    展开/收起
+                                </button>
+                            </div>
+                        </div>
+                        <div class="collapse" id="ssq_smart_filter_collapse">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">分区原则 (1-11:12-22:23-33) <span class="smart-filter-stats" id="ssq_stats_zone_ratio"></span></label>
+                                            <div class="smart-filter-checkbox-group" id="ssq_smart_zone_ratio">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="checkbox" value="2:2:2" id="ssq_zone_2_2_2" checked>
                                                 <label class="form-check-label" for="ssq_zone_2_2_2">2:2:2</label>
@@ -313,7 +323,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">连号原则</label>
+                                        <label class="form-label">连号原则 <span class="smart-filter-stats" id="ssq_stats_consecutive"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_consecutive">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_consecutive" value="1_group_2" id="ssq_cons_1_group_2" checked>
@@ -330,7 +340,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">与上期重号</label>
+                                        <label class="form-label">与上期重号 <span class="smart-filter-stats" id="ssq_stats_repeat"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_repeat">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_repeat" value="1_or_2" id="ssq_repeat_1_2" checked>
@@ -355,7 +365,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">遗漏号原则</label>
+                                        <label class="form-label">遗漏号原则 <span class="smart-filter-stats" id="ssq_stats_omission_pattern"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_omission_pattern">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="checkbox" value="4+1+1" id="ssq_omit_4_1_1" checked>
@@ -412,7 +422,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">奇偶比</label>
+                                        <label class="form-label">奇偶比 <span class="smart-filter-stats" id="ssq_stats_odd_even"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_odd_even">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="checkbox" value="3:3" id="ssq_oe_3_3" checked>
@@ -443,7 +453,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label class="form-label">最大跨度</label>
+                                        <label class="form-label">最大跨度 <span class="smart-filter-stats" id="ssq_stats_span"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_span">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_26" id="ssq_span_26" checked>
@@ -464,7 +474,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">号码总和</label>
+                                        <label class="form-label">号码总和 <span class="smart-filter-stats" id="ssq_stats_sum"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_sum">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_sum" value="70-129" id="ssq_sum_70_129" checked>
@@ -489,7 +499,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">同尾号</label>
+                                        <label class="form-label">同尾号 <span class="smart-filter-stats" id="ssq_stats_same_tail"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_same_tail">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_same_tail" value="exactly_1" id="ssq_tail_exactly_1" checked>
@@ -510,7 +520,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">邻号(边号)</label>
+                                        <label class="form-label">邻号(边号) <span class="smart-filter-stats" id="ssq_stats_neighbor"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_neighbor">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_neighbor" value="at_least_1" id="ssq_neighbor_1" checked>
@@ -527,7 +537,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">AC值</label>
+                                        <label class="form-label">AC值 <span class="smart-filter-stats" id="ssq_stats_ac_value"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_ac_value">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_ac_value" value="6_or_7" id="ssq_ac_6_7" checked>
@@ -548,7 +558,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">蓝球遗漏</label>
+                                        <label class="form-label">蓝球遗漏 <span class="smart-filter-stats" id="ssq_stats_blue_omission"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_blue_omission">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="6-12_primary" id="ssq_blue_6_12" checked>
@@ -760,18 +770,28 @@
         <div class="collapse" id="dlt_smart_section_collapse">
             <div class="card-body">
                 <div class="card mb-3 border-info">
-                    <div class="card-header smart-filter-settings-header">
-                        <i class="bi bi-funnel"></i> 智能筛选规则设置
-                        <button class="btn btn-sm btn-light float-end" type="button" data-bs-toggle="collapse" data-bs-target="#dlt_smart_filter_collapse" aria-expanded="false">
-                            展开/收起
-                        </button>
+                    <div class="card-header smart-filter-settings-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-funnel"></i> 智能筛选规则设置</span>
+                        <div class="d-flex align-items-center">
+                            <label class="me-2 mb-0" style="font-size:0.85rem;font-weight:normal;">统计期数:</label>
+                            <select class="form-select form-select-sm" id="dlt_smart_filter_period" style="width:auto;" onchange="loadSmartFilterStats('dlt', this.value)">
+                                <option value="50">50期</option>
+                                <option value="100" selected>100期</option>
+                                <option value="200">200期</option>
+                                <option value="500">500期</option>
+                                <option value="0">全部</option>
+                            </select>
+                            <button class="btn btn-sm btn-light ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#dlt_smart_filter_collapse" aria-expanded="false">
+                                展开/收起
+                            </button>
+                        </div>
                     </div>
                     <div class="collapse" id="dlt_smart_filter_collapse">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label class="form-label">分区原则 (1-12:13-24:25-35)</label>
+                                        <label class="form-label">分区原则 (1-12:13-24:25-35) <span class="smart-filter-stats" id="dlt_stats_zone_ratio"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_zone_ratio">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="checkbox" value="2:2:1" id="dlt_zone_2_2_1" checked>
@@ -808,7 +828,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">连号原则</label>
+                                        <label class="form-label">连号原则 <span class="smart-filter-stats" id="dlt_stats_consecutive"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_consecutive">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_consecutive" value="1_group_2" id="dlt_cons_1_group_2" checked>
@@ -825,7 +845,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">与上期重号</label>
+                                        <label class="form-label">与上期重号 <span class="smart-filter-stats" id="dlt_stats_repeat"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_repeat">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_repeat" value="1_or_2" id="dlt_repeat_1_2" checked>
@@ -850,7 +870,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">遗漏号原则</label>
+                                        <label class="form-label">遗漏号原则 <span class="smart-filter-stats" id="dlt_stats_omission_pattern"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_omission_pattern">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="checkbox" value="3+1+1" id="dlt_omit_3_1_1" checked>
@@ -887,7 +907,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">奇偶比</label>
+                                        <label class="form-label">奇偶比 <span class="smart-filter-stats" id="dlt_stats_odd_even"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_odd_even">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="checkbox" value="3:2" id="dlt_oe_3_2" checked>
@@ -914,7 +934,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label class="form-label">最大跨度</label>
+                                        <label class="form-label">最大跨度 <span class="smart-filter-stats" id="dlt_stats_span"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_span">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_28" id="dlt_span_28" checked>
@@ -935,7 +955,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">号码总和</label>
+                                        <label class="form-label">号码总和 <span class="smart-filter-stats" id="dlt_stats_sum"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_sum">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_sum" value="80-140" id="dlt_sum_80_140" checked>
@@ -956,7 +976,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">同尾号</label>
+                                        <label class="form-label">同尾号 <span class="smart-filter-stats" id="dlt_stats_same_tail"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_same_tail">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_same_tail" value="exactly_1" id="dlt_tail_exactly_1" checked>
@@ -977,7 +997,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">邻号(边号)</label>
+                                        <label class="form-label">邻号(边号) <span class="smart-filter-stats" id="dlt_stats_neighbor"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_neighbor">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_neighbor" value="at_least_1" id="dlt_neighbor_1" checked>
@@ -994,7 +1014,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">AC值</label>
+                                        <label class="form-label">AC值 <span class="smart-filter-stats" id="dlt_stats_ac_value"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_ac_value">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_ac_value" value="5_or_6" id="dlt_ac_5_6" checked>
@@ -1011,7 +1031,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">后区奇偶</label>
+                                        <label class="form-label">后区奇偶 <span class="smart-filter-stats" id="dlt_stats_blue_odd_even"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_blue_odd_even">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_odd_even" value="1_odd_1_even" id="dlt_blue_oe_1_1" checked>
@@ -1032,7 +1052,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">后区大小</label>
+                                        <label class="form-label">后区大小 <span class="smart-filter-stats" id="dlt_stats_blue_size"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_blue_size">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_size" value="1_big_1_small" id="dlt_blue_size_1_1" checked>
@@ -1053,7 +1073,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">后区遗漏</label>
+                                        <label class="form-label">后区遗漏 <span class="smart-filter-stats" id="dlt_stats_blue_omission"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_blue_omission">
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_omission" value="5-15_primary" id="dlt_blue_omission_5_15" checked>

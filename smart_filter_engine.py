@@ -1228,3 +1228,291 @@ def _calculate_stats(lottery_type, red_balls, blue_balls):
         'blue_span': blue_span,
         'blue_size_ratio': f"{blue_small}:{blue_large}"
     }
+
+
+# ==================== 智能筛选规则统计 ====================
+
+def calculate_smart_filter_stats_for_draw(lottery_type, draw):
+    """
+    计算一期开奖号码的所有智能筛选规则实际值
+    返回规则名 -> 规则值的字典
+    """
+    red_balls = draw.get_red_balls_list()
+    blue_balls = draw.get_blue_balls_list()
+    
+    stats = {}
+    
+    # 获取遗漏数据（用于遗漏号原则计算）
+    all_draws = get_latest_draws_for_smart(lottery_type, 200)
+    red_omission, blue_omission = get_omission_data(lottery_type, all_draws)
+    
+    if lottery_type == 'ssq':
+        # 1. 分区原则
+        _, zone_actual = check_ssq_red_zone_distribution(red_balls, "2:2:2")
+        stats['zone_ratio'] = zone_actual
+        
+        # 2. 连号
+        _, count, groups = check_consecutive_balls(red_balls, max_groups=3, max_length=3)
+        if count == 0:
+            stats['consecutive'] = '无连号'
+        else:
+            group_strs = []
+            for g in groups:
+                group_strs.append(f"{len(g)}连号")
+            stats['consecutive'] = f"{count}组{' + '.join(group_strs)}"
+        
+        # 3. 与上期重号
+        _, repeat_count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=6)
+        stats['repeat'] = str(repeat_count)
+        
+        # 4. 遗漏号原则 - 计算热温冷分布
+        hot = sum(1 for b in red_balls if red_omission.get(b, 0) <= 4)
+        warm = sum(1 for b in red_balls if 5 <= red_omission.get(b, 0) <= 9)
+        cold = sum(1 for b in red_balls if red_omission.get(b, 0) >= 10)
+        stats['omission_pattern'] = f"热{hot}温{warm}冷{cold}"
+        
+        # 5. 奇偶比
+        _, oe_actual = check_odd_even_ratio(red_balls, ["3:3"])
+        stats['odd_even'] = oe_actual
+        
+        # 6. 最大跨度
+        _, span = check_max_span(red_balls, min_span=1)
+        stats['span'] = str(span)
+        
+        # 7. 号码总和
+        _, total_sum = check_sum_range(red_balls, 1, 200)
+        stats['sum'] = str(total_sum)
+        
+        # 8. 同尾号
+        _, tail_count = check_same_tail(red_balls, 'at_least_1')
+        stats['same_tail'] = str(tail_count)
+        
+        # 9. 邻号
+        _, neighbor_count = check_neighbor_numbers(red_balls, 'ssq', 0)
+        stats['neighbor'] = str(neighbor_count)
+        
+        # 10. AC值
+        _, ac = check_ac_value(red_balls, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        stats['ac_value'] = str(ac)
+        
+        # 11. 蓝球遗漏 - 原始遗漏期数
+        stats['blue_omission'] = str(blue_omission.get(blue_balls[0], 0))
+        
+    else:  # dlt
+        # 1. 分区原则
+        _, zone_actual = check_dlt_front_zone_distribution(red_balls, ["2:2:1"])
+        stats['zone_ratio'] = zone_actual
+        
+        # 2. 连号
+        _, count, groups = check_consecutive_balls(red_balls, max_groups=3, max_length=3)
+        if count == 0:
+            stats['consecutive'] = '无连号'
+        else:
+            group_strs = []
+            for g in groups:
+                group_strs.append(f"{len(g)}连号")
+            stats['consecutive'] = f"{count}组{' + '.join(group_strs)}"
+        
+        # 3. 与上期重号
+        _, repeat_count = check_repeat_with_previous(red_balls, 'dlt', min_repeat=0, max_repeat=5)
+        stats['repeat'] = str(repeat_count)
+        
+        # 4. 遗漏号原则
+        hot = sum(1 for b in red_balls if red_omission.get(b, 0) <= 4)
+        warm = sum(1 for b in red_balls if 5 <= red_omission.get(b, 0) <= 9)
+        cold = sum(1 for b in red_balls if red_omission.get(b, 0) >= 10)
+        stats['omission_pattern'] = f"热{hot}温{warm}冷{cold}"
+        
+        # 5. 奇偶比
+        _, oe_actual = check_odd_even_ratio(red_balls, ["3:2"])
+        stats['odd_even'] = oe_actual
+        
+        # 6. 最大跨度
+        _, span = check_max_span(red_balls, min_span=1)
+        stats['span'] = str(span)
+        
+        # 7. 号码总和
+        _, total_sum = check_sum_range(red_balls, 1, 200)
+        stats['sum'] = str(total_sum)
+        
+        # 8. 同尾号
+        _, tail_count = check_same_tail(red_balls, 'at_least_1')
+        stats['same_tail'] = str(tail_count)
+        
+        # 9. 邻号
+        _, neighbor_count = check_neighbor_numbers(red_balls, 'dlt', 0)
+        stats['neighbor'] = str(neighbor_count)
+        
+        # 10. AC值
+        _, ac = check_ac_value(red_balls, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        stats['ac_value'] = str(ac)
+        
+        # 11. 后区遗漏 - 每个球的原始遗漏期数，用逗号分隔
+        omissions = [str(blue_omission.get(b, 0)) for b in blue_balls]
+        stats['blue_omission'] = ','.join(omissions)
+        
+        # 12. 后区奇偶
+        _, blue_oe = check_dlt_blue_odd_even(blue_balls, '1:1')
+        stats['blue_odd_even'] = blue_oe
+        
+        # 13. 后区大小
+        _, blue_size = check_dlt_blue_size(blue_balls, '1:1')
+        stats['blue_size'] = blue_size
+    
+    return stats
+
+
+def update_smart_filter_stats(lottery_type, app=None):
+    """
+    更新智能筛选规则统计数据
+    1. 遍历所有开奖数据，计算每期的规则值
+    2. 更新 SmartFilterStats 表
+    3. 重新计算排名并更新 SmartFilterStatsRanking 表（按不同回溯期数分别统计）
+    """
+    from models import SmartFilterStats, SmartFilterStatsRanking, SSQDraw, DLTDraw, db
+    from collections import Counter
+    from datetime import datetime
+    
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    
+    if app:
+        app.logger.info(f"开始更新 {lottery_type} 智能筛选规则统计...")
+    
+    # 获取所有开奖数据（按期号升序，从旧到新）
+    all_draws = model_class.query.order_by(model_class.issue.asc()).all()
+    
+    if not all_draws:
+        if app:
+            app.logger.warning(f"没有 {lottery_type} 开奖数据，跳过统计更新")
+        return
+    
+    if app:
+        app.logger.info(f"共 {len(all_draws)} 期 {lottery_type} 数据需要处理")
+    
+    # 逐期计算并保存
+    new_count = 0
+    for draw in all_draws:
+        # 检查是否已存在该期的统计
+        existing = SmartFilterStats.query.filter_by(
+            lottery_type=lottery_type,
+            issue=draw.issue
+        ).first()
+        if existing:
+            continue  # 已存在，跳过
+        
+        # 计算该期的所有规则值
+        stats = calculate_smart_filter_stats_for_draw(lottery_type, draw)
+        
+        # 保存到数据库
+        for rule_name, rule_value in stats.items():
+            record = SmartFilterStats(
+                lottery_type=lottery_type,
+                issue=draw.issue,
+                draw_date=draw.draw_date,
+                rule_name=rule_name,
+                rule_value=str(rule_value)
+            )
+            db.session.add(record)
+            new_count += 1
+    
+    db.session.commit()
+    
+    if app:
+        app.logger.info(f"新增 {new_count} 条 {lottery_type} 智能筛选规则统计记录")
+    
+    # 重新计算排名（按不同回溯期数）
+    _update_smart_filter_rankings(lottery_type, app)
+    
+    if app:
+        app.logger.info(f"{lottery_type} 智能筛选规则统计更新完成")
+
+
+def _update_smart_filter_rankings(lottery_type, app=None):
+    """
+    重新计算指定彩票类型的智能筛选规则排名（前3名）
+    按不同回溯期数分别统计：50, 100, 200, 500, 0(全部)
+    包含出现次数和百分比
+    """
+    from models import SmartFilterStats, SmartFilterStatsRanking, SSQDraw, DLTDraw, db
+    from collections import Counter
+    
+    # 定义要统计的回溯期数
+    lookback_periods = [50, 100, 200, 500, 0]  # 0 表示全部
+    
+    # 获取所有规则名称
+    rule_names = db.session.query(SmartFilterStats.rule_name).filter_by(
+        lottery_type=lottery_type
+    ).distinct().all()
+    rule_names = [r[0] for r in rule_names]
+    
+    # 获取所有期号（按降序排列，最新的在前）
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    all_issues = db.session.query(SmartFilterStats.issue).filter_by(
+        lottery_type=lottery_type
+    ).distinct().order_by(SmartFilterStats.issue.desc()).all()
+    all_issues = [r[0] for r in all_issues]
+    
+    latest_issue = all_issues[0] if all_issues else ""
+    
+    if app:
+        app.logger.info(f"重新计算 {lottery_type} 排名，共 {len(rule_names)} 个规则，{len(all_issues)} 期数据")
+    
+    # 删除旧排名
+    SmartFilterStatsRanking.query.filter_by(lottery_type=lottery_type).delete()
+    db.session.commit()
+    
+    # 为每个回溯期数计算排名
+    for lookback in lookback_periods:
+        # 确定要统计的期号范围
+        if lookback == 0:
+            # 全部期数
+            target_issues = all_issues
+        else:
+            target_issues = all_issues[:lookback]
+        
+        if not target_issues:
+            continue
+        
+        total_draws = len(target_issues)
+        
+        if app:
+            app.logger.info(f"  计算 {lottery_type} 回溯{lookback}期排名（{total_draws}期数据）")
+        
+        # 为每个规则计算排名
+        for rule_name in rule_names:
+            # 获取该规则在目标期号范围内的所有值
+            records = SmartFilterStats.query.filter(
+                SmartFilterStats.lottery_type == lottery_type,
+                SmartFilterStats.rule_name == rule_name,
+                SmartFilterStats.issue.in_(target_issues)
+            ).all()
+            
+            if not records:
+                continue
+            
+            # 统计各值出现频率
+            value_counts = Counter(r.rule_value for r in records)
+            
+            # 按频率降序排列，取前3名
+            top_3 = value_counts.most_common(3)
+            
+            # 保存排名
+            for rank, (value, freq) in enumerate(top_3, 1):
+                percentage = round((freq / total_draws) * 100, 1) if total_draws > 0 else 0.0
+                ranking = SmartFilterStatsRanking(
+                    lottery_type=lottery_type,
+                    lookback_period=lookback,
+                    rule_name=rule_name,
+                    rule_value=value,
+                    frequency=freq,
+                    percentage=percentage,
+                    rank=rank,
+                    total_draws=total_draws,
+                    last_updated_issue=latest_issue
+                )
+                db.session.add(ranking)
+    
+    db.session.commit()
+    
+    if app:
+        app.logger.info(f"{lottery_type} 排名更新完成（共 {len(lookback_periods)} 个回溯期数）")

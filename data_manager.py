@@ -179,6 +179,16 @@ def update_latest_draws(app): # <--- 修改这里，接收 app 参数
             app.logger.info("触发大乐透趋势数据预计算...")
             calculate_all_trend_data(app, 'dlt')
 
+        # 数据更新完成后，触发智能筛选规则统计更新
+        if new_ssq_count > 0:
+            app.logger.info("触发双色球智能筛选规则统计更新...")
+            from smart_filter_engine import update_smart_filter_stats
+            update_smart_filter_stats('ssq', app)
+        if new_dlt_count > 0:
+            app.logger.info("触发大乐透智能筛选规则统计更新...")
+            from smart_filter_engine import update_smart_filter_stats
+            update_smart_filter_stats('dlt', app)
+
         return new_ssq_count, new_dlt_count
 
 def get_latest_draws(model, count=1):

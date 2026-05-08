@@ -927,6 +927,10 @@ function updateFilterStatsDisplay(lotteryType, statsData) {
 document.addEventListener('DOMContentLoaded', function() {
     // Ensure the correct tab is active on load
     document.getElementById('ssq_prediction_tab').click(); // This will also trigger loadOmittedBalls('ssq') and loadActiveRules('ssq', 'ssq_active_rules_display')
+    
+    // Load smart filter stats for both lottery types
+    loadSmartFilterStats('ssq', 100);
+    loadSmartFilterStats('dlt', 100);
 });
 document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-random-btn')) {
@@ -1320,6 +1324,49 @@ document.getElementById('dlt_smart_filter_output').addEventListener('click', fun
         copyToClipboard(e.target.dataset.copyText);
     }
 });
+
+// ==================== 智能筛选规则统计显示 ====================
+
+// 加载智能筛选规则统计（前3名频率）
+async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
+    const ruleNames = [
+        'zone_ratio', 'consecutive', 'repeat', 'omission_pattern',
+        'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value',
+        'blue_omission', 'blue_odd_even', 'blue_size'
+    ];
+    
+    try {
+        const response = await fetch(`/api/prediction/smart_filter_stats?lottery_type=${lotteryType}&lookback_period=${lookbackPeriod}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error(`Error loading smart filter stats for ${lotteryType}:`, data.error);
+            return;
+        }
+        
+        // 更新每个规则的统计显示
+        ruleNames.forEach(function(ruleName) {
+            const statsSpan = document.getElementById(`${lotteryType}_stats_${ruleName}`);
+            if (!statsSpan) return;
+            
+            if (data[ruleName] && data[ruleName].length > 0) {
+                const topValues = data[ruleName];
+                let html = '<span class="stats-badge">';
+                topValues.forEach(function(item, index) {
+                    if (index > 0) html += ' | ';
+                    html += `<span class="stats-rank-${item.rank}">#${item.rank} ${item.rule_value} (${item.percentage}%)</span>`;
+                });
+                html += '</span>';
+                statsSpan.innerHTML = html;
+            } else {
+                statsSpan.innerHTML = '';
+            }
+        });
+        
+    } catch (error) {
+        console.error(`Error loading smart filter stats for ${lotteryType}:`, error);
+    }
+}
 
 // ==================== 智能筛选复选框互斥逻辑 ====================
 document.addEventListener('DOMContentLoaded', function() {

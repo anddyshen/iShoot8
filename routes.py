@@ -18,7 +18,7 @@ from prediction_engine import (
     generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls, # 导入新的规则检查函数
     get_draw_and_matched_omitted_balls_for_offset # 导入新的函数
 )
-from smart_filter_engine import generate_smart_filtered_numbers # 导入智能筛选引擎
+from smart_filter_engine import generate_smart_filtered_numbers, update_smart_filter_stats # 导入智能筛选引擎
 
 bp = Blueprint('routes', __name__)
 
@@ -1358,6 +1358,41 @@ def api_smart_filter_check():
             results['后区大小'] = {'passed': passed, 'message': '通过' if passed else '不符合后区大小规则'}
 
     return jsonify(results)
+
+
+@bp.route('/api/prediction/smart_filter_stats', methods=['GET'])
+def api_smart_filter_stats():
+    """
+    获取智能筛选规则统计排名数据
+    返回指定彩票类型和回溯期数的规则排名（前3名，含次数和百分比）
+    """
+    from models import SmartFilterStatsRanking
+    
+    lottery_type = request.args.get('lottery_type', 'ssq')
+    lookback_period = request.args.get('lookback_period', '100', type=int)
+    
+    if lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid lottery_type'}), 400
+    
+    # 获取该彩票类型和回溯期数的所有排名数据
+    rankings = SmartFilterStatsRanking.query.filter_by(
+        lottery_type=lottery_type,
+        lookback_period=lookback_period
+    ).order_by(SmartFilterStatsRanking.rule_name, SmartFilterStatsRanking.rank).all()
+    
+    # 按规则名称分组，返回前端期望的格式
+    result = {}
+    for r in rankings:
+        if r.rule_name not in result:
+            result[r.rule_name] = []
+        result[r.rule_name].append({
+            'rank': r.rank,
+            'rule_value': r.rule_value,
+            'frequency': r.frequency,
+            'percentage': r.percentage
+        })
+    
+    return jsonify(result)
 
 
 @bp.route('/api/prediction/smart_filter', methods=['POST'])
