@@ -931,6 +931,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load smart filter stats for both lottery types
     loadSmartFilterStats('ssq', 100);
     loadSmartFilterStats('dlt', 100);
+    
+    // Load the new blue ball selectors for both lottery types
+    loadBlueBallSelectors('ssq');
+    loadBlueBallSelectors('dlt');
 });
 document.getElementById('dlt_random_numbers_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-random-btn')) {
@@ -1029,6 +1033,115 @@ document.getElementById('dlt_complex_prediction_output').addEventListener('click
 
 // ==================== 智能筛选功能 ====================
 
+// 加载蓝球/后区遗漏统计和号码选择器
+async function loadBlueBallSelectors(lotteryType) {
+    const container = document.getElementById(`${lotteryType}_blue_ball_selectors`);
+    const top5Container = document.getElementById(`${lotteryType}_top_5_blue_omissions`);
+    const recentFreqContainer = document.getElementById(`${lotteryType}_recent_10_freq`);
+    if (!container) return;
+    
+    try {
+        const response = await fetch(`/api/prediction/latest_blue_stats?lottery_type=${lotteryType}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            container.innerHTML = `<span class="text-danger">加载失败: ${data.error}</span>`;
+            return;
+        }
+        
+        // 显示遗漏最多的前5个（只显示数字，小号字体，不加粗）
+        if (top5Container && data.top_5_omissions) {
+            let top5Html = '';
+            data.top_5_omissions.forEach(function(item) {
+                var omissionNum = item.omission || 0;
+                top5Html += `<span style="font-size:0.78rem;">${String(item.ball).padStart(2, '0')}</span><span style="color:#dc3545;font-size:0.65rem;">(${omissionNum})</span> `;
+            });
+            top5Container.innerHTML = top5Html;
+        }
+        
+        // 显示最近10期出现最多的号码（小号字体，不加粗）
+        if (recentFreqContainer && data.recent_10_freq && data.recent_10_freq.length > 0) {
+            let freqHtml = '';
+            data.recent_10_freq.forEach(function(item) {
+                freqHtml += `<span style="font-size:0.78rem;">${String(item.ball).padStart(2, '0')}</span><span style="color:#28a745;font-size:0.65rem;">(${item.count}次)</span> `;
+            });
+            recentFreqContainer.innerHTML = freqHtml;
+        } else if (recentFreqContainer) {
+            recentFreqContainer.innerHTML = '<span class="text-muted" style="font-size:0.78rem;">暂无数据</span>';
+        }
+        
+        // 生成所有蓝球的选择器
+        const blueRange = lotteryType === 'ssq' ? 16 : 12;
+        let html = '';
+        
+        const lastBlueProps = data.last_blue_properties || {};
+        const recommendedBalls = data.recommended_balls || [];
+        const allBlueOmisions = data.all_blue_omissions || [];
+        
+        // 构建遗漏字典
+        const omissionDict = {};
+        allBlueOmisions.forEach(function(item) {
+            omissionDict[item.ball] = item.omission;
+        });
+        
+        // 确定默认选择：使用推荐的号码（基于上期相反属性）
+        const defaultSelections = recommendedBalls.length > 0 ? recommendedBalls : [];
+        
+        // 生成蓝色号码的列布局
+        const colsPerRow = lotteryType === 'ssq' ? 8 : 6;
+        
+        for (let i = 0; i < blueRange; i += colsPerRow) {
+            html += '<div class="col-12"><div class="d-flex flex-wrap">';
+            for (let j = 0; j < colsPerRow && (i + j) < blueRange; j++) {
+                const ballNum = i + j + 1;
+                const omission = omissionDict[ballNum] || 0;
+                const isDefaultChecked = defaultSelections.includes(ballNum);
+                html += `
+                    <div class="form-check form-check-inline" style="margin-right:2px;margin-bottom:2px;">
+                        <input class="form-check-input smart-filter-${lotteryType} blue-ball-checkbox" 
+                               type="checkbox" 
+                               value="${ballNum}" 
+                               id="${lotteryType}_blue_ball_${ballNum}"
+                               ${isDefaultChecked ? 'checked' : ''}>
+                        <label class="form-check-label" for="${lotteryType}_blue_ball_${ballNum}" style="font-size:0.85rem;">
+                            <span class="lottery-ball ball-blue" style="width:22px;height:22px;font-size:0.7rem;line-height:22px;display:inline-block;padding:0;margin:0;">${String(ballNum).padStart(2, '0')}</span>
+                            <span style="color:#17a2b8;font-size:0.7rem;">(${omission})</span>
+                        </label>
+                    </div>
+                `;
+            }
+            html += '</div></div>';
+        }
+        
+        container.innerHTML = html;
+        
+        // 添加互斥逻辑：单独选择时取消"不限制"，选中"不限制"时取消所有选择
+        const disabledCheckbox = document.getElementById(`${lotteryType}_blue_disabled`);
+        if (disabledCheckbox) {
+            disabledCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    container.querySelectorAll('.blue-ball-checkbox').forEach(function(cb) {
+                        cb.checked = false;
+                    });
+                }
+            });
+            
+            // 使用事件代理监听容器上的change事件（因为checkbox是动态生成的）
+            container.addEventListener('change', function(e) {
+                if (e.target.classList.contains('blue-ball-checkbox') && e.target.checked) {
+                    disabledCheckbox.checked = false;
+                }
+            });
+        }
+        
+        console.log(`Frontend: Successfully loaded blue ball selectors for ${lotteryType}.`);
+        
+    } catch (error) {
+        console.error(`Frontend: Error loading blue ball selectors for ${lotteryType}:`, error);
+        container.innerHTML = '<span class="text-danger">加载失败。</span>';
+    }
+}
+
 // 收集智能筛选选项（从checkbox组中获取选中的值）
 function getSmartFilterOptions(lotteryType) {
     const options = {};
@@ -1121,14 +1234,26 @@ function getSmartFilterOptions(lotteryType) {
         options.ac_value = [acValue];
     }
     
-    // 蓝球相关（不同彩票类型不同）
-    if (lotteryType === 'ssq') {
-        // 蓝球遗漏（radio按钮，单值）
-        const blueValue = getRadioValue(`${lotteryType}_smart_blue_omission`);
-        if (blueValue && !isDisabled(`${lotteryType}_smart_blue_omission`)) {
-            options.blue_omission = [blueValue];
+    // 蓝球选择 - 新的实现方式：收集所有选中的蓝色号码作为数组
+    const blueDisabled = document.getElementById(`${lotteryType}_blue_disabled`);
+    const blueDisabledChecked = blueDisabled ? blueDisabled.checked : false;
+    
+    if (!blueDisabledChecked) {
+        // 如果"不限制"未被选中，收集所有选中的蓝球号码
+        const selectedBlueBalls = [];
+        const selectorContainers = document.querySelectorAll(`#${lotteryType}_blue_ball_selectors .blue-ball-checkbox:checked`);
+        selectorContainers.forEach(function(cb) {
+            selectedBlueBalls.push(parseInt(cb.value));
+        });
+        if (selectedBlueBalls.length > 0) {
+            options.blue_selected_balls = selectedBlueBalls;
         }
-    } else if (lotteryType === 'dlt') {
+    }
+    
+    // 保持向后兼容：对于旧的后端，如果只选择了蓝球，使用blue_omission模式
+    // 但如果选择了具体的蓝球号码，不再设置blue_omission
+    // 蓝球相关（不同彩票类型不同）- 保留原有规则（奇偶、大小等不受影响）
+    if (lotteryType === 'dlt') {
         // 后区奇偶（radio按钮，单值）
         const blueOeValue = getRadioValue(`${lotteryType}_smart_blue_odd_even`);
         if (blueOeValue && !isDisabled(`${lotteryType}_smart_blue_odd_even`)) {
@@ -1138,11 +1263,6 @@ function getSmartFilterOptions(lotteryType) {
         const blueSizeValue = getRadioValue(`${lotteryType}_smart_blue_size`);
         if (blueSizeValue && !isDisabled(`${lotteryType}_smart_blue_size`)) {
             options.blue_size = [blueSizeValue];
-        }
-        // 后区遗漏（radio按钮，单值）
-        const dltBlueValue = getRadioValue(`${lotteryType}_smart_blue_omission`);
-        if (dltBlueValue && !isDisabled(`${lotteryType}_smart_blue_omission`)) {
-            options.blue_omission = [dltBlueValue];
         }
     }
     
@@ -1348,6 +1468,20 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
         ruleNames.forEach(function(ruleName) {
             const statsSpan = document.getElementById(`${lotteryType}_stats_${ruleName}`);
             if (!statsSpan) return;
+            
+            // 蓝球遗漏 - 从 SmartFilterStatsRanking 获取排名数据，显示前5个
+            if (ruleName === 'blue_omission' && data[ruleName] && data[ruleName].length > 0) {
+                var blockColors = ['#dc3545', '#fd7e14', '#28a745', '#17a2b8', '#6f42c1'];
+                let html = '<span class="stats-badge">出现次数：';
+                data[ruleName].forEach(function(item, index) {
+                    if (index > 0) html += ' | ';
+                    var ballStr = String(item.rule_value).padStart(2, '0');
+                    html += `<span style="color:${blockColors[index]}">#${index + 1} ${ballStr}<span style="color:${blockColors[index]};font-size:0.75rem;opacity:0.75;">(${item.frequency}期,${item.percentage}%)</span></span>`;
+                });
+                html += '</span>';
+                statsSpan.innerHTML = html;
+                return;
+            }
             
             if (data[ruleName] && data[ruleName].length > 0) {
                 const topValues = data[ruleName];

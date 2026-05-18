@@ -1094,6 +1094,136 @@ def get_draw_data_for_clipboard():
     return jsonify({'data': '\n'.join(formatted_data)}) # Use \n for newlines in JSON string
 
 
+# ==================== 蓝球/后区遗漏 API ====================
+
+@bp.route('/api/prediction/latest_blue_stats', methods=['GET'])
+def api_latest_blue_stats():
+    """
+    获取上期蓝球/后区的属性信息，用于计算默认值
+    返回：
+    - last_blue_balls: 上期蓝球号码列表
+    - last_blue_properties: 每个蓝球的属性（大小、奇偶）
+    - recommended_balls: 根据相反属性推荐的号码列表
+    - all_blue_omissions: 所有蓝球的遗漏数据
+    - top_5_omissions: 遗漏最多的前5个蓝球
+    - recent_10_freq: 最近10期出现最多的号码及其次数（SSQ返回前2，DLT返回前3）
+    """
+    lottery_type = request.args.get('lottery_type')
+    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid or missing lottery_type'}), 400
+
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    blue_range = 16 if lottery_type == 'ssq' else 12
+    
+    # 获取上期开奖数据
+    latest_draw = model_class.query.order_by(model_class.issue.desc()).first()
+    if not latest_draw:
+        # 如果没有历史数据，返回空推荐
+        all_blue_omissions = [{'ball': b, 'omission': 0} for b in range(1, blue_range + 1)]
+        return jsonify({
+            'last_blue_balls': [],
+            'last_blue_properties': {},
+            'recommended_balls': [],
+            'all_blue_omissions': all_blue_omissions,
+            'top_5_omissions': all_blue_omissions[:5],
+            'last_issue': None,
+            'has_data': False,
+            'recent_10_freq': []
+        })
+    
+    last_blue_balls = latest_draw.get_blue_balls_list()
+    
+    # 计算所有蓝球的遗漏数据
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    from utils import calculate_frequency_and_omissions_for_balls
+    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(all_draws, blue_range, 'blue')
+    blue_omissions = {item['ball']: item['current_omission'] for item in blue_stats_list}
+    
+    # 构建所有蓝球的遗漏数据（含频率百分比）
+    all_blue_omissions = []
+    for b in range(1, blue_range + 1):
+        # 从 blue_stats_list 中查找对应的频率百分比
+        freq_pct = 0
+        for item in blue_stats_list:
+            if item['ball'] == b:
+                freq_pct = item['frequency_percentage']
+                break
+        all_blue_omissions.append({
+            'ball': b,
+            'omission': blue_omissions.get(b, 0),
+            'frequency_percentage': freq_pct
+        })
+    
+    # 遗漏最多的前5个（已包含 frequency_percentage）
+    sorted_by_omission = sorted(all_blue_omissions, key=lambda x: x['omission'], reverse=True)
+    top_5_omissions = sorted_by_omission[:5]
+    
+    # === 计算最近10期的蓝球出现频率 ===
+    recent_10_draws = model_class.query.order_by(model_class.issue.desc()).limit(10).all()
+    from collections import Counter
+    recent_blue_counter = Counter()
+    for d in recent_10_draws:
+        recent_blue_counter.update(d.get_blue_balls_list())
+    # SSQ取前2，DLT取前3，按照出现次数降序排列
+    recent_10_freq = []
+    # 确定要取的数量
+    top_n = 2 if lottery_type == 'ssq' else 3
+    for ball_num, count in recent_blue_counter.most_common(top_n):
+        recent_10_freq.append({
+            'ball': ball_num,
+            'count': count
+        })
+    # 按号码排序以便显示
+    recent_10_freq.sort(key=lambda x: x['ball'])
+    
+    # 判断每个蓝球的大小和奇偶属性
+    def get_blue_properties(ball_num, lt):
+        props = {}
+        props['odd'] = ball_num % 2 == 1
+        props['even'] = ball_num % 2 == 0
+        if lt == 'ssq':
+            props['big'] = ball_num >= 9
+            props['small'] = ball_num <= 8
+        else:  # dlt
+            props['big'] = ball_num >= 7
+            props['small'] = ball_num <= 6
+        return props
+    
+    # 上期蓝球的属性
+    last_blue_properties = {}
+    for b in last_blue_balls:
+        last_blue_properties[str(b)] = get_blue_properties(b, lottery_type)
+    
+    # 计算推荐号码（与上期蓝球相反属性）
+    # 取上期第一个蓝球的相反属性（对于双色球只有一个蓝球）
+    recommended_balls = []
+    if last_blue_balls:
+        first_ball = last_blue_balls[0]
+        props = get_blue_properties(first_ball, lottery_type)
+        # 相反的属性：大->小, 小->大, 奇->偶, 偶->奇
+        opp_big = props['small']  # 上期小则推荐大
+        opp_small = props['big']  # 上期大则推荐小
+        opp_odd = props['even']   # 上期偶则推荐奇
+        opp_even = props['odd']   # 上期奇则推荐偶
+        
+        for b in range(1, blue_range + 1):
+            b_props = get_blue_properties(b, lottery_type)
+            if ((opp_big and b_props['big']) or (opp_small and b_props['small'])) and \
+               ((opp_odd and b_props['odd']) or (opp_even and b_props['even'])):
+                recommended_balls.append(b)
+    
+    return jsonify({
+        'last_blue_balls': last_blue_balls,
+        'last_blue_properties': last_blue_properties,
+        'recommended_balls': recommended_balls,
+        'all_blue_omissions': all_blue_omissions,
+        'top_5_omissions': top_5_omissions,
+        'recent_10_freq': recent_10_freq,
+        'last_issue': latest_draw.issue,
+        'has_data': True
+    })
+
+
 # ==================== 智能筛选 API ====================
 
 @bp.route('/api/prediction/smart_filter_check', methods=['POST'])

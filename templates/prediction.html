@@ -570,30 +570,25 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">蓝球遗漏 <span class="smart-filter-stats" id="ssq_stats_blue_omission"></span></label>
-                                        <div class="smart-filter-checkbox-group" id="ssq_smart_blue_omission">
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="6-12_primary" id="ssq_blue_6_12">
-                                                <label class="form-check-label" for="ssq_blue_6_12">优先遗漏6-12期</label>
+                                        <label class="form-label">蓝球选择范围 <span class="smart-filter-stats" id="ssq_stats_blue_omission"></span></label>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <span class="me-2" style="font-size:0.85rem;color:#6c757d;">遗漏最多的前5个:</span>
+                                            <div id="ssq_top_5_blue_omissions" class="d-flex gap-1">
+                                                <span class="text-muted" style="font-size:0.85rem;">加载中...</span>
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="5-15_primary" id="ssq_blue_5_15">
-                                                <label class="form-check-label" for="ssq_blue_5_15">优先遗漏5-15期</label>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <span class="me-2" style="font-size:0.85rem;color:#6c757d;">最近10期最热:</span>
+                                            <div id="ssq_recent_10_freq" class="d-flex gap-1">
+                                                <span class="text-muted" style="font-size:0.85rem;">加载中...</span>
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="0" id="ssq_blue_0" checked>
-                                                <label class="form-check-label" for="ssq_blue_0">遗漏0期</label>
+                                        </div>
+                                        <div class="smart-filter-checkbox-group" id="ssq_smart_blue_omission" style="border: 1px solid #cce5ff; background: #f0f8ff;">
+                                            <div class="row g-1" id="ssq_blue_ball_selectors">
+                                                <!-- 16个蓝球选择器将由JavaScript动态生成 -->
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="0-2_primary" id="ssq_blue_0_2">
-                                                <label class="form-check-label" for="ssq_blue_0_2">优先遗漏0-2期</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_blue_omission" value="0-5_primary" id="ssq_blue_0_5">
-                                                <label class="form-check-label" for="ssq_blue_0_5">优先遗漏0-5期</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_blue_omission" value="disabled" id="ssq_blue_disabled">
+                                            <div class="form-check form-check-inline mt-1">
+                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_blue_disabled">
                                                 <label class="form-check-label text-muted" for="ssq_blue_disabled">不限制</label>
                                             </div>
                                         </div>
@@ -1101,23 +1096,26 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">后区遗漏 <span class="smart-filter-stats" id="dlt_stats_blue_omission"></span></label>
-                                        <div class="smart-filter-checkbox-group" id="dlt_smart_blue_omission">
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_omission" value="5-15_primary" id="dlt_blue_omission_5_15" checked>
-                                                <label class="form-check-label" for="dlt_blue_omission_5_15">优先遗漏5-15期</label>
+                                        <label class="form-label">蓝球选择范围 <span class="smart-filter-stats" id="dlt_stats_blue_omission"></span></label>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <span class="me-2" style="font-size:0.85rem;color:#6c757d;">遗漏最多的前5个:</span>
+                                            <div id="dlt_top_5_blue_omissions" class="d-flex gap-1">
+                                                <span class="text-muted" style="font-size:0.85rem;">加载中...</span>
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_omission" value="0-2_primary" id="dlt_blue_omission_0_2">
-                                                <label class="form-check-label" for="dlt_blue_omission_0_2">优先遗漏0-2期</label>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <span class="me-2" style="font-size:0.85rem;color:#6c757d;">最近10期最热:</span>
+                                            <div id="dlt_recent_10_freq" class="d-flex gap-1">
+                                                <span class="text-muted" style="font-size:0.85rem;">加载中...</span>
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_blue_omission" value="0-4_primary" id="dlt_blue_omission_0_4">
-                                                <label class="form-check-label" for="dlt_blue_omission_0_4">优先遗漏0-4期</label>
+                                        </div>
+                                        <div class="smart-filter-checkbox-group" id="dlt_smart_blue_omission" style="border: 1px solid #cce5ff; background: #f0f8ff;">
+                                            <div class="row g-1" id="dlt_blue_ball_selectors">
+                                                <!-- 12个后区号码选择器将由JavaScript动态生成 -->
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_blue_omission" value="disabled" id="dlt_blue_omission_disabled">
-                                                <label class="form-check-label text-muted" for="dlt_blue_omission_disabled">不限制</label>
+                                            <div class="form-check form-check-inline mt-1">
+                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_blue_disabled">
+                                                <label class="form-check-label text-muted" for="dlt_blue_disabled">不限制</label>
                                             </div>
                                         </div>
                                     </div>

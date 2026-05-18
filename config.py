@@ -7,7 +7,7 @@ __version__ = "1.5.0" # 更新版本号
 
 # 网站基本信息
 SITE_NAME = "iShoot"
-SITE_URL = "ishoot.fm787.uk"
+SITE_URL = "ishoot.cc"
 PER_BET_PRICE = 2 # 每注号码价格
 
 # 数据源URL

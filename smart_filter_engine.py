@@ -668,8 +668,35 @@ def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, op
 
 
 def _generate_blue_balls_smart(lottery_type, num_blue, blue_range, blue_omission, options):
-    """智能生成蓝球"""
+    """智能生成蓝球 - 支持 blue_selected_balls 选项"""
     max_attempts = 100
+    
+    # 如果指定了 blue_selected_balls，优先从选中的号码中生成
+    blue_selected = options.get('blue_selected_balls', None)
+    if blue_selected and 'disabled' not in options.get('blue_omission', []) and not options.get('blue_disabled', False):
+        # 从指定选择中生成
+        available_balls = [b for b in blue_selected if 1 <= b <= blue_range]
+        if len(available_balls) >= num_blue:
+            # 选中的号码足够，全部从选中号码中生成
+            for _ in range(max_attempts):
+                try:
+                    selected = random.sample(available_balls, num_blue)
+                    return sorted(selected)
+                except ValueError:
+                    continue
+        elif len(available_balls) > 0:
+            # 选中的号码不足（如大乐透只选了1个），保留选中的，从全部号码池随机补充
+            all_balls = list(range(1, blue_range + 1))
+            # 移除已选择的，避免重复
+            remaining = [b for b in all_balls if b not in available_balls]
+            needed = num_blue - len(available_balls)
+            for _ in range(max_attempts):
+                try:
+                    extra = random.sample(remaining, needed)
+                    selected = sorted(available_balls + extra)
+                    return selected
+                except ValueError:
+                    continue
     
     for _ in range(max_attempts):
         candidates = list(range(1, blue_range + 1))
@@ -915,11 +942,18 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         if not passed:
             return False
     
-    # 12. 蓝球原则 - 支持多选
+    # 12. 蓝球选择 - 验证选中的蓝球是否在 blue_selected_balls 中
+    blue_selected = options.get('blue_selected_balls', None)
+    if blue_selected:
+        for b in blue_balls:
+            if b not in blue_selected:
+                return False
+    
+    # 13. 蓝球遗漏原则 - 支持多选（仅在未指定具体蓝球号码时使用）
     blue_options = options.get('blue_omission', ['6-12_primary'])
     if isinstance(blue_options, str):
         blue_options = [blue_options]
-    if 'disabled' not in blue_options and 'any' not in blue_options:
+    if 'disabled' not in blue_options and 'any' not in blue_options and not blue_selected:
         passed = False
         for opt in blue_options:
             if opt in ['6-12_primary', '5-15_primary', '0-2_primary', '0-4_primary', '0', '0-5_primary']:
@@ -1169,8 +1203,16 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: ac_value. ac={ac}")
     
-    # 12. 蓝球后区原则
-    # 遗漏规则
+    # 12. 后区选择 - 验证选中的后区号码是否在 blue_selected_balls 中
+    blue_selected = options.get('blue_selected_balls', None)
+    if blue_selected:
+        for b in blue_balls:
+            if b not in blue_selected:
+                logger.debug(f"DLT FAIL: blue_selected_balls. blue_balls={blue_balls}, selected={blue_selected}")
+                return False
+    
+    # 13. 蓝球后区原则
+    # 遗漏规则（仅在未指定具体后区号码时使用）
     blue_omission_options = options.get('blue_omission', ['5-15_primary'])
     if isinstance(blue_omission_options, str):
         blue_omission_options = [blue_omission_options]
@@ -1489,7 +1531,7 @@ def _update_smart_filter_rankings(lottery_type, app=None):
     SmartFilterStatsRanking.query.filter_by(lottery_type=lottery_type).delete()
     db.session.commit()
     
-    # 为每个回溯期数计算排名
+    # 为每个回溯期数计算排名（排除 blue_omission，因为蓝球遗漏使用单独的逐个号码排名）
     for lookback in lookback_periods:
         # 确定要统计的期号范围
         if lookback == 0:
@@ -1506,8 +1548,11 @@ def _update_smart_filter_rankings(lottery_type, app=None):
         if app:
             app.logger.info(f"  计算 {lottery_type} 回溯{lookback}期排名（{total_draws}期数据）")
         
-        # 为每个规则计算排名
+        # 为每个规则计算排名（排除 blue_omission，由下方单独处理）
         for rule_name in rule_names:
+            if rule_name == 'blue_omission':
+                continue  # 跳过 blue_omission，使用下方的逐个号码排名
+            
             # 获取该规则在目标期号范围内的所有值
             records = SmartFilterStats.query.filter(
                 SmartFilterStats.lottery_type == lottery_type,
@@ -1542,5 +1587,58 @@ def _update_smart_filter_rankings(lottery_type, app=None):
     
     db.session.commit()
     
+    # ==================== 蓝球遗漏排名计算 ====================
+    # 为每个回溯期数计算每个蓝球的出现频率排名
     if app:
-        app.logger.info(f"{lottery_type} 排名更新完成（共 {len(lookback_periods)} 个回溯期数）")
+        app.logger.info(f"开始计算 {lottery_type} 蓝球遗漏排名...")
+    
+    blue_range = 16 if lottery_type == 'ssq' else 12
+    
+    for lookback in lookback_periods:
+        # 确定要统计的期号范围
+        if lookback == 0:
+            target_issues = all_issues
+        else:
+            target_issues = all_issues[:lookback]
+        
+        if not target_issues or not target_issues:
+            continue
+        
+        # 获取该回溯期数内的所有开奖数据
+        target_draws = model_class.query.filter(
+            model_class.issue.in_(target_issues)
+        ).order_by(model_class.issue.desc()).all()
+        
+        if not target_draws:
+            continue
+        
+        # 计算所有蓝球的出现频率和遗漏数据
+        from utils import calculate_frequency_and_omissions_for_balls
+        blue_stats_list, blue_num_draws = calculate_frequency_and_omissions_for_balls(target_draws, blue_range, 'blue')
+        
+        # 按出现频率降序排列（出现次数越多排名越前）
+        sorted_by_frequency = sorted(blue_stats_list, key=lambda x: x['frequency_count'], reverse=True)
+        
+        # 存储所有蓝球的排名
+        for rank_idx, item in enumerate(sorted_by_frequency, 1):
+            ball_num = item['ball']
+            freq_count = item['frequency_count']
+            freq_pct = item['frequency_percentage']
+            
+            ranking = SmartFilterStatsRanking(
+                lottery_type=lottery_type,
+                lookback_period=lookback,
+                rule_name='blue_omission',
+                rule_value=str(ball_num).zfill(2),
+                frequency=freq_count,
+                percentage=round(freq_pct, 2),
+                rank=rank_idx,
+                total_draws=blue_num_draws,
+                last_updated_issue=latest_issue
+            )
+            db.session.add(ranking)
+    
+    db.session.commit()
+    
+    if app:
+        app.logger.info(f"{lottery_type} 排名更新完成（共 {len(lookback_periods)} 个回溯期数，含蓝球遗漏排名）")
