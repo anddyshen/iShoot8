@@ -1,5 +1,5 @@
 <!-- templates/prediction.html -->
-<!-- 版本: 1.0.8 - 每个号码生成区域独立卡片，带展开/收起按钮 -->
+<!-- 版本: 1.0.9 - 智能筛选号码移到第一个 -->
 {% extends "base.html" %}
 {% from "components/lottery_balls.html" import display_balls %}
 
@@ -195,58 +195,6 @@
                     <div class="ball-container" id="ssq_matched_omitted_balls">
                         <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== 规则筛选号码 (单式) ===== -->
-    <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
-            <div>
-                <button class="btn btn-success btn-sm me-1" id="generate_ssq_prediction">生成规则号码</button>
-                <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_generated_numbers">清除号码</button>
-                <button class="btn btn-dark btn-sm" id="copy_all_ssq_numbers">复制所有号码</button>
-            </div>
-        </div>
-        <div class="collapse" id="ssq_rule_section_collapse">
-            <div class="card-body">
-                <div class="mb-3 row align-items-center">
-                    <label for="ssq_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
-                    <div class="col-sm-3">
-                        <input type="number" class="form-control" id="ssq_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
-                    </div>
-                    <label for="ssq_lookback_period" class="col-sm-3 col-form-label">回溯期数:</label>
-                    <div class="col-sm-3">
-                        <select class="form-select" id="ssq_lookback_period" name="ssq_lookback_period">
-                            {% for period in settings.lookback_periods.split(',') %}
-                                <option value="{{ period | int }}" {% if loop.first %}selected{% endif %}>{{ period }} 期</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div id="ssq_predicted_numbers_output">
-                    <p class="text-muted">点击"生成规则号码"按钮。</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== 真随机号码 ===== -->
-    <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
-            <div>
-                <button class="btn btn-info btn-sm me-1" id="generate_ssq_random">生成随机号码</button>
-                <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_random_numbers">清除号码</button>
-                <button class="btn btn-dark btn-sm" id="copy_all_ssq_random_numbers">复制所有号码</button>
-            </div>
-        </div>
-        <div class="collapse" id="ssq_random_section_collapse">
-            <div class="card-body">
-                <div id="ssq_random_numbers_output">
-                    <p class="text-muted">点击"生成真随机号码"按钮。</p>
                 </div>
             </div>
         </div>
@@ -605,6 +553,58 @@
         </div>
     </div>
 
+    <!-- ===== 规则筛选号码 (单式) ===== -->
+    <div class="card mb-4 section-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
+            <div>
+                <button class="btn btn-success btn-sm me-1" id="generate_ssq_prediction">生成规则号码</button>
+                <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_generated_numbers">清除号码</button>
+                <button class="btn btn-dark btn-sm" id="copy_all_ssq_numbers">复制所有号码</button>
+            </div>
+        </div>
+        <div class="collapse" id="ssq_rule_section_collapse">
+            <div class="card-body">
+                <div class="mb-3 row align-items-center">
+                    <label for="ssq_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
+                    <div class="col-sm-3">
+                        <input type="number" class="form-control" id="ssq_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
+                    </div>
+                    <label for="ssq_lookback_period" class="col-sm-3 col-form-label">回溯期数:</label>
+                    <div class="col-sm-3">
+                        <select class="form-select" id="ssq_lookback_period" name="ssq_lookback_period">
+                            {% for period in settings.lookback_periods.split(',') %}
+                                <option value="{{ period | int }}" {% if loop.first %}selected{% endif %}>{{ period }} 期</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="ssq_predicted_numbers_output">
+                    <p class="text-muted">点击"生成规则号码"按钮。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 真随机号码 ===== -->
+    <div class="card mb-4 section-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#ssq_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
+            <div>
+                <button class="btn btn-info btn-sm me-1" id="generate_ssq_random">生成随机号码</button>
+                <button class="btn btn-secondary btn-sm me-1" id="clear_ssq_random_numbers">清除号码</button>
+                <button class="btn btn-dark btn-sm" id="copy_all_ssq_random_numbers">复制所有号码</button>
+            </div>
+        </div>
+        <div class="collapse" id="ssq_random_section_collapse">
+            <div class="card-body">
+                <div id="ssq_random_numbers_output">
+                    <p class="text-muted">点击"生成真随机号码"按钮。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== 规则筛选号码（复式） ===== -->
     <div class="card mb-4 section-card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -711,58 +711,6 @@
                     <div class="ball-container" id="dlt_matched_omitted_balls">
                         <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== 规则筛选号码 (单式) ===== -->
-    <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
-            <div>
-                <button class="btn btn-success btn-sm me-1" id="generate_dlt_prediction">生成规则号码</button>
-                <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_generated_numbers">清除号码</button>
-                <button class="btn btn-dark btn-sm" id="copy_all_dlt_numbers">复制所有号码</button>
-            </div>
-        </div>
-        <div class="collapse" id="dlt_rule_section_collapse">
-            <div class="card-body">
-                <div class="mb-3 row align-items-center">
-                    <label for="dlt_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
-                    <div class="col-sm-3">
-                        <input type="number" class="form-control" id="dlt_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
-                    </div>
-                    <label for="dlt_lookback_period" class="col-sm-3 col-form-label">回溯期数:</label>
-                    <div class="col-sm-3">
-                        <select class="form-select" id="dlt_lookback_period" name="dlt_lookback_period">
-                            {% for period in settings.lookback_periods.split(',') %}
-                                <option value="{{ period | int }}" {% if loop.first %}selected{% endif %}>{{ period }} 期</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div id="dlt_predicted_numbers_output">
-                    <p class="text-muted">点击"生成规则号码"按钮。</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== 真随机号码 ===== -->
-    <div class="card mb-4 section-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
-            <div>
-                <button class="btn btn-info btn-sm me-1" id="generate_dlt_random">生成随机号码</button>
-                <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_random_numbers">清除号码</button>
-                <button class="btn btn-dark btn-sm" id="copy_all_dlt_random_numbers">复制所有号码</button>
-            </div>
-        </div>
-        <div class="collapse" id="dlt_random_section_collapse">
-            <div class="card-body">
-                <div id="dlt_random_numbers_output">
-                    <p class="text-muted">点击"生成真随机号码"按钮。</p>
                 </div>
             </div>
         </div>
@@ -1126,6 +1074,58 @@
                 </div>
                 <div id="dlt_smart_filter_output">
                     <p class="text-muted">智能筛选号码将在此处生成。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 规则筛选号码 (单式) ===== -->
+    <div class="card mb-4 section-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_rule_section_collapse" aria-expanded="false"></i> 规则筛选号码 (单式)</span>
+            <div>
+                <button class="btn btn-success btn-sm me-1" id="generate_dlt_prediction">生成规则号码</button>
+                <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_generated_numbers">清除号码</button>
+                <button class="btn btn-dark btn-sm" id="copy_all_dlt_numbers">复制所有号码</button>
+            </div>
+        </div>
+        <div class="collapse" id="dlt_rule_section_collapse">
+            <div class="card-body">
+                <div class="mb-3 row align-items-center">
+                    <label for="dlt_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
+                    <div class="col-sm-3">
+                        <input type="number" class="form-control" id="dlt_num_generate" value="{{ settings.prediction_generated_count }}" min="1" max="50">
+                    </div>
+                    <label for="dlt_lookback_period" class="col-sm-3 col-form-label">回溯期数:</label>
+                    <div class="col-sm-3">
+                        <select class="form-select" id="dlt_lookback_period" name="dlt_lookback_period">
+                            {% for period in settings.lookback_periods.split(',') %}
+                                <option value="{{ period | int }}" {% if loop.first %}selected{% endif %}>{{ period }} 期</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="dlt_predicted_numbers_output">
+                    <p class="text-muted">点击"生成规则号码"按钮。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 真随机号码 ===== -->
+    <div class="card mb-4 section-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-chevron-down collapse-icon me-2" data-bs-toggle="collapse" data-bs-target="#dlt_random_section_collapse" aria-expanded="false"></i> 真随机号码</span>
+            <div>
+                <button class="btn btn-info btn-sm me-1" id="generate_dlt_random">生成随机号码</button>
+                <button class="btn btn-secondary btn-sm me-1" id="clear_dlt_random_numbers">清除号码</button>
+                <button class="btn btn-dark btn-sm" id="copy_all_dlt_random_numbers">复制所有号码</button>
+            </div>
+        </div>
+        <div class="collapse" id="dlt_random_section_collapse">
+            <div class="card-body">
+                <div id="dlt_random_numbers_output">
+                    <p class="text-muted">点击"生成真随机号码"按钮。</p>
                 </div>
             </div>
         </div>
