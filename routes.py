@@ -194,6 +194,7 @@ def prediction():
                            latest_ssq_draws=latest_ssq_draws,
                            latest_dlt_draws=latest_dlt_draws,
                            get_consecutive_groups=get_consecutive_groups, # Pass the function to the template
+                           settings=CURRENT_SETTINGS, # 传递设置到模板
                            ssq_red_trend_rules=CURRENT_SETTINGS.get('ssq_red_trend_rules', {}),
                            ssq_blue_trend_rules=CURRENT_SETTINGS.get('ssq_blue_trend_rules', {}),
                            dlt_red_trend_rules=CURRENT_SETTINGS.get('dlt_red_trend_rules', {}),
