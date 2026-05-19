@@ -698,82 +698,131 @@ def _generate_blue_balls_smart(lottery_type, num_blue, blue_range, blue_omission
     """智能生成蓝球 - 支持 blue_selected_balls 选项"""
     max_attempts = 100
     
-    # 如果指定了 blue_selected_balls，优先从选中的号码中生成
+    # 判断是否无限制（用户勾选了"不限制"或没有选择任何具体号码）
     blue_selected = options.get('blue_selected_balls', None)
-    if blue_selected and 'disabled' not in options.get('blue_omission', []) and not options.get('blue_disabled', False):
-        # 从指定选择中生成
-        available_balls = [b for b in blue_selected if 1 <= b <= blue_range]
-        if len(available_balls) >= num_blue:
-            # 选中的号码足够，全部从选中号码中生成
-            for _ in range(max_attempts):
-                try:
-                    selected = random.sample(available_balls, num_blue)
-                    return sorted(selected)
-                except ValueError:
-                    continue
-        elif len(available_balls) > 0:
-            # 选中的号码不足（如大乐透只选了1个），保留选中的，从全部号码池随机补充
-            all_balls = list(range(1, blue_range + 1))
-            # 移除已选择的，避免重复
-            remaining = [b for b in all_balls if b not in available_balls]
-            needed = num_blue - len(available_balls)
-            for _ in range(max_attempts):
-                try:
-                    extra = random.sample(remaining, needed)
-                    selected = sorted(available_balls + extra)
-                    return selected
-                except ValueError:
-                    continue
+    blue_disabled = options.get('blue_disabled', False) or options.get('disabled', False)
+    is_unrestricted = (blue_selected is None or len(blue_selected) == 0 or blue_disabled)
     
-    for _ in range(max_attempts):
-        candidates = list(range(1, blue_range + 1))
-        weights = []
+    if is_unrestricted:
+        # ===== 情况1：无限制 =====
+        # 用户勾选了"不限制"，应该使用纯随机生成，所有号码权重相等
+        all_balls = list(range(1, blue_range + 1))
+        for _ in range(max_attempts):
+            try:
+                selected = random.sample(all_balls, num_blue)
+                return sorted(selected)
+            except ValueError:
+                continue
+        return None
+    
+    # ===== 情况2：用户选择了具体号码 =====
+    # 选中的号码权重加成（约75%），其他号码用遗漏趋势权重补充（约25%）
+    available_balls = [b for b in blue_selected if 1 <= b <= blue_range]
+    all_balls = list(range(1, blue_range + 1))
+    
+    # 选中的号码权重设为 5.0（约75%被选中概率）
+    SELECTED_WEIGHT = 5.0
+    # 未选中的号码基础权重
+    UNSELECTED_BASE_WEIGHT = 1.0
+    
+    if len(available_balls) >= num_blue:
+        # 选中的号码足够，全部从选中号码中生成，但使用权重微调
+        for _ in range(max_attempts):
+            try:
+                candidates = list(available_balls)
+                weights = []
+                for b in candidates:
+                    omission = blue_omission.get(b, 0)
+                    w = SELECTED_WEIGHT  # 基础权重 5.0
+                    
+                    # 在选中的号码内部用遗漏趋势微调
+                    if lottery_type == 'ssq':
+                        if 6 <= omission <= 12:
+                            w *= 1.3  # 遗漏6-12期略微提高
+                        elif 0 <= omission <= 2:
+                            w *= 0.8  # 热号略微降低
+                    else:
+                        if 5 <= omission <= 15:
+                            w *= 1.3  # 遗漏5-15期略微提高
+                        elif 0 <= omission <= 2:
+                            w *= 0.8  # 热号略微降低
+                    weights.append(w)
+                
+                total = sum(weights)
+                probs = [w / total for w in weights]
+                
+                selected = set()
+                temp_candidates = list(candidates)
+                temp_probs = list(probs)
+                
+                while len(selected) < num_blue:
+                    idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
+                    selected.add(temp_candidates[idx])
+                    temp_candidates.pop(idx)
+                    temp_probs.pop(idx)
+                    if temp_probs:
+                        total = sum(temp_probs)
+                        temp_probs = [w / total for w in temp_probs]
+                
+                return sorted(list(selected))
+            except Exception:
+                continue
+    
+    elif len(available_balls) > 0:
+        # 选中的号码不足（如大乐透只选了1个后区号码），保留选中的从选中池，
+        # 再从全部号码池用权重补充（选中的权重5.0，未选中的权重1.0+遗漏趋势）
+        needed = num_blue - len(available_balls)
         
-        for b in candidates:
-            omission = blue_omission.get(b, 0)
-            w = 1.0
-            
-            if lottery_type == 'ssq':
-                # 双色球蓝球：优先遗漏6-12期
-                if 6 <= omission <= 12:
-                    w = 5.0
-                elif 0 <= omission <= 2:
-                    w = 1.5  # 15%概率
-                else:
-                    w = 2.0
-            else:
-                # 大乐透后区：至少一个遗漏5-15期
-                if 5 <= omission <= 15:
-                    w = 5.0
-                elif 0 <= omission <= 2:
-                    w = 1.5
-                elif omission >= 16:
-                    w = 1.0
-                else:
-                    w = 2.0
-            
-            weights.append(w)
-        
-        total = sum(weights)
-        probs = [w / total for w in weights]
-        
-        try:
-            selected = set()
-            temp_candidates = list(candidates)
-            temp_probs = list(probs)
-            
-            while len(selected) < num_blue:
-                idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
-                selected.add(temp_candidates[idx])
-                temp_candidates.pop(idx)
-                temp_probs.pop(idx)
-                if temp_probs:
-                    total = sum(temp_probs)
-                    temp_probs = [w / total for w in temp_probs]
-            
-            return sorted(list(selected))
-        except Exception:
-            continue
+        for _ in range(max_attempts):
+            try:
+                selected = list(available_balls)  # 保留已选中的号码
+                
+                # 从剩余号码中按权重选需要的数量
+                remaining = [b for b in all_balls if b not in available_balls]
+                candidates = list(remaining)
+                weights = []
+                
+                for b in candidates:
+                    omission = blue_omission.get(b, 0)
+                    w = UNSELECTED_BASE_WEIGHT  # 未选中的基础权重 1.0
+                    
+                    # 用遗漏趋势微调
+                    if lottery_type == 'ssq':
+                        if 6 <= omission <= 12:
+                            w = 2.0   # 遗漏6-12期权重高一些
+                        elif 0 <= omission <= 2:
+                            w = 1.2
+                        else:
+                            w = 1.5
+                    else:
+                        if 5 <= omission <= 15:
+                            w = 2.0   # 遗漏5-15期权重高一些
+                        elif 0 <= omission <= 2:
+                            w = 1.2
+                        elif omission >= 16:
+                            w = 1.0
+                        else:
+                            w = 1.5
+                    weights.append(w)
+                
+                total = sum(weights)
+                probs = [w / total for w in weights]
+                
+                temp_candidates = list(candidates)
+                temp_probs = list(probs)
+                
+                while len(selected) < num_blue:
+                    idx = random.choices(range(len(temp_candidates)), weights=temp_probs, k=1)[0]
+                    selected.append(temp_candidates[idx])
+                    temp_candidates.pop(idx)
+                    temp_probs.pop(idx)
+                    if temp_probs:
+                        total = sum(temp_probs)
+                        temp_probs = [w / total for w in temp_probs]
+                
+                return sorted(selected)
+            except Exception:
+                continue
     
     return None
 
@@ -1112,9 +1161,9 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: omission_pattern. result={last_result}")
     
-    # 5. 遗漏期数一样的不超过1个
+    # 5. 遗漏期数一样的不超过2个（放宽限制，避免生成速度过慢）
     if options.get('omission_duplicate_limit', True):
-        passed, msg = check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=1)
+        passed, msg = check_dlt_omission_duplicate_limit(front_balls, red_omission, max_same=2)
         if not passed:
             logger.debug(f"DLT FAIL: omission_duplicate. balls={front_balls}, msg={msg}")
             return False
@@ -1259,10 +1308,11 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
     
     # 13. 蓝球后区原则
     # 遗漏规则（仅在未指定具体后区号码时使用）
-    blue_omission_options = options.get('blue_omission', ['5-15_primary'])
+    blue_selected = options.get('blue_selected_balls', None)
+    blue_omission_options = options.get('blue_omission', ['disabled'])
     if isinstance(blue_omission_options, str):
         blue_omission_options = [blue_omission_options]
-    if 'disabled' not in blue_omission_options and 'any' not in blue_omission_options:
+    if 'disabled' not in blue_omission_options and 'any' not in blue_omission_options and not blue_selected:
         passed = False
         for opt in blue_omission_options:
             if opt in ['5-15_primary', '0-2_primary', '0-4_primary']:
@@ -1273,11 +1323,11 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: blue_omission.")
     
-    # 后区奇偶
-    blue_odd_even_options = options.get('blue_odd_even', ['1_odd_1_even'])
+    # 后区奇偶（仅在未指定具体后区号码时使用）
+    blue_odd_even_options = options.get('blue_odd_even', ['disabled'])
     if isinstance(blue_odd_even_options, str):
         blue_odd_even_options = [blue_odd_even_options]
-    if 'disabled' not in blue_odd_even_options:
+    if 'disabled' not in blue_odd_even_options and not blue_selected:
         passed = False
         for opt in blue_odd_even_options:
             if opt == '1_odd_1_even':
@@ -1294,11 +1344,11 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: blue_odd_even. actual={actual}")
     
-    # 后区大小
-    blue_size_options = options.get('blue_size', ['1_big_1_small'])
+    # 后区大小（仅在未指定具体后区号码时使用）
+    blue_size_options = options.get('blue_size', ['disabled'])
     if isinstance(blue_size_options, str):
         blue_size_options = [blue_size_options]
-    if 'disabled' not in blue_size_options:
+    if 'disabled' not in blue_size_options and not blue_selected:
         passed = False
         for opt in blue_size_options:
             if opt == '1_big_1_small':
