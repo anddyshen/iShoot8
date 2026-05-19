@@ -137,6 +137,7 @@ DEFAULT_SETTINGS = {
     'dlt_front_size_midpoint': 18, # 大乐透前区 1-17 小，18-35 大
     'dlt_back_size_midpoint': 7, # 大乐透后区 1-6 小，7-12 大
 
+    "lookback_periods": "50,100,200,500", # 趋势计算回溯期数选项
 }
 
 # 双色球参数键
