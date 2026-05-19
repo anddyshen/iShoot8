@@ -1401,18 +1401,20 @@ def api_smart_filter_check():
             if p: passed = True; break
         results['同尾号'] = {'passed': passed, 'message': '通过' if passed else '不符合同尾号规则'}
 
-    # 邻号(边号)
+    # 邻号(边号) - 支持0,1,2,3,4
     neighbor_options = options.get('neighbor', [])
     if isinstance(neighbor_options, str):
         neighbor_options = [neighbor_options]
     if neighbor_options and 'disabled' not in neighbor_options:
         from smart_filter_engine import check_neighbor_numbers
         passed = False
+        count = 0
         for opt in neighbor_options:
-            min_g = 1 if opt == 'at_least_1' else 2
-            p, count = check_neighbor_numbers(red_balls, lottery_type, min_g)
-            if p: passed = True; break
-        results['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else '不符合邻号规则'}
+            neighbor_count = int(opt) if opt.isdigit() else None
+            if neighbor_count is not None:
+                p, count = check_neighbor_numbers(red_balls, lottery_type, neighbor_count, 'exactly')
+                if p: passed = True; break
+        results['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else f'不符合规则, 实际邻号数: {count}'}
 
     # AC值
     ac_options = options.get('ac_value', [])

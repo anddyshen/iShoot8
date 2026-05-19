@@ -200,10 +200,25 @@ def check_odd_even_ratio(balls, target_ratios):
     return actual in target_ratios, actual
 
 
-def check_max_span(balls, min_span=26):
-    """检查最大跨度"""
+def check_max_span(balls, min_span=None, max_span=None):
+    """
+    检查最大跨度
+    Args:
+        balls: 号码列表
+        min_span: 最小跨度（如果设置，则 span >= min_span）
+        max_span: 最大跨度（如果设置，则 span < max_span）
+    如果 min_span 和 max_span 都设置，则 min_span <= span < max_span
+    如果只设置 min_span，则 span >= min_span
+    如果只设置 max_span，则 span < max_span
+    """
     span = calculate_span_per_draw(balls)
-    return span >= min_span, span
+    if min_span is not None and max_span is not None:
+        return min_span <= span < max_span, span
+    elif min_span is not None:
+        return span >= min_span, span
+    elif max_span is not None:
+        return span < max_span, span
+    return True, span
 
 
 def check_sum_range(balls, min_sum=70, max_sum=129):
@@ -219,18 +234,26 @@ def check_same_tail(red_balls, mode="exactly_1"):
       - "exactly_1": 有且只有1组同尾号
       - "at_least_1": 至少1组同尾号
       - "none": 无同尾号
+      - "0": 0组同尾号（无同尾号）
+      - "1": 有且只有1组同尾号
+      - "2": 有且只有2组同尾号
+      - "3": 有且只有3组同尾号
     返回: (是否通过, 同尾号组数)
     """
     tail_groups = Counter(b % 10 for b in red_balls)
     same_tail_groups = [tail for tail, count in tail_groups.items() if count >= 2]
     count = len(same_tail_groups)
     
-    if mode == "exactly_1":
+    if mode == "exactly_1" or mode == "1":
         return count == 1, count
     elif mode == "at_least_1":
         return count >= 1, count
-    elif mode == "none":
+    elif mode == "none" or mode == "0":
         return count == 0, count
+    elif mode == "2":
+        return count == 2, count
+    elif mode == "3":
+        return count == 3, count
     else:
         return True, count
 
@@ -865,14 +888,26 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
     if 'disabled' not in span_options:
         passed = False
         for opt in span_options:
-            if opt == 'gt_26':
-                p, _ = check_max_span(red_balls, min_span=26)
+            if opt == 'lt_20':
+                p, _ = check_max_span(red_balls, max_span=20)
+                if p: passed = True; break
+            elif opt == 'gt_20':
+                p, _ = check_max_span(red_balls, min_span=20)
+                if p: passed = True; break
+            elif opt == 'gt_22':
+                p, _ = check_max_span(red_balls, min_span=22)
                 if p: passed = True; break
             elif opt == 'gt_24':
                 p, _ = check_max_span(red_balls, min_span=24)
                 if p: passed = True; break
-            elif opt == 'gt_20':
-                p, _ = check_max_span(red_balls, min_span=20)
+            elif opt == 'gt_26':
+                p, _ = check_max_span(red_balls, min_span=26)
+                if p: passed = True; break
+            elif opt == 'gt_28':
+                p, _ = check_max_span(red_balls, min_span=28)
+                if p: passed = True; break
+            elif opt == 'gt_30':
+                p, _ = check_max_span(red_balls, min_span=30)
                 if p: passed = True; break
         if not passed:
             return False
@@ -899,40 +934,41 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         if not passed:
             return False
     
-    # 9. 同尾号原则 - 支持多选
-    tail_options = options.get('same_tail', ['exactly_1'])
+    # 9. 同尾号原则 - 支持多选（checkbox）
+    tail_options = options.get('same_tail', ['1'])
     if isinstance(tail_options, str):
         tail_options = [tail_options]
     if 'disabled' not in tail_options:
         passed = False
         for opt in tail_options:
-            if opt == 'exactly_1':
-                p, _ = check_same_tail(red_balls, 'exactly_1')
+            if opt == 'exactly_1' or opt == '1':
+                p, _ = check_same_tail(red_balls, '1')
                 if p: passed = True; break
             elif opt == 'at_least_1':
                 p, _ = check_same_tail(red_balls, 'at_least_1')
                 if p: passed = True; break
-            elif opt == 'none':
-                p, _ = check_same_tail(red_balls, 'none')
+            elif opt == 'none' or opt == '0':
+                p, _ = check_same_tail(red_balls, '0')
+                if p: passed = True; break
+            elif opt == '2':
+                p, _ = check_same_tail(red_balls, '2')
+                if p: passed = True; break
+            elif opt == '3':
+                p, _ = check_same_tail(red_balls, '3')
                 if p: passed = True; break
         if not passed:
             return False
     
-    # 10. 邻号原则 - 支持多选
-    neighbor_options = options.get('neighbor', ['at_least_1'])
+    # 10. 邻号原则 - 支持多选（0,1,2,3,4,disabled）
+    neighbor_options = options.get('neighbor', ['2'])
     if isinstance(neighbor_options, str):
         neighbor_options = [neighbor_options]
     if 'disabled' not in neighbor_options:
         passed = False
         for opt in neighbor_options:
-            if opt == 'at_least_1':
-                p, _ = check_neighbor_numbers(red_balls, 'ssq', 1, 'at_least')
-                if p: passed = True; break
-            elif opt == 'at_least_2':
-                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2, 'at_least')
-                if p: passed = True; break
-            elif opt == 'exactly_2':
-                p, _ = check_neighbor_numbers(red_balls, 'ssq', 2, 'exactly')
+            neighbor_count = int(opt) if opt.isdigit() else None
+            if neighbor_count is not None:
+                p, count = check_neighbor_numbers(red_balls, 'ssq', neighbor_count, 'exactly')
                 if p: passed = True; break
         if not passed:
             return False
@@ -1107,26 +1143,26 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
     if 'disabled' not in span_options:
         passed = False
         for opt in span_options:
-            if opt == 'gt_28':
-                p, span = check_max_span(front_balls, min_span=28)
-                if p: passed = True; break
-            elif opt == 'gt_26':
-                p, span = check_max_span(front_balls, min_span=26)
-                if p: passed = True; break
-            elif opt == 'gt_25':
-                p, span = check_max_span(front_balls, min_span=25)
-                if p: passed = True; break
-            elif opt == 'gt_24':
-                p, span = check_max_span(front_balls, min_span=24)
-                if p: passed = True; break
-            elif opt == 'gt_22':
-                p, span = check_max_span(front_balls, min_span=22)
+            if opt == 'lt_20':
+                p, span = check_max_span(front_balls, max_span=20)
                 if p: passed = True; break
             elif opt == 'gt_20':
                 p, span = check_max_span(front_balls, min_span=20)
                 if p: passed = True; break
-            elif opt == 'gt_19':
-                p, span = check_max_span(front_balls, min_span=19)
+            elif opt == 'gt_22':
+                p, span = check_max_span(front_balls, min_span=22)
+                if p: passed = True; break
+            elif opt == 'gt_24':
+                p, span = check_max_span(front_balls, min_span=24)
+                if p: passed = True; break
+            elif opt == 'gt_26':
+                p, span = check_max_span(front_balls, min_span=26)
+                if p: passed = True; break
+            elif opt == 'gt_28':
+                p, span = check_max_span(front_balls, min_span=28)
+                if p: passed = True; break
+            elif opt == 'gt_30':
+                p, span = check_max_span(front_balls, min_span=30)
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: span. balls={front_balls}, span={span}, options={span_options}")
@@ -1166,42 +1202,43 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: sum. total={total}")
     
-    # 9. 同尾号原则 - 支持多选
-    tail_options = options.get('same_tail', ['exactly_1'])
+    # 9. 同尾号原则 - 支持多选（checkbox）
+    tail_options = options.get('same_tail', ['1'])
     if isinstance(tail_options, str):
         tail_options = [tail_options]
     if 'disabled' not in tail_options:
         passed = False
         for opt in tail_options:
-            if opt == 'exactly_1':
-                p, count = check_same_tail(front_balls, 'exactly_1')
+            if opt == 'exactly_1' or opt == '1':
+                p, count = check_same_tail(front_balls, '1')
                 if p: passed = True; break
             elif opt == 'at_least_1':
                 p, count = check_same_tail(front_balls, 'at_least_1')
                 if p: passed = True; break
-            elif opt == 'none':
-                p, count = check_same_tail(front_balls, 'none')
+            elif opt == 'none' or opt == '0':
+                p, count = check_same_tail(front_balls, '0')
+                if p: passed = True; break
+            elif opt == '2':
+                p, count = check_same_tail(front_balls, '2')
+                if p: passed = True; break
+            elif opt == '3':
+                p, count = check_same_tail(front_balls, '3')
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: same_tail. balls={front_balls}, count={count}, options={tail_options}")
             return False
         logger.debug(f"DLT PASS: same_tail. count={count}")
     
-    # 10. 邻号原则 - 支持多选
-    neighbor_options = options.get('neighbor', ['at_least_1'])
+    # 10. 邻号原则 - 支持多选（0,1,2,3,4,disabled）
+    neighbor_options = options.get('neighbor', ['1'])
     if isinstance(neighbor_options, str):
         neighbor_options = [neighbor_options]
     if 'disabled' not in neighbor_options:
         passed = False
         for opt in neighbor_options:
-            if opt == 'at_least_1':
-                p, count = check_neighbor_numbers(front_balls, 'dlt', 1, 'at_least')
-                if p: passed = True; break
-            elif opt == 'exactly_1':
-                p, count = check_neighbor_numbers(front_balls, 'dlt', 1, 'exactly')
-                if p: passed = True; break
-            elif opt == 'at_least_2':
-                p, count = check_neighbor_numbers(front_balls, 'dlt', 2, 'at_least')
+            neighbor_count = int(opt) if opt.isdigit() else None
+            if neighbor_count is not None:
+                p, count = check_neighbor_numbers(front_balls, 'dlt', neighbor_count, 'exactly')
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: neighbor. balls={front_balls}, count={count}, options={neighbor_options}")

@@ -416,16 +416,32 @@
                                         <label class="form-label">最大跨度 <span class="smart-filter-stats" id="ssq_stats_span"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_span">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_26" id="ssq_span_26" checked>
-                                                <label class="form-check-label" for="ssq_span_26">≥26</label>
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="lt_20" id="ssq_span_lt_20">
+                                                <label class="form-check-label" for="ssq_span_lt_20"><20</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_20" id="ssq_span_20">
+                                                <label class="form-check-label" for="ssq_span_20">≥20</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_22" id="ssq_span_22">
+                                                <label class="form-check-label" for="ssq_span_22">≥22</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_24" id="ssq_span_24">
                                                 <label class="form-check-label" for="ssq_span_24">≥24</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_20" id="ssq_span_20">
-                                                <label class="form-check-label" for="ssq_span_20">≥20</label>
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_26" id="ssq_span_26" checked>
+                                                <label class="form-check-label" for="ssq_span_26">≥26</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_28" id="ssq_span_28">
+                                                <label class="form-check-label" for="ssq_span_28">≥28</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_span" value="gt_30" id="ssq_span_30">
+                                                <label class="form-check-label" for="ssq_span_30">≥30</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_span" value="disabled" id="ssq_span_disabled">
@@ -462,19 +478,23 @@
                                         <label class="form-label">同尾号 <span class="smart-filter-stats" id="ssq_stats_same_tail"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_same_tail">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_same_tail" value="exactly_1" id="ssq_tail_exactly_1" checked>
-                                                <label class="form-check-label" for="ssq_tail_exactly_1">有且只有1组</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="0" id="ssq_tail_0">
+                                                <label class="form-check-label" for="ssq_tail_0">0</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_same_tail" value="at_least_1" id="ssq_tail_at_least_1">
-                                                <label class="form-check-label" for="ssq_tail_at_least_1">至少1组</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="1" id="ssq_tail_1">
+                                                <label class="form-check-label" for="ssq_tail_1">1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_same_tail" value="none" id="ssq_tail_none">
-                                                <label class="form-check-label" for="ssq_tail_none">无同尾号</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="2" id="ssq_tail_2">
+                                                <label class="form-check-label" for="ssq_tail_2">2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_same_tail" value="disabled" id="ssq_tail_disabled">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="3" id="ssq_tail_3">
+                                                <label class="form-check-label" for="ssq_tail_3">3</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_tail_disabled">
                                                 <label class="form-check-label text-muted" for="ssq_tail_disabled">不限制</label>
                                             </div>
                                         </div>
@@ -483,20 +503,28 @@
                                         <label class="form-label">邻号(边号) <span class="smart-filter-stats" id="ssq_stats_neighbor"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_neighbor">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_neighbor" value="at_least_1" id="ssq_neighbor_1">
-                                                <label class="form-check-label" for="ssq_neighbor_1">至少1组</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="0" id="ssq_neighbor_0">
+                                                <label class="form-check-label" for="ssq_neighbor_0">0</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_neighbor" value="at_least_2" id="ssq_neighbor_2">
-                                                <label class="form-check-label" for="ssq_neighbor_2">至少2组</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="1" id="ssq_neighbor_1">
+                                                <label class="form-check-label" for="ssq_neighbor_1">1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_neighbor" value="exactly_2" id="ssq_neighbor_exactly_2" checked>
-                                                <label class="form-check-label" for="ssq_neighbor_exactly_2">只有2组</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="2" id="ssq_neighbor_2">
+                                                <label class="form-check-label" for="ssq_neighbor_2">2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_neighbor" value="disabled" id="ssq_neighbor_disabled">
-                                                <label class="form-check-label text-muted" for="ssq_neighbor_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="3" id="ssq_neighbor_3">
+                                                <label class="form-check-label" for="ssq_neighbor_3">3</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="4" id="ssq_neighbor_4">
+                                                <label class="form-check-label" for="ssq_neighbor_4">4</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_neighbor_disabled">
+                                                <label class="form-check-label text-muted" for="ssq_neighbor_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>
@@ -916,20 +944,32 @@
                                         <label class="form-label">最大跨度 <span class="smart-filter-stats" id="dlt_stats_span"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_span">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_28" id="dlt_span_28">
-                                                <label class="form-check-label" for="dlt_span_28">≥28</label>
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="lt_20" id="dlt_span_lt_20">
+                                                <label class="form-check-label" for="dlt_span_lt_20"><20</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_25" id="dlt_span_25">
-                                                <label class="form-check-label" for="dlt_span_25">≥25</label>
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_20" id="dlt_span_20">
+                                                <label class="form-check-label" for="dlt_span_20">≥20</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_22" id="dlt_span_22">
                                                 <label class="form-check-label" for="dlt_span_22">≥22</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_19" id="dlt_span_19" checked>
-                                                <label class="form-check-label" for="dlt_span_19">≥19</label>
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_24" id="dlt_span_24">
+                                                <label class="form-check-label" for="dlt_span_24">≥24</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_26" id="dlt_span_26" checked>
+                                                <label class="form-check-label" for="dlt_span_26">≥26</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_28" id="dlt_span_28">
+                                                <label class="form-check-label" for="dlt_span_28">≥28</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_span" value="gt_30" id="dlt_span_30">
+                                                <label class="form-check-label" for="dlt_span_30">≥30</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_span" value="disabled" id="dlt_span_disabled">
@@ -962,19 +1002,23 @@
                                         <label class="form-label">同尾号 <span class="smart-filter-stats" id="dlt_stats_same_tail"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_same_tail">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_same_tail" value="exactly_1" id="dlt_tail_exactly_1">
-                                                <label class="form-check-label" for="dlt_tail_exactly_1">有且只有1组</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="0" id="dlt_tail_0">
+                                                <label class="form-check-label" for="dlt_tail_0">0</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_same_tail" value="at_least_1" id="dlt_tail_at_least_1">
-                                                <label class="form-check-label" for="dlt_tail_at_least_1">至少1组</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1" id="dlt_tail_1">
+                                                <label class="form-check-label" for="dlt_tail_1">1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_same_tail" value="none" id="dlt_tail_none" checked>
-                                                <label class="form-check-label" for="dlt_tail_none">无同尾号</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2" id="dlt_tail_2">
+                                                <label class="form-check-label" for="dlt_tail_2">2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_same_tail" value="disabled" id="dlt_tail_disabled">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3" id="dlt_tail_3">
+                                                <label class="form-check-label" for="dlt_tail_3">3</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_tail_disabled">
                                                 <label class="form-check-label text-muted" for="dlt_tail_disabled">不限制</label>
                                             </div>
                                         </div>
@@ -983,20 +1027,28 @@
                                         <label class="form-label">邻号(边号) <span class="smart-filter-stats" id="dlt_stats_neighbor"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_neighbor">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_neighbor" value="at_least_1" id="dlt_neighbor_1">
-                                                <label class="form-check-label" for="dlt_neighbor_1">至少1组</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="0" id="dlt_neighbor_0">
+                                                <label class="form-check-label" for="dlt_neighbor_0">0</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_neighbor" value="exactly_1" id="dlt_neighbor_exactly_1" checked>
-                                                <label class="form-check-label" for="dlt_neighbor_exactly_1">只有1组</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1" id="dlt_neighbor_1">
+                                                <label class="form-check-label" for="dlt_neighbor_1">1</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_neighbor" value="at_least_2" id="dlt_neighbor_2">
-                                                <label class="form-check-label" for="dlt_neighbor_2">至少2组</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2" id="dlt_neighbor_2">
+                                                <label class="form-check-label" for="dlt_neighbor_2">2</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_neighbor" value="disabled" id="dlt_neighbor_disabled">
-                                                <label class="form-check-label text-muted" for="dlt_neighbor_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3" id="dlt_neighbor_3">
+                                                <label class="form-check-label" for="dlt_neighbor_3">3</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="4" id="dlt_neighbor_4">
+                                                <label class="form-check-label" for="dlt_neighbor_4">4</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_neighbor_disabled">
+                                                <label class="form-check-label text-muted" for="dlt_neighbor_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>

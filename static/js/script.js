@@ -1216,16 +1216,16 @@ function getSmartFilterOptions(lotteryType) {
         options.sum = [sumValue];
     }
     
-    // 同尾号（radio按钮，单值）
-    const tailValue = getRadioValue(`${lotteryType}_smart_same_tail`);
-    if (tailValue && !isDisabled(`${lotteryType}_smart_same_tail`)) {
-        options.same_tail = [tailValue];
+    // 同尾号（checkbox多选）
+    const tailValues = getCheckedValues(`${lotteryType}_smart_same_tail`);
+    if (tailValues.length > 0 && !isDisabled(`${lotteryType}_smart_same_tail`)) {
+        options.same_tail = tailValues;
     }
     
-    // 邻号(边号)（radio按钮，单值）
-    const neighborValue = getRadioValue(`${lotteryType}_smart_neighbor`);
-    if (neighborValue && !isDisabled(`${lotteryType}_smart_neighbor`)) {
-        options.neighbor = [neighborValue];
+    // 邻号(边号)（checkbox多选）
+    const neighborValues = getCheckedValues(`${lotteryType}_smart_neighbor`);
+    if (neighborValues.length > 0 && !isDisabled(`${lotteryType}_smart_neighbor`)) {
+        options.neighbor = neighborValues;
     }
     
     // AC值（radio按钮，单值）
@@ -1497,34 +1497,31 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
             }
         });
         
-        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比）=====
-        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even'];
+        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比、跨度、同尾号、邻号）=====
+        // 对于span（radio单选项），只选择排名第1的即可
+        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even', 'same_tail', 'neighbor'];
+        const autoSelectSingleRules = ['span'];
         
+        // checkbox多选规则
         autoSelectRules.forEach(function(ruleName) {
             if (data[ruleName] && data[ruleName].length > 0) {
-                // 取前2名
                 const topValues = data[ruleName].slice(0, 2);
                 const groupId = lotteryType + '_smart_' + ruleName;
                 const group = document.getElementById(groupId);
                 if (!group) return;
                 
-                // 先取消所有非disabled选项的勾选
                 group.querySelectorAll('.form-check-input:not(.smart-filter-disabled)').forEach(function(cb) {
                     cb.checked = false;
                 });
                 
-                // 勾选前2名对应的选项
                 topValues.forEach(function(item) {
                     var value = item.rule_value;
-                    // 对遗漏号原则进行格式转换：API返回"热4温1冷1" -> checkbox值"4+1+1"
                     if (ruleName === 'omission_pattern') {
-                        // 从"热X温Y冷Z"中提取数字部分
                         var match = value.match(/热(\d+)温(\d+)冷(\d+)/);
                         if (match) {
                             value = match[1] + '+' + match[2] + '+' + match[3];
                         }
                     }
-                    // 对连号原则进行格式转换：API返回中文描述 -> checkbox值
                     if (ruleName === 'consecutive') {
                         if (value === '无连号') {
                             value = 'no_consecutive';
@@ -1535,7 +1532,6 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
                         } else if (value === '1组3连号' || value === '一组3连号') {
                             value = '1_group_3';
                         } else {
-                            // 如果是其他格式如 "2组2连号 + 3连号"，则无法精确匹配，跳过
                             return;
                         }
                     }
@@ -1544,6 +1540,50 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
                         checkbox.checked = true;
                     }
                 });
+            }
+        });
+        
+        // radio单选项规则（如跨度span） - 只取排名第1
+        autoSelectSingleRules.forEach(function(ruleName) {
+            if (data[ruleName] && data[ruleName].length > 0) {
+                const topItem = data[ruleName][0]; // 只取第1名
+                const groupId = lotteryType + '_smart_' + ruleName;
+                const group = document.getElementById(groupId);
+                if (!group) return;
+                
+                // 先取消选中
+                group.querySelectorAll('.form-check-input:not(.smart-filter-disabled)').forEach(function(cb) {
+                    cb.checked = false;
+                });
+                
+                var value = topItem.rule_value; // 跨度值为数字字符串如 "26", "27", "28"
+                var spanNum = parseInt(value);
+                var optionValue = null;
+                
+                // 根据跨度值映射到对应的选项
+                if (spanNum < 20) {
+                    optionValue = 'lt_20';
+                } else if (spanNum >= 30) {
+                    optionValue = 'gt_30';
+                } else if (spanNum >= 28) {
+                    optionValue = 'gt_28';
+                } else if (spanNum >= 26) {
+                    optionValue = 'gt_26';
+                } else if (spanNum >= 24) {
+                    optionValue = 'gt_24';
+                } else if (spanNum >= 22) {
+                    optionValue = 'gt_22';
+                } else if (spanNum >= 20) {
+                    optionValue = 'gt_20';
+                }
+                
+                // 奇数数值（如27、29）自动向下匹配偶数选项
+                if (optionValue) {
+                    var radio = group.querySelector('.form-check-input[value="' + optionValue + '"]');
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
             }
         });
         // ===== 结束自动选择逻辑 =====
