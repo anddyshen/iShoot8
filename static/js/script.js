@@ -1,5 +1,5 @@
 // static/js/script.js
-// 版本: 1.1.0
+// 版本: 1.1.1
 document.addEventListener('DOMContentLoaded', function() {
     // 可以在这里添加一些全局的JavaScript交互逻辑
     console.log("iShoot website loaded.");
@@ -407,7 +407,7 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
             data.numbers.forEach((combo, index) => {
                 const redBallsStr = combo.red_balls;
                 const blueBallsStr = combo.blue_balls;
-                const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+                const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
 
                 html += `<div class="prediction-result-card random-generated">
                             <p class="card-title">随机号码 ${index + 1}:</p>
@@ -429,7 +429,7 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
             const newCombo = data.numbers[0]; // Should only be one new combo
             const redBallsStr = newCombo.red_balls;
             const blueBallsStr = newCombo.blue_balls;
-            const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+            const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
 
             const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
             if (card) {
@@ -489,7 +489,7 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
         // Show loading spinner on the specific card
         const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
         if (card) {
-            card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="loading-spinner"></span>`;
+            card.querySelector('.card-title').innerHTML = `规则筛选号码 ${indexToRegenerate + 1}: <span class="loading-spinner"></span>`;
         }
     }
 
@@ -513,7 +513,7 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
             } else {
                 const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
                 if (card) {
-                    card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                    card.querySelector('.card-title').innerHTML = `规则筛选号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
                 }
             }
             return;
@@ -524,10 +524,10 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
             data.numbers.forEach((combo, index) => {
                 const redBallsStr = combo.red_balls;
                 const blueBallsStr = combo.blue_balls;
-                const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+                const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
 
                 html += `<div class="prediction-result-card rule-based">
-                            <p class="card-title">规则预测号码 ${index + 1}:</p>
+                            <p class="card-title">规则筛选号码 ${index + 1}:</p>
                             <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
                             <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
                             <div class="number-stats mt-2">
@@ -546,14 +546,14 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
             const newCombo = data.numbers[0]; // Should only be one new combo
             const redBallsStr = newCombo.red_balls;
             const blueBallsStr = newCombo.blue_balls;
-            const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+            const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
 
             const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
             if (card) {
                 const redBallsList = redBallsStr.split(',').map(Number);
                 const blueBallsList = blueBallsStr.split(',').map(Number);
 
-                card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}:`;
+                card.querySelector('.card-title').innerHTML = `规则筛选号码 ${indexToRegenerate + 1}:`;
                 card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
                 card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
                 
@@ -591,7 +591,7 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
         } else {
             const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
             if (card) {
-                card.querySelector('.card-title').innerHTML = `规则预测号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                card.querySelector('.card-title').innerHTML = `规则筛选号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
                 // Clear stats on error
                 const statsDiv = card.querySelector('.number-stats');
                 if (statsDiv) statsDiv.innerHTML = '';
@@ -686,51 +686,64 @@ function clearPredictedNumbers(lotteryType) {
     console.log(`Frontend: Cleared predicted numbers for ${lotteryType}.`);
 }
 
-// Clear Random Numbers (真随机)
+// Clear Random Numbers (随机筛选)
 function clearRandomNumbers(lotteryType) {
-    document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击"生成真随机号码"按钮。</p>';
+    document.getElementById(`${lotteryType}_random_numbers_output`).innerHTML = '<p class="text-muted">点击"生成随机号码"按钮。</p>';
     console.log(`Frontend: Cleared random numbers for ${lotteryType}.`);
 }
 
-// Copy All Random Numbers (真随机)
+// Helper to get lottery type label in Chinese
+function getLotteryLabel(lotteryType) {
+    return lotteryType === 'ssq' ? '双色球' : '大乐透';
+}
+
+// Helper to pad number string (e.g. "1,5,13" -> "01 05 13")
+function padNumberStr(numStr) {
+    return numStr.split(',').map(function(n) { return String(parseInt(n)).padStart(2, '0'); }).join(' ');
+}
+
+// Copy All Random Numbers (随机筛选)
 function copyAllRandomNumbers(lotteryType) {
-    let allNumbersText = `--- ${lotteryType.toUpperCase()} 真随机号码 ---\n`;
+    let allNumbersText = `--- ${getLotteryLabel(lotteryType)} 随机筛选号码 ---\n`;
     const randomCards = document.querySelectorAll(`#${lotteryType}_random_numbers_output .prediction-result-card`);
     if (randomCards.length === 0) {
         allNumbersText += "无\n";
     } else {
         randomCards.forEach(card => {
-            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
-            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
-            allNumbersText += `${redBalls} ${blueBalls}\n`;
+            const copyBtn = card.querySelector('.copy-to-clipboard-btn');
+            if (copyBtn) {
+                allNumbersText += `${copyBtn.dataset.copyText}\n`;
+            }
         });
     }
     copyToClipboard(allNumbersText);
 }
 
-// Copy All Generated Numbers
+// Copy All Generated Numbers (规则筛选)
 function copyAllGeneratedNumbers(lotteryType) {
-    let allNumbersText = `--- ${lotteryType.toUpperCase()} 规则预测号码 ---\n`;
+    let allNumbersText = `--- ${getLotteryLabel(lotteryType)} 规则筛选号码 ---\n`;
     const predictedCards = document.querySelectorAll(`#${lotteryType}_predicted_numbers_output .prediction-result-card`);
     if (predictedCards.length === 0) {
         allNumbersText += "无\n";
     } else {
         predictedCards.forEach(card => {
-            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
-            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
-            allNumbersText += `${redBalls} ${blueBalls}\n`;
+            const copyBtn = card.querySelector('.copy-to-clipboard-btn');
+            if (copyBtn) {
+                allNumbersText += `${copyBtn.dataset.copyText}\n`;
+            }
         });
     }
 
-    allNumbersText += `\n--- ${lotteryType.toUpperCase()} 真随机号码 ---\n`;
+    allNumbersText += `\n--- ${getLotteryLabel(lotteryType)} 随机筛选号码 ---\n`;
     const randomCards = document.querySelectorAll(`#${lotteryType}_random_numbers_output .prediction-result-card`);
     if (randomCards.length === 0) {
         allNumbersText += "无\n";
     } else {
         randomCards.forEach(card => {
-            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
-            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
-            allNumbersText += `${redBalls} ${blueBalls}\n`;
+            const copyBtn = card.querySelector('.copy-to-clipboard-btn');
+            if (copyBtn) {
+                allNumbersText += `${copyBtn.dataset.copyText}\n`;
+            }
         });
     }
     
@@ -794,7 +807,7 @@ async function generateComplexPrediction(lotteryType) {
                 const blueBallsStr = combo.blue_balls;
                 const combinationText = `${combo.red_count}+${combo.blue_count}`;
                 const priceText = `${combo.total_cost} 元`;
-                const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr} (${combinationText}, ${priceText})`;
+                const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)} (${combinationText}, ${priceText})`;
 
                 html += `<div class="prediction-result-card complex-generated">
                             <p class="card-title">复式号码 ${index + 1}: (${combinationText}, ${priceText})</p>
@@ -992,15 +1005,16 @@ function clearComplexGeneratedNumbers(lotteryType) {
 
 // Copy All Complex Generated Numbers
 function copyAllComplexNumbers(lotteryType) {
-    let allNumbersText = `--- ${lotteryType.toUpperCase()} 复式预测号码 ---\n`;
+    let allNumbersText = `--- ${getLotteryLabel(lotteryType)} 复式筛选号码 ---\n`;
     const complexCards = document.querySelectorAll(`#${lotteryType}_complex_prediction_output .prediction-result-card`);
     if (complexCards.length === 0) {
         allNumbersText += "无\n";
     } else {
         complexCards.forEach(card => {
-            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
-            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
-            allNumbersText += `${redBalls} ${blueBalls}\n`;
+            const copyBtn = card.querySelector('.copy-to-clipboard-btn');
+            if (copyBtn) {
+                allNumbersText += `${copyBtn.dataset.copyText}\n`;
+            }
         });
     }
     copyToClipboard(allNumbersText);
@@ -1307,7 +1321,7 @@ async function generateSmartFilterNumbers(lotteryType) {
         data.numbers.forEach((combo, index) => {
             const redBallsStr = combo.red_balls;
             const blueBallsStr = combo.blue_balls;
-            const fullNumberStr = `红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+            const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
             
             html += `<div class="prediction-result-card smart-filter-generated">
                         <p class="card-title">智能筛选号码 ${index + 1}:</p>
@@ -1339,15 +1353,16 @@ function clearSmartFilterNumbers(lotteryType) {
 
 // 复制所有智能筛选号码
 function copyAllSmartFilterNumbers(lotteryType) {
-    let allNumbersText = `--- ${lotteryType.toUpperCase()} 智能筛选号码 ---\n`;
+    let allNumbersText = `--- ${getLotteryLabel(lotteryType)} 智能筛选号码 ---\n`;
     const smartCards = document.querySelectorAll(`#${lotteryType}_smart_filter_output .prediction-result-card`);
     if (smartCards.length === 0) {
         allNumbersText += "无\n";
     } else {
         smartCards.forEach(card => {
-            const redBalls = card.querySelector('p:nth-of-type(2)').innerText.replace('红球: ', '');
-            const blueBalls = card.querySelector('p:nth-of-type(3)').innerText.replace('蓝球: ', '');
-            allNumbersText += `${redBalls} ${blueBalls}\n`;
+            const copyBtn = card.querySelector('.copy-to-clipboard-btn');
+            if (copyBtn) {
+                allNumbersText += `${copyBtn.dataset.copyText}\n`;
+            }
         });
     }
     copyToClipboard(allNumbersText);
