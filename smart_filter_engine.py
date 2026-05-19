@@ -166,6 +166,10 @@ def check_omission_rule_ssq(red_balls, red_omission, pattern="4+1+1"):
     elif pattern == "1+5+0":
         if h == 1 and w == 5 and c == 0:
             return True, f"热{h}温{w}冷{c}"
+    elif pattern == "6+0+0":
+        # 热号6个，温号0个，冷号0个
+        if h == 6 and w == 0 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
     else:
         # 未知模式，使用宽松检查
         if h + w + c == 6:
@@ -789,6 +793,19 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
                     # 最多1组2连号：允许0组或1组，但不能超过1组
                     p, count, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
                     if p and count <= 1: passed = True; break
+                elif opt == '2_group_2':
+                    # 恰好2组2连号：允许2组2连号，不能有3连号
+                    p, count, groups = check_consecutive_balls(red_balls, max_groups=2, max_length=2)
+                    if p and count == 2: passed = True; break
+                elif opt == '1_group_3':
+                    # 恰好1组3连号
+                    p, count, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=3)
+                    if p and count == 1:
+                        # 检查是否确实是3连号
+                        for g in groups:
+                            if len(g) == 3:
+                                passed = True; break
+                    if passed: break
             if not passed:
                 return False
     
@@ -807,6 +824,9 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
                 if p: passed = True; break
             elif opt == '1_or_2':
                 p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=1, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '3':
+                p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=3, max_repeat=3)
                 if p: passed = True; break
             elif opt == '0':
                 p, _ = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=0)
@@ -997,6 +1017,18 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
                 elif opt == '1_group_2':
                     p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
                     if p and count <= 1: passed = True; break
+                elif opt == '2_group_2':
+                    # 恰好2组2连号
+                    p, count, groups = check_consecutive_balls(front_balls, max_groups=2, max_length=2)
+                    if p and count == 2: passed = True; break
+                elif opt == '1_group_3':
+                    # 恰好1组3连号
+                    p, count, groups = check_consecutive_balls(front_balls, max_groups=1, max_length=3)
+                    if p and count == 1:
+                        for g in groups:
+                            if len(g) == 3:
+                                passed = True; break
+                    if passed: break
             if not passed:
                 logger.debug(f"DLT FAIL: consecutive. balls={front_balls}, options={consecutive_options}")
                 return False
@@ -1017,6 +1049,9 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
                 if p: passed = True; break
             elif opt == '1_or_2':
                 p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=1, max_repeat=2)
+                if p: passed = True; break
+            elif opt == '3':
+                p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=3, max_repeat=3)
                 if p: passed = True; break
             elif opt == '0':
                 p, count = check_repeat_with_previous(front_balls, 'dlt', min_repeat=0, max_repeat=0)

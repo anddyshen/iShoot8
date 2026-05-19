@@ -274,16 +274,24 @@
                                         <label class="form-label">连号原则 <span class="smart-filter-stats" id="ssq_stats_consecutive"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_consecutive">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_consecutive" value="1_group_2" id="ssq_cons_1_group_2">
-                                                <label class="form-check-label" for="ssq_cons_1_group_2">最多1组2连号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_consecutive" value="no_consecutive" id="ssq_cons_no" checked>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="no_consecutive" id="ssq_cons_no">
                                                 <label class="form-check-label" for="ssq_cons_no">无连号</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_consecutive" value="disabled" id="ssq_cons_disabled">
-                                                <label class="form-check-label text-muted" for="ssq_cons_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="1_group_2" id="ssq_cons_1_group_2">
+                                                <label class="form-check-label" for="ssq_cons_1_group_2">1组2连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="2_group_2" id="ssq_cons_2_group_2">
+                                                <label class="form-check-label" for="ssq_cons_2_group_2">2组2连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="1_group_3" id="ssq_cons_1_group_3">
+                                                <label class="form-check-label" for="ssq_cons_1_group_3">一组3连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_cons_disabled">
+                                                <label class="form-check-label text-muted" for="ssq_cons_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>
@@ -291,24 +299,24 @@
                                         <label class="form-label">与上期重号 <span class="smart-filter-stats" id="ssq_stats_repeat"></span></label>
                                         <div class="smart-filter-checkbox-group" id="ssq_smart_repeat">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_repeat" value="1_or_2" id="ssq_repeat_1_2">
-                                                <label class="form-check-label" for="ssq_repeat_1_2">1-2个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_repeat" value="1" id="ssq_repeat_1" checked>
-                                                <label class="form-check-label" for="ssq_repeat_1">1个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_repeat" value="2" id="ssq_repeat_2">
-                                                <label class="form-check-label" for="ssq_repeat_2">2个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq" type="radio" name="ssq_repeat" value="0" id="ssq_repeat_0">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="0" id="ssq_repeat_0">
                                                 <label class="form-check-label" for="ssq_repeat_0">无重号</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="radio" name="ssq_repeat" value="disabled" id="ssq_repeat_disabled">
-                                                <label class="form-check-label text-muted" for="ssq_repeat_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="1" id="ssq_repeat_1">
+                                                <label class="form-check-label" for="ssq_repeat_1">1个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="2" id="ssq_repeat_2">
+                                                <label class="form-check-label" for="ssq_repeat_2">2个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="3" id="ssq_repeat_3">
+                                                <label class="form-check-label" for="ssq_repeat_3">3个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_repeat_disabled">
+                                                <label class="form-check-label text-muted" for="ssq_repeat_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>
@@ -362,6 +370,10 @@
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq" type="checkbox" value="1+5+0" id="ssq_omit_1_5_0">
                                                 <label class="form-check-label" for="ssq_omit_1_5_0">1热+5温+0冷</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-ssq" type="checkbox" value="6+0+0" id="ssq_omit_6_0_0">
+                                                <label class="form-check-label" for="ssq_omit_6_0_0">6热+0温+0冷</label>
                                             </div>
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input smart-filter-ssq smart-filter-disabled" type="checkbox" value="disabled" id="ssq_omit_disabled">
@@ -790,16 +802,24 @@
                                         <label class="form-label">连号原则 <span class="smart-filter-stats" id="dlt_stats_consecutive"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_consecutive">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_consecutive" value="1_group_2" id="dlt_cons_1_group_2">
-                                                <label class="form-check-label" for="dlt_cons_1_group_2">最多1组2连号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_consecutive" value="no_consecutive" id="dlt_cons_no" checked>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="no_consecutive" id="dlt_cons_no">
                                                 <label class="form-check-label" for="dlt_cons_no">无连号</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_consecutive" value="disabled" id="dlt_cons_disabled">
-                                                <label class="form-check-label text-muted" for="dlt_cons_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1_group_2" id="dlt_cons_1_group_2">
+                                                <label class="form-check-label" for="dlt_cons_1_group_2">1组2连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2_group_2" id="dlt_cons_2_group_2">
+                                                <label class="form-check-label" for="dlt_cons_2_group_2">2组2连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1_group_3" id="dlt_cons_1_group_3">
+                                                <label class="form-check-label" for="dlt_cons_1_group_3">一组3连号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_cons_disabled">
+                                                <label class="form-check-label text-muted" for="dlt_cons_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>
@@ -807,24 +827,24 @@
                                         <label class="form-label">与上期重号 <span class="smart-filter-stats" id="dlt_stats_repeat"></span></label>
                                         <div class="smart-filter-checkbox-group" id="dlt_smart_repeat">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_repeat" value="1_or_2" id="dlt_repeat_1_2" checked>
-                                                <label class="form-check-label" for="dlt_repeat_1_2">1-2个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_repeat" value="1" id="dlt_repeat_1">
-                                                <label class="form-check-label" for="dlt_repeat_1">1个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_repeat" value="2" id="dlt_repeat_2">
-                                                <label class="form-check-label" for="dlt_repeat_2">2个重号</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt" type="radio" name="dlt_repeat" value="0" id="dlt_repeat_0">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="0" id="dlt_repeat_0">
                                                 <label class="form-check-label" for="dlt_repeat_0">无重号</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="radio" name="dlt_repeat" value="disabled" id="dlt_repeat_disabled">
-                                                <label class="form-check-label text-muted" for="dlt_repeat_disabled">不限制</label>
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="1" id="dlt_repeat_1">
+                                                <label class="form-check-label" for="dlt_repeat_1">1个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="2" id="dlt_repeat_2">
+                                                <label class="form-check-label" for="dlt_repeat_2">2个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt" type="checkbox" value="3" id="dlt_repeat_3">
+                                                <label class="form-check-label" for="dlt_repeat_3">3个重号</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input smart-filter-dlt smart-filter-disabled" type="checkbox" value="disabled" id="dlt_repeat_disabled">
+                                                <label class="form-check-label text-muted" for="dlt_repeat_disabled">无限制</label>
                                             </div>
                                         </div>
                                     </div>

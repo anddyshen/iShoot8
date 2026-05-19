@@ -1180,16 +1180,16 @@ function getSmartFilterOptions(lotteryType) {
         options.zone_ratio = zoneValues;
     }
     
-    // 连号原则（radio按钮，单值）
-    const consValue = getRadioValue(`${lotteryType}_smart_consecutive`);
-    if (consValue && !isDisabled(`${lotteryType}_smart_consecutive`)) {
-        options.consecutive = [consValue];
+    // 连号原则（checkbox多选）
+    const consValues = getCheckedValues(`${lotteryType}_smart_consecutive`);
+    if (consValues.length > 0 && !isDisabled(`${lotteryType}_smart_consecutive`)) {
+        options.consecutive = consValues;
     }
     
-    // 与上期重号（radio按钮，单值）
-    const repeatValue = getRadioValue(`${lotteryType}_smart_repeat`);
-    if (repeatValue && !isDisabled(`${lotteryType}_smart_repeat`)) {
-        options.repeat = [repeatValue];
+    // 与上期重号（checkbox多选）
+    const repeatValues = getCheckedValues(`${lotteryType}_smart_repeat`);
+    if (repeatValues.length > 0 && !isDisabled(`${lotteryType}_smart_repeat`)) {
+        options.repeat = repeatValues;
     }
     
     // 遗漏号原则
@@ -1497,8 +1497,8 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
             }
         });
         
-        // ===== 自动选择排名前2的选项（分区原则、遗漏号原则、奇偶比）=====
-        const autoSelectRules = ['zone_ratio', 'omission_pattern', 'odd_even'];
+        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比）=====
+        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even'];
         
         autoSelectRules.forEach(function(ruleName) {
             if (data[ruleName] && data[ruleName].length > 0) {
@@ -1522,6 +1522,21 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
                         var match = value.match(/热(\d+)温(\d+)冷(\d+)/);
                         if (match) {
                             value = match[1] + '+' + match[2] + '+' + match[3];
+                        }
+                    }
+                    // 对连号原则进行格式转换：API返回中文描述 -> checkbox值
+                    if (ruleName === 'consecutive') {
+                        if (value === '无连号') {
+                            value = 'no_consecutive';
+                        } else if (value === '1组2连号') {
+                            value = '1_group_2';
+                        } else if (value === '2组2连号') {
+                            value = '2_group_2';
+                        } else if (value === '1组3连号' || value === '一组3连号') {
+                            value = '1_group_3';
+                        } else {
+                            // 如果是其他格式如 "2组2连号 + 3连号"，则无法精确匹配，跳过
+                            return;
                         }
                     }
                     var checkbox = group.querySelector('.form-check-input[value="' + value + '"]');
