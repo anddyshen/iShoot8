@@ -30,7 +30,12 @@
                     </p>
                     <p class="card-text small">
                         一等奖: {{ latest_ssq.first_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_ssq.first_prize_amount) }} 元
-                        <!-- TODO: 显示更多奖项信息 -->
+                    </p>
+                    <p class="card-text small">
+                        二等奖: {{ latest_ssq.second_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_ssq.second_prize_amount) }} 元
+                    </p>
+                    <p class="card-text small">
+                        三等奖: {{ latest_ssq.third_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_ssq.third_prize_amount) }} 元
                     </p>
                 {% else %}
                     <p class="card-text">暂无双色球开奖数据。</p>
@@ -55,7 +60,18 @@
                     </p>
                     <p class="card-text small">
                         一等奖: {{ latest_dlt.first_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.first_prize_amount) }} 元
-                        <!-- TODO: 显示更多奖项信息 -->
+                        {% if latest_dlt.additional_first_prize_count %}
+                        <span class="text-warning">(追加: {{ latest_dlt.additional_first_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.additional_first_prize_amount) }} 元)</span>
+                        {% endif %}
+                    </p>
+                    <p class="card-text small">
+                        二等奖: {{ latest_dlt.second_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.second_prize_amount) }} 元
+                        {% if latest_dlt.additional_second_prize_count %}
+                        <span class="text-warning">(追加: {{ latest_dlt.additional_second_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.additional_second_prize_amount) }} 元)</span>
+                        {% endif %}
+                    </p>
+                    <p class="card-text small">
+                        三等奖: {{ latest_dlt.third_prize_count }} 注, 奖金 {{ "{:,.0f}".format(latest_dlt.third_prize_amount) }} 元
                     </p>
                 {% else %}
                     <p class="card-text">暂无大乐透开奖数据。</p>
