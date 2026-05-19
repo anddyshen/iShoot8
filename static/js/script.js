@@ -1284,11 +1284,19 @@ function getSmartFilterOptions(lotteryType) {
 }
 
 // 生成智能筛选号码
-async function generateSmartFilterNumbers(lotteryType) {
+async function generateSmartFilterNumbers(lotteryType, indexToRegenerate = null) {
     const outputDiv = document.getElementById(`${lotteryType}_smart_filter_output`);
-    const count = 5; // 默认生成5组
+    const count = indexToRegenerate === null ? 5 : 1; // 重新生成时只生成1组
     
-    outputDiv.innerHTML = '<p class="text-muted">智能筛选中... <span class="loading-spinner"></span></p>';
+    if (indexToRegenerate === null) {
+        outputDiv.innerHTML = '<p class="text-muted">智能筛选中... <span class="loading-spinner"></span></p>';
+    } else {
+        // Show loading spinner on the specific card
+        const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+        if (card) {
+            card.querySelector('.card-title').innerHTML = `智能筛选号码 ${indexToRegenerate + 1}: <span class="loading-spinner"></span>`;
+        }
+    }
     
     const options = getSmartFilterOptions(lotteryType);
     console.log(`Frontend: Generating smart filter numbers for ${lotteryType} with options:`, options);
@@ -1308,40 +1316,100 @@ async function generateSmartFilterNumbers(lotteryType) {
         console.log(`Frontend: Received smart filter response for ${lotteryType}:`, data);
         
         if (data.error) {
-            outputDiv.innerHTML = `<p class="text-danger">智能筛选失败: ${data.error}</p>`;
+            if (indexToRegenerate === null) {
+                outputDiv.innerHTML = `<p class="text-danger">智能筛选失败: ${data.error}</p>`;
+            } else {
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `智能筛选号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                }
+            }
             return;
         }
         
         if (!data.numbers || data.numbers.length === 0) {
-            outputDiv.innerHTML = '<p class="text-warning">未生成符合条件的号码，请放宽筛选条件后重试。</p>';
+            if (indexToRegenerate === null) {
+                outputDiv.innerHTML = '<p class="text-warning">未生成符合条件的号码，请放宽筛选条件后重试。</p>';
+            } else {
+                const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+                if (card) {
+                    card.querySelector('.card-title').innerHTML = `智能筛选号码 ${indexToRegenerate + 1}: <span class="text-warning">未生成</span>`;
+                }
+            }
             return;
         }
         
-        let html = '';
-        data.numbers.forEach((combo, index) => {
-            const redBallsStr = combo.red_balls;
-            const blueBallsStr = combo.blue_balls;
+        if (indexToRegenerate === null) {
+            let html = '';
+            data.numbers.forEach((combo, index) => {
+                const redBallsStr = combo.red_balls;
+                const blueBallsStr = combo.blue_balls;
+                const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
+                
+                html += `<div class="prediction-result-card smart-filter-generated">
+                            <p class="card-title">智能筛选号码 ${index + 1}:</p>
+                            <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
+                            <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
+                            <div class="number-stats mt-2">
+                                <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
+                                <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-info me-2 regenerate-smart-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                            <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
+                            <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
+                        </div>`;
+            });
+            outputDiv.innerHTML = html;
+        } else {
+            // Replace content of specific card
+            const newCombo = data.numbers[0];
+            const redBallsStr = newCombo.red_balls;
+            const blueBallsStr = newCombo.blue_balls;
             const fullNumberStr = `${padNumberStr(redBallsStr)} + ${padNumberStr(blueBallsStr)}`;
-            
-            html += `<div class="prediction-result-card smart-filter-generated">
-                        <p class="card-title">智能筛选号码 ${index + 1}:</p>
-                        <p>红球: ${renderBalls(combo.red_balls.split(',').map(Number), 'red', getConsecutiveGroupsJS(combo.red_balls.split(',').map(Number)))}</p>
-                        <p>蓝球: ${renderBalls(combo.blue_balls.split(',').map(Number), 'blue', getConsecutiveGroupsJS(combo.blue_balls.split(',').map(Number)))}</p>
-                        <div class="number-stats mt-2">
-                            <small>红球: 奇偶比 ${combo.stats.red_odd_even_ratio}, 和值 ${combo.stats.red_sum}, 跨度 ${combo.stats.red_span}, 大小比 ${combo.stats.red_size_ratio}</small><br>
-                            <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
-                        </div>
-                        <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
-                        <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
-                        <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
-                    </div>`;
-        });
-        outputDiv.innerHTML = html;
+
+            const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+            if (card) {
+                const redBallsList = redBallsStr.split(',').map(Number);
+                const blueBallsList = blueBallsStr.split(',').map(Number);
+
+                card.querySelector('.card-title').innerHTML = `智能筛选号码 ${indexToRegenerate + 1}:`;
+                card.querySelector('p:nth-of-type(2)').innerHTML = `红球: ${renderBalls(redBallsList, 'red', getConsecutiveGroupsJS(redBallsList))}`;
+                card.querySelector('p:nth-of-type(3)').innerHTML = `蓝球: ${renderBalls(blueBallsList, 'blue', getConsecutiveGroupsJS(blueBallsList))}`;
+                
+                // Update statistics
+                let statsDiv = card.querySelector('.number-stats');
+                if (!statsDiv) {
+                    statsDiv = document.createElement('div');
+                    statsDiv.classList.add('number-stats', 'mt-2');
+                    card.insertBefore(statsDiv, card.querySelector('.regenerate-smart-btn'));
+                }
+                statsDiv.innerHTML = `
+                    <small>红球: 奇偶比 ${newCombo.stats.red_odd_even_ratio}, 和值 ${newCombo.stats.red_sum}, 跨度 ${newCombo.stats.red_span}, 大小比 ${newCombo.stats.red_size_ratio}</small><br>
+                    <small>蓝球: 奇偶比 ${newCombo.stats.blue_odd_even_ratio}, 和值 ${newCombo.stats.blue_sum}, 跨度 ${newCombo.stats.blue_span}, 大小比 ${newCombo.stats.blue_size_ratio}</small>
+                `;
+
+                card.querySelector('.check-smart-filter-rules-btn').dataset.redBalls = redBallsStr;
+                card.querySelector('.check-smart-filter-rules-btn').dataset.blueBalls = blueBallsStr;
+                card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
+                card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
+                card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+            }
+        }
         console.log(`Frontend: Successfully rendered smart filter numbers for ${lotteryType}.`);
         
     } catch (error) {
         console.error(`Frontend: Error generating smart filter numbers for ${lotteryType}:`, error);
-        outputDiv.innerHTML = '<p class="text-danger">智能筛选失败。</p>';
+        if (indexToRegenerate === null) {
+            outputDiv.innerHTML = '<p class="text-danger">智能筛选失败。</p>';
+        } else {
+            const card = outputDiv.querySelector(`.prediction-result-card:nth-child(${indexToRegenerate + 1})`);
+            if (card) {
+                card.querySelector('.card-title').innerHTML = `智能筛选号码 ${indexToRegenerate + 1}: <span class="text-danger">生成失败</span>`;
+                const statsDiv = card.querySelector('.number-stats');
+                if (statsDiv) statsDiv.innerHTML = '';
+            }
+        }
     }
 }
 
@@ -1435,8 +1503,12 @@ async function checkSmartFilterRules(lotteryType, redBallsStr, blueBallsStr) {
     }
 }
 
-// 智能筛选输出区域的事件委托（用于检查规则和复制按钮）
+// 智能筛选输出区域的事件委托（用于重新生成、检查规则和复制按钮）
 document.getElementById('ssq_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('regenerate-smart-btn')) {
+        const index = parseInt(e.target.dataset.index);
+        generateSmartFilterNumbers(e.target.dataset.lotteryType, index);
+    }
     if (e.target.classList.contains('check-smart-filter-rules-btn')) {
         checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
@@ -1449,6 +1521,10 @@ document.getElementById('ssq_smart_filter_output').addEventListener('click', fun
 });
 
 document.getElementById('dlt_smart_filter_output').addEventListener('click', function(e) {
+    if (e.target.classList.contains('regenerate-smart-btn')) {
+        const index = parseInt(e.target.dataset.index);
+        generateSmartFilterNumbers(e.target.dataset.lotteryType, index);
+    }
     if (e.target.classList.contains('check-smart-filter-rules-btn')) {
         checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
