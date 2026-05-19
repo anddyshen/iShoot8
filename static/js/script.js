@@ -1497,6 +1497,42 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
             }
         });
         
+        // ===== 自动选择排名前2的选项（分区原则、遗漏号原则、奇偶比）=====
+        const autoSelectRules = ['zone_ratio', 'omission_pattern', 'odd_even'];
+        
+        autoSelectRules.forEach(function(ruleName) {
+            if (data[ruleName] && data[ruleName].length > 0) {
+                // 取前2名
+                const topValues = data[ruleName].slice(0, 2);
+                const groupId = lotteryType + '_smart_' + ruleName;
+                const group = document.getElementById(groupId);
+                if (!group) return;
+                
+                // 先取消所有非disabled选项的勾选
+                group.querySelectorAll('.form-check-input:not(.smart-filter-disabled)').forEach(function(cb) {
+                    cb.checked = false;
+                });
+                
+                // 勾选前2名对应的选项
+                topValues.forEach(function(item) {
+                    var value = item.rule_value;
+                    // 对遗漏号原则进行格式转换：API返回"热4温1冷1" -> checkbox值"4+1+1"
+                    if (ruleName === 'omission_pattern') {
+                        // 从"热X温Y冷Z"中提取数字部分
+                        var match = value.match(/热(\d+)温(\d+)冷(\d+)/);
+                        if (match) {
+                            value = match[1] + '+' + match[2] + '+' + match[3];
+                        }
+                    }
+                    var checkbox = group.querySelector('.form-check-input[value="' + value + '"]');
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+        });
+        // ===== 结束自动选择逻辑 =====
+        
     } catch (error) {
         console.error(`Error loading smart filter stats for ${lotteryType}:`, error);
     }

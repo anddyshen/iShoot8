@@ -18,6 +18,8 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 # 数据库配置
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE_PATH = os.path.join(BASE_DIR, 'instance', 'ishoot.db')
+# 服务器上使用 MySQL（本地连接）
+#SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://xmadmin:DPCLsDiFxnLDdHXw@localhost:3306/ishoot.cc?charset=utf8mb4'
 SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
