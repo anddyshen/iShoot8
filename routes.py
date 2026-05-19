@@ -1416,28 +1416,31 @@ def api_smart_filter_check():
                 if p: passed = True; break
         results['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else f'不符合规则, 实际邻号数: {count}'}
 
-    # AC值
+    # AC值（SSQ: lt_5,5,6,7,8,9,10,disabled; DLT: 0,1,2,3,4,5,6,disabled）
     ac_options = options.get('ac_value', [])
     if isinstance(ac_options, str):
         ac_options = [ac_options]
     if ac_options and 'disabled' not in ac_options:
         from smart_filter_engine import check_ac_value
         passed = False
+        ac_val = 0
         for opt in ac_options:
-            if opt == '6_or_7':
-                p, ac = check_ac_value(red_balls, [6, 7])
-            elif opt == '5_to_8':
-                p, ac = check_ac_value(red_balls, [5, 6, 7, 8])
-            elif opt == '4_to_9':
-                p, ac = check_ac_value(red_balls, [4, 5, 6, 7, 8, 9])
-            elif opt == '5_or_6':
-                p, ac = check_ac_value(red_balls, [5, 6])
-            elif opt == '4_to_7':
-                p, ac = check_ac_value(red_balls, [4, 5, 6, 7])
+            if lottery_type == 'ssq':
+                # SSQ: lt_5,5,6,7,8,9,10
+                if opt == 'lt_5':
+                    p, ac_val = check_ac_value(red_balls, [0, 1, 2, 3, 4])
+                elif opt in ['5', '6', '7', '8', '9', '10']:
+                    p, ac_val = check_ac_value(red_balls, [int(opt)])
+                else:
+                    continue
             else:
-                continue
+                # DLT: 0,1,2,3,4,5,6
+                if opt in ['0', '1', '2', '3', '4', '5', '6']:
+                    p, ac_val = check_ac_value(red_balls, [int(opt)])
+                else:
+                    continue
             if p: passed = True; break
-        results['AC值'] = {'passed': passed, 'message': f'实际AC值: {ac}' if not passed else f'通过, AC值: {ac}'}
+        results['AC值'] = {'passed': passed, 'message': f'实际AC值: {ac_val}' if not passed else f'通过, AC值: {ac_val}'}
 
     # 蓝球相关
     if lottery_type == 'ssq':

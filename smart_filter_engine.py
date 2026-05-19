@@ -973,27 +973,19 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         if not passed:
             return False
     
-    # 11. AC值原则 - 支持多选
-    ac_options = options.get('ac_value', ['6_or_7'])
+    # 11. AC值原则 - 支持多选（SSQ: lt_5,5,6,7,8,9,10,disabled）
+    ac_options = options.get('ac_value', ['6'])
     if isinstance(ac_options, str):
         ac_options = [ac_options]
     if 'disabled' not in ac_options:
         passed = False
         for opt in ac_options:
-            if opt == '6_or_7':
-                p, _ = check_ac_value(red_balls, [6, 7])
+            if opt == 'lt_5':
+                # AC < 5 即 0-4
+                p, ac_val = check_ac_value(red_balls, [0, 1, 2, 3, 4])
                 if p: passed = True; break
-            elif opt == '8':
-                p, _ = check_ac_value(red_balls, [8])
-                if p: passed = True; break
-            elif opt == '6':
-                p, _ = check_ac_value(red_balls, [6])
-                if p: passed = True; break
-            elif opt == '5_to_8':
-                p, _ = check_ac_value(red_balls, [5, 6, 7, 8])
-                if p: passed = True; break
-            elif opt == '4_to_9':
-                p, _ = check_ac_value(red_balls, [4, 5, 6, 7, 8, 9])
+            elif opt in ['5', '6', '7', '8', '9', '10']:
+                p, ac_val = check_ac_value(red_balls, [int(opt)])
                 if p: passed = True; break
         if not passed:
             return False
@@ -1245,30 +1237,15 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: neighbor. count={count}")
     
-    # 11. AC值原则 - 支持多选
-    ac_options = options.get('ac_value', ['5_or_6'])
+    # 11. AC值原则 - 支持多选（DLT: 0,1,2,3,4,5,6,disabled）
+    ac_options = options.get('ac_value', ['5'])
     if isinstance(ac_options, str):
         ac_options = [ac_options]
     if 'disabled' not in ac_options:
         passed = False
         for opt in ac_options:
-            if opt == '5':
-                p, ac = check_ac_value(front_balls, [5])
-                if p: passed = True; break
-            elif opt == '5_or_6':
-                p, ac = check_ac_value(front_balls, [5, 6])
-                if p: passed = True; break
-            elif opt == '4_to_7':
-                p, ac = check_ac_value(front_balls, [4, 5, 6, 7])
-                if p: passed = True; break
-            elif opt == '6_or_7':
-                p, ac = check_ac_value(front_balls, [6, 7])
-                if p: passed = True; break
-            elif opt == '5_to_8':
-                p, ac = check_ac_value(front_balls, [5, 6, 7, 8])
-                if p: passed = True; break
-            elif opt == '4_to_9':
-                p, ac = check_ac_value(front_balls, [4, 5, 6, 7, 8, 9])
+            if opt in ['0', '1', '2', '3', '4', '5', '6']:
+                p, ac = check_ac_value(front_balls, [int(opt)])
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: ac_value. balls={front_balls}, ac={ac}, options={ac_options}")

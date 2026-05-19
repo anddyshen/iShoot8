@@ -1228,10 +1228,10 @@ function getSmartFilterOptions(lotteryType) {
         options.neighbor = neighborValues;
     }
     
-    // AC值（radio按钮，单值）
-    const acValue = getRadioValue(`${lotteryType}_smart_ac_value`);
-    if (acValue && !isDisabled(`${lotteryType}_smart_ac_value`)) {
-        options.ac_value = [acValue];
+    // AC值（checkbox多选）
+    const acValues = getCheckedValues(`${lotteryType}_smart_ac_value`);
+    if (acValues.length > 0 && !isDisabled(`${lotteryType}_smart_ac_value`)) {
+        options.ac_value = acValues;
     }
     
     // 蓝球选择 - 新的实现方式：收集所有选中的蓝色号码作为数组
@@ -1497,9 +1497,9 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
             }
         });
         
-        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比、跨度、同尾号、邻号）=====
+        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比、跨度、同尾号、邻号、AC值）=====
         // 对于span（radio单选项），只选择排名第1的即可
-        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even', 'same_tail', 'neighbor'];
+        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even', 'same_tail', 'neighbor', 'ac_value'];
         const autoSelectSingleRules = ['span'];
         
         // checkbox多选规则
