@@ -844,6 +844,9 @@ document.getElementById('ssq_random_numbers_output').addEventListener('click', f
         const index = parseInt(e.target.dataset.index);
         generateRandomNumbers(e.target.dataset.lotteryType, index); 
     }
+    if (e.target.classList.contains('check-smart-filter-rules-btn')) {
+        checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('check-generated-rules-btn')) {
         checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
@@ -954,6 +957,9 @@ document.getElementById('dlt_random_numbers_output').addEventListener('click', f
     if (e.target.classList.contains('regenerate-random-btn')) {
         const index = parseInt(e.target.dataset.index);
         generateRandomNumbers(e.target.dataset.lotteryType, index);
+    }
+    if (e.target.classList.contains('check-smart-filter-rules-btn')) {
+        checkSmartFilterRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
     if (e.target.classList.contains('check-generated-rules-btn')) {
         checkGeneratedRules(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
