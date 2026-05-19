@@ -1210,10 +1210,10 @@ function getSmartFilterOptions(lotteryType) {
         options.span = [spanValue];
     }
     
-    // 号码总和（radio按钮，单值）
-    const sumValue = getRadioValue(`${lotteryType}_smart_sum`);
-    if (sumValue && !isDisabled(`${lotteryType}_smart_sum`)) {
-        options.sum = [sumValue];
+    // 号码总和（checkbox多选）
+    const sumValues = getCheckedValues(`${lotteryType}_smart_sum`);
+    if (sumValues.length > 0 && !isDisabled(`${lotteryType}_smart_sum`)) {
+        options.sum = sumValues;
     }
     
     // 同尾号（checkbox多选）

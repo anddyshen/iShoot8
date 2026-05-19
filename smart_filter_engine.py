@@ -912,24 +912,27 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
         if not passed:
             return False
     
-    # 8. 号码总和原则 - 支持多选
-    sum_options = options.get('sum', ['70-129'])
+    # 8. 号码总和原则 - 支持多选（checkbox）
+    sum_options = options.get('sum', ['71-90', '91-110'])
     if isinstance(sum_options, str):
         sum_options = [sum_options]
     if 'disabled' not in sum_options:
         passed = False
         for opt in sum_options:
-            if opt == '70-129':
-                p, _ = check_sum_range(red_balls, 70, 129)
+            if opt == 'lt_70':
+                p, total = check_sum_range(red_balls, 1, 69)
                 if p: passed = True; break
-            elif opt == '80-120':
-                p, _ = check_sum_range(red_balls, 80, 120)
+            elif opt == '71-90':
+                p, total = check_sum_range(red_balls, 71, 90)
                 if p: passed = True; break
-            elif opt == '90-110':
-                p, _ = check_sum_range(red_balls, 90, 110)
+            elif opt == '91-110':
+                p, total = check_sum_range(red_balls, 91, 110)
                 if p: passed = True; break
-            elif opt == '60-140':
-                p, _ = check_sum_range(red_balls, 60, 140)
+            elif opt == '111-120':
+                p, total = check_sum_range(red_balls, 111, 120)
+                if p: passed = True; break
+            elif opt == 'gt_120':
+                p, total = check_sum_range(red_balls, 121, 200)
                 if p: passed = True; break
         if not passed:
             return False
@@ -1161,33 +1164,27 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
             return False
         logger.debug(f"DLT PASS: span. span={span}")
     
-    # 8. 号码总和原则 - 支持多选
-    sum_options = options.get('sum', ['80-140'])
+    # 8. 号码总和原则 - 支持多选（checkbox）
+    sum_options = options.get('sum', ['71-90', '91-110'])
     if isinstance(sum_options, str):
         sum_options = [sum_options]
     if 'disabled' not in sum_options:
         passed = False
         for opt in sum_options:
-            if opt == '80-140':
-                p, total = check_sum_range(front_balls, 80, 140)
+            if opt == 'lt_70':
+                p, total = check_sum_range(front_balls, 1, 69)
                 if p: passed = True; break
-            elif opt == '90-130':
-                p, total = check_sum_range(front_balls, 90, 130)
+            elif opt == '71-90':
+                p, total = check_sum_range(front_balls, 71, 90)
                 if p: passed = True; break
-            elif opt == '70-150':
-                p, total = check_sum_range(front_balls, 70, 150)
+            elif opt == '91-110':
+                p, total = check_sum_range(front_balls, 91, 110)
                 if p: passed = True; break
-            elif opt == '70-129':
-                p, total = check_sum_range(front_balls, 70, 129)
+            elif opt == '111-120':
+                p, total = check_sum_range(front_balls, 111, 120)
                 if p: passed = True; break
-            elif opt == '80-120':
-                p, total = check_sum_range(front_balls, 80, 120)
-                if p: passed = True; break
-            elif opt == '90-110':
-                p, total = check_sum_range(front_balls, 90, 110)
-                if p: passed = True; break
-            elif opt == '60-140':
-                p, total = check_sum_range(front_balls, 60, 140)
+            elif opt == 'gt_120':
+                p, total = check_sum_range(front_balls, 121, 200)
                 if p: passed = True; break
         if not passed:
             logger.debug(f"DLT FAIL: sum. balls={front_balls}, total={total}, options={sum_options}")
