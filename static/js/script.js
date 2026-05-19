@@ -418,6 +418,7 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
                                 <small>蓝球: 奇偶比 ${combo.stats.blue_odd_even_ratio}, 和值 ${combo.stats.blue_sum}, 跨度 ${combo.stats.blue_span}, 大小比 ${combo.stats.blue_size_ratio}</small>
                             </div>
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
+                            <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
