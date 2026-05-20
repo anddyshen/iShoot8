@@ -236,6 +236,7 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
+            <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">复制最新开奖号码</button>
             <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
         </div>
     </div>
@@ -359,6 +360,7 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
+            <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">复制最新开奖号码</button>
             <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
         </div>
     </div>
@@ -501,6 +503,11 @@
         ssq: 0,
         dlt: 0
     };
+    // 存储每个彩票类型当前显示的开奖号码（用于"复制最新开奖号码"按钮）
+    const currentDrawBalls = {
+        ssq: { red: [], blue: [] },
+        dlt: { red: [], blue: [] }
+    };
 
     /**
      * 获取并显示最新开奖号码（只显示号码球，不显示遗漏）
@@ -544,6 +551,9 @@
             html += renderBalls(data.blue_balls, 'blue');
             html += '</div>';
             contentDiv.innerHTML = html;
+
+            // 存储当前显示的开奖号码，供"复制最新开奖号码"按钮使用
+            currentDrawBalls[lotteryType] = { red: data.red_balls, blue: data.blue_balls };
 
             // 更新号码选择器的遗漏期数显示和当期开奖号码高亮
             updateSelectorOmissions(lotteryType, data.all_red_omissions, data.all_blue_omissions, data.red_balls, data.blue_balls);
@@ -729,6 +739,37 @@
             });
             updateDisplay();
         });
+
+        const copyLatestDrawBtn = document.getElementById(`${lotteryType}_copy_latest_draw`);
+        if (copyLatestDrawBtn) {
+            copyLatestDrawBtn.addEventListener('click', function() {
+                const drawBalls = currentDrawBalls[lotteryType];
+                if (!drawBalls || drawBalls.red.length === 0 || drawBalls.blue.length === 0) {
+                    alert('暂无开奖号码数据，请先加载开奖号码。');
+                    return;
+                }
+                // 清空当前选择
+                clearSelectionBtn.click();
+                // 设置最新开奖号码到选择区域
+                drawBalls.red.forEach(val => {
+                    selectedRedBalls.add(val);
+                    const ballEl = redSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-red');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                drawBalls.blue.forEach(val => {
+                    selectedBlueBalls.add(val);
+                    const ballEl = blueSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-blue');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                updateDisplay();
+            });
+        }
 
         addToCandidatesBtn.addEventListener('click', function() {
             if (selectedRedBalls.size === 0 && selectedBlueBalls.size === 0) {
