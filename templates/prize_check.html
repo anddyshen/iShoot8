@@ -237,6 +237,7 @@
             </div>
             <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
             <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">复制最新开奖号码</button>
+            <button class="btn btn-outline-warning me-2" id="ssq_random_select">随机号码</button>
             <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
         </div>
     </div>
@@ -361,6 +362,7 @@
             </div>
             <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
             <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">复制最新开奖号码</button>
+            <button class="btn btn-outline-warning me-2" id="dlt_random_select">随机号码</button>
             <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
         </div>
     </div>
@@ -771,6 +773,56 @@
             });
         }
 
+        // 随机号码按钮
+        const randomSelectBtn = document.getElementById(`${lotteryType}_random_select`);
+        if (randomSelectBtn) {
+            randomSelectBtn.addEventListener('click', function() {
+                // 清空当前选择
+                clearSelectionBtn.click();
+                
+                // 根据彩票类型确定随机数量
+                const redCount = lotteryType === 'ssq' ? 6 : 5;
+                const blueCount = lotteryType === 'ssq' ? 1 : 2;
+                
+                // 随机生成红球
+                const allRedNumbers = [];
+                for (let i = 1; i <= redRange; i++) allRedNumbers.push(i);
+                for (let i = allRedNumbers.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allRedNumbers[i], allRedNumbers[j]] = [allRedNumbers[j], allRedNumbers[i]];
+                }
+                const pickedRed = allRedNumbers.slice(0, redCount);
+                
+                // 随机生成蓝球
+                const allBlueNumbers = [];
+                for (let i = 1; i <= blueRange; i++) allBlueNumbers.push(i);
+                for (let i = allBlueNumbers.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allBlueNumbers[i], allBlueNumbers[j]] = [allBlueNumbers[j], allBlueNumbers[i]];
+                }
+                const pickedBlue = allBlueNumbers.slice(0, blueCount);
+                
+                // 设置到选择区域
+                pickedRed.forEach(val => {
+                    selectedRedBalls.add(val);
+                    const ballEl = redSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-red');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                pickedBlue.forEach(val => {
+                    selectedBlueBalls.add(val);
+                    const ballEl = blueSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-blue');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                updateDisplay();
+            });
+        }
+
         addToCandidatesBtn.addEventListener('click', function() {
             if (selectedRedBalls.size === 0 && selectedBlueBalls.size === 0) {
                 alert('请至少选择一个红球或一个蓝球。');
@@ -1101,21 +1153,47 @@
                         let resultHtml = '<h5>游戏结果</h5>';
                         resultHtml += `<p>红球: ${renderBalls(redBalls.split(',').map(Number), 'red')}</p>`;
                         resultHtml += `<p>蓝球: ${renderBalls(blueBalls.split(',').map(Number), 'blue')}</p>`;
-                        resultHtml += `<p><strong>模拟总期数:</strong> ${result.total_simulations.toLocaleString()} 期</p>`;
-                        resultHtml += `<p><strong>总花费:</strong> ${result.total_cost.toLocaleString()} 元</p>`;
+                        resultHtml += `<p><strong>模拟总期数:</strong> ${(result.total_simulations || 0).toLocaleString()} 期</p>`;
+                        
+                        const totalCost = result.total_cost_for_simulations || 0;
+                        const totalWinning = result.total_winning_amount || 0;
+                        const returnRate = totalCost > 0 ? ((totalWinning / totalCost) * 100).toFixed(1) : '0.0';
+                        
+                        resultHtml += `<p><strong>总花费:</strong> ${totalCost.toLocaleString()} 元</p>`;
 
-                        if (result.total_prize > 0) {
-                            resultHtml += `<p class="text-success"><strong>总中奖金额:</strong> ${result.total_prize.toLocaleString()} 元</p>`;
-                            resultHtml += `<p><strong>回报率:</strong> ${result.return_rate}%</p>`;
-                            if (result.prize_details && result.prize_details.length > 0) {
+                        if (totalWinning > 0) {
+                            resultHtml += `<p class="text-success"><strong>总中奖金额:</strong> ${totalWinning.toLocaleString()} 元</p>`;
+                            resultHtml += `<p><strong>回报率:</strong> ${returnRate}%</p>`;
+                            
+                            // total_prizes 是一个对象，如 {'六等奖': 5, '五等奖': 2}，需遍历
+                            // 按奖项等级数字从小到大排序（一等奖 → 六等奖）
+                            const prizes = result.total_prizes || {};
+                            const prizeLevelOrder = {'一等奖': 1, '二等奖': 2, '三等奖': 3, '四等奖': 4, '五等奖': 5, '六等奖': 6, '七等奖': 7, '八等奖': 8, '九等奖': 9};
+                            const prizeKeys = Object.keys(prizes).sort((a, b) => {
+                                return (prizeLevelOrder[a] || 99) - (prizeLevelOrder[b] || 99);
+                            });
+                            const hasPrizes = prizeKeys.some(key => prizes[key] > 0);
+                            if (hasPrizes) {
                                 resultHtml += '<p><strong>中奖详情:</strong></p><ul>';
-                                result.prize_details.forEach(detail => {
-                                    resultHtml += `<li>${detail.prize_level}: 中 ${detail.count.toLocaleString()} 注, 奖金 ${detail.amount.toLocaleString()} 元</li>`;
+                                prizeKeys.forEach(level => {
+                                    if (prizes[level] > 0) {
+                                        // 查找对应的金额
+                                        let levelAmount = 0;
+                                        if (result.total_prize_level_amounts && result.total_prize_level_amounts[level]) {
+                                            levelAmount = result.total_prize_level_amounts[level];
+                                        }
+                                        resultHtml += `<li>${level}: 中 ${prizes[level].toLocaleString()} 注, 奖金 ${levelAmount.toLocaleString()} 元</li>`;
+                                    }
                                 });
                                 resultHtml += '</ul>';
                             }
                         } else {
                             resultHtml += `<p class="text-danger"><strong>总中奖金额:</strong> 0 元</p>`;
+                        }
+                        
+                        // 显示提示消息（包含中一等奖的预估日期信息）
+                        if (result.message) {
+                            resultHtml += `<div class="alert alert-info mt-3">${result.message}</div>`;
                         }
 
                         resultsDiv.innerHTML = resultHtml;
