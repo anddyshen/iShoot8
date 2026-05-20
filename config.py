@@ -23,6 +23,15 @@ DATABASE_PATH = os.path.join(BASE_DIR, 'instance', 'ishoot.db')
 SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+# MySQL 连接池配置（解决 uWSGI 多 worker 下 Packet sequence number wrong 错误）
+SQLALCHEMY_ENGINE_OPTIONS = {
+    'pool_pre_ping': True,       # 每次连接前检查连接是否有效
+    'pool_recycle': 300,         # 连接每5分钟回收一次
+    'pool_size': 20,             # 连接池大小
+    'max_overflow': 10,          # 最大溢出连接数
+    'pool_reset_on_return': 'rollback',  # 连接归还时回滚
+}
+
 # 后台管理配置
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'default_admin_password') # 从环境变量获取，或使用默认值
 ADMIN_ROUTE_PREFIX = os.environ.get('ADMIN_ROUTE_PREFIX', 'admin_xyz12') # 首次运行生成，可手动修改
@@ -143,6 +152,17 @@ DEFAULT_SETTINGS = {
     "scheduled_update_enabled": True,
     "scheduled_update_hour": 3,
     "scheduled_update_minute": 15,
+
+    # ===== 开奖日期设置 =====
+    # 双色球开奖日: 2=周二, 4=周四, 7=周日
+    "ssq_draw_days": [2, 4, 7],
+    # 大乐透开奖日: 1=周一, 3=周三, 6=周六
+    "dlt_draw_days": [1, 3, 6],
+    # 年度节假日（停售/不开奖）
+    "annual_holidays": [
+        {"start": "02-09", "duration_weeks": 2},   # 春节假期（约2周）
+        {"start": "10-01", "duration_weeks": 1},   # 国庆假期（1周）
+    ],
 }
 
 # 双色球参数键
@@ -365,6 +385,23 @@ def load_settings():
         for key in percentage_keys:
             if key in settings and isinstance(settings[key], (int, float)) and settings[key] > 1:
                 settings[key] = settings[key] / 100
+        
+        # 确保列表类型配置项保持正确的类型（防止 settings.json 被错误保存为字符串）
+        list_config_keys = ['ssq_draw_days', 'dlt_draw_days', 'annual_holidays', 'history_stats_range_options']
+        for key in list_config_keys:
+            if key in settings and isinstance(settings[key], str):
+                # 尝试解析字符串为列表，如 "[2, 4, 7]" -> [2, 4, 7]
+                try:
+                    import ast
+                    parsed = ast.literal_eval(settings[key])
+                    if isinstance(parsed, (list, tuple)):
+                        settings[key] = list(parsed)
+                    else:
+                        # 如果解析失败，使用默认值
+                        settings[key] = DEFAULT_SETTINGS.get(key, settings[key])
+                except (ValueError, SyntaxError):
+                    # 如果解析失败，使用默认值
+                    settings[key] = DEFAULT_SETTINGS.get(key, settings[key])
         
         return settings
 

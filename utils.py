@@ -695,13 +695,37 @@ def _calculate_draws_in_years(lottery_type, num_years, start_date=None):
 
     end_date = date(start_date.year + num_years, start_date.month, start_date.day)
     
-    draw_days = []
+    draw_days_raw = []
     if lottery_type == 'ssq':
-        draw_days = CURRENT_SETTINGS.get('ssq_draw_days', [])
+        draw_days_raw = CURRENT_SETTINGS.get('ssq_draw_days', [2, 4, 7])  # 默认: 周二、周四、周日
     elif lottery_type == 'dlt':
-        draw_days = CURRENT_SETTINGS.get('dlt_draw_days', [])
+        draw_days_raw = CURRENT_SETTINGS.get('dlt_draw_days', [1, 3, 6])  # 默认: 周一、周三、周六
     else:
         return 0
+    
+    # 类型安全校验：确保 draw_days 是列表，防止 settings.json 被错误保存为字符串
+    draw_days = []
+    if isinstance(draw_days_raw, list):
+        draw_days = [int(d) for d in draw_days_raw if isinstance(d, (int, float)) or (isinstance(d, str) and d.strip().isdigit())]
+    elif isinstance(draw_days_raw, str):
+        # 如果配置被错误保存为字符串如 "[2, 4, 7]"，尝试解析
+        current_app.logger.warning(f"_calculate_draws_in_years: {lottery_type} draw_days is a string '{draw_days_raw}', attempting to parse")
+        import ast
+        try:
+            parsed = ast.literal_eval(draw_days_raw)
+            if isinstance(parsed, (list, tuple)):
+                draw_days = [int(d) for d in parsed]
+        except (ValueError, SyntaxError):
+            # 尝试按逗号分割
+            try:
+                draw_days = [int(d.strip()) for d in draw_days_raw.strip('[]').split(',') if d.strip().isdigit()]
+            except Exception:
+                pass
+
+    # 如果没有开奖日配置，返回0
+    if not draw_days:
+        current_app.logger.warning(f"_calculate_draws_in_years: {lottery_type} draw_days is empty, using fallback defaults")
+        draw_days = [2, 4, 7] if lottery_type == 'ssq' else [1, 3, 6]
 
     annual_holidays = CURRENT_SETTINGS.get('annual_holidays', [])
     
@@ -741,13 +765,35 @@ def _calculate_future_draw_date(lottery_type, start_date, draw_offset):
     start_date: 计算的起始日期 (datetime.date 对象)
     draw_offset: 从 start_date 开始的第 N 期开奖 (例如，如果 draw_offset=1，表示下一期开奖)
     """
-    draw_days = []
+    draw_days_raw = []
     if lottery_type == 'ssq':
-        draw_days = CURRENT_SETTINGS.get('ssq_draw_days', [])
+        draw_days_raw = CURRENT_SETTINGS.get('ssq_draw_days', [2, 4, 7])  # 默认: 周二、周四、周日
     elif lottery_type == 'dlt':
-        draw_days = CURRENT_SETTINGS.get('dlt_draw_days', [])
+        draw_days_raw = CURRENT_SETTINGS.get('dlt_draw_days', [1, 3, 6])  # 默认: 周一、周三、周六
     else:
         return None
+    
+    # 类型安全校验
+    draw_days = []
+    if isinstance(draw_days_raw, list):
+        draw_days = [int(d) for d in draw_days_raw if isinstance(d, (int, float)) or (isinstance(d, str) and d.strip().isdigit())]
+    elif isinstance(draw_days_raw, str):
+        current_app.logger.warning(f"_calculate_future_draw_date: {lottery_type} draw_days is a string '{draw_days_raw}', attempting to parse")
+        import ast
+        try:
+            parsed = ast.literal_eval(draw_days_raw)
+            if isinstance(parsed, (list, tuple)):
+                draw_days = [int(d) for d in parsed]
+        except (ValueError, SyntaxError):
+            try:
+                draw_days = [int(d.strip()) for d in draw_days_raw.strip('[]').split(',') if d.strip().isdigit()]
+            except Exception:
+                pass
+
+    # 如果没有开奖日配置，使用默认值
+    if not draw_days:
+        current_app.logger.warning(f"_calculate_future_draw_date: {lottery_type} draw_days is empty, using fallback defaults")
+        draw_days = [2, 4, 7] if lottery_type == 'ssq' else [1, 3, 6]
 
     annual_holidays = CURRENT_SETTINGS.get('annual_holidays', [])
     
