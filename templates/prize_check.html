@@ -858,7 +858,8 @@
                 <p>蓝球: ${renderBalls(blueArr, 'blue')}</p>
                 <input type="hidden" name="candidate_red_balls" value="${redArr.join(',')}">
                 <input type="hidden" name="candidate_blue_balls" value="${blueArr.join(',')}">
-                <button type="button" class="btn btn-sm btn-info copy-candidate-btn me-1">复制号码</button>
+                <button type="button" class="btn btn-sm btn-info copy-candidate-btn me-1">复制到选号区</button>
+                <button type="button" class="btn btn-sm btn-success copy-candidate-text-btn me-1">号码复制</button>
                 <button type="button" class="btn btn-sm btn-danger remove-candidate-btn">移除</button>
             `;
             candidateList.appendChild(newEntry);
@@ -880,6 +881,24 @@
                     candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
                 }
                 updateFunGameTip(lotteryType);
+                return;
+            }
+            if (e.target.classList.contains('copy-candidate-text-btn')) {
+                const entry = e.target.closest('.candidate-entry');
+                const redBallsStr = entry.querySelector('input[name="candidate_red_balls"]').value;
+                const blueBallsStr = entry.querySelector('input[name="candidate_blue_balls"]').value;
+                const lotteryName = lotteryType === 'ssq' ? '双色球' : '大乐透';
+                const text = `${lotteryName} 红球: ${redBallsStr} 蓝球: ${blueBallsStr}`;
+                // 尝试使用 Clipboard API，失败则使用 fallback
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showCopySuccess(e.target);
+                    }).catch(() => {
+                        fallbackCopy(text, e.target);
+                    });
+                } else {
+                    fallbackCopy(text, e.target);
+                }
                 return;
             }
             if (e.target.classList.contains('copy-candidate-btn')) {
@@ -1020,7 +1039,16 @@
                 html += `<p><strong>统计范围:</strong> 实际核对 ${result.actual_checked_draws_count.toLocaleString()} 期, <strong>总花费:</strong> ${result.total_cost_for_range.toLocaleString()} 元, <strong>回报率:</strong> <span class="${returnRateClass}">${result.return_rate}%</span></p>`;
 
                 if (result.matches.length > 0) {
-                    html += `<p><strong>中奖记录:</strong></p><ul id="match-list-${lotteryType}-${index}" class="match-list">`;
+                    const hasMore = result.matches.length > MAX_DISPLAY_MATCHES;
+                    const totalExtra = result.matches.length - MAX_DISPLAY_MATCHES;
+                    // 中奖记录标题行，如果有隐藏记录则带上收起按钮
+                    let titleHtml = `<strong>中奖记录:</strong>`;
+                    if (hasMore) {
+                        titleHtml += ` <button class="btn btn-sm btn-outline-secondary hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收起</button>`;
+                    }
+                    html += `<p>${titleHtml}</p>`;
+                    
+                    html += `<ul id="match-list-${lotteryType}-${index}" class="match-list">`;
                     result.matches.forEach((match, matchIndex) => {
                         const hiddenClass = matchIndex >= MAX_DISPLAY_MATCHES ? 'hidden-matches' : '';
                         html += `<li class="${hiddenClass}">第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元`;
@@ -1034,9 +1062,9 @@
                         html += `</li>`;
                     });
                     html += '</ul>';
-                    if (result.matches.length > MAX_DISPLAY_MATCHES) {
-                        html += `<button class="btn btn-sm btn-outline-info mt-2 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}">显示更多记录 (${result.matches.length - MAX_DISPLAY_MATCHES} 条)</button>`;
-                        html += `<button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收起</button>`;
+                    if (hasMore) {
+                        html += `<button class="btn btn-sm btn-outline-info mt-2 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}">显示更多记录 (${totalExtra} 条)</button>`;
+                        html += ` <button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收起</button>`;
                     }
                 }
                 html += '<hr>';
@@ -1050,17 +1078,21 @@
                     const targetId = this.dataset.targetId;
                     document.querySelectorAll(`#${targetId} .hidden-matches`).forEach(el => el.style.display = 'list-item');
                     this.style.display = 'none';
-                    const hideBtn = prizeResultsDiv.querySelector(`.hide-more-matches-btn[data-target-id="${targetId}"]`);
-                    if (hideBtn) hideBtn.style.display = 'inline-block';
+                    prizeResultsDiv.querySelectorAll(`.hide-more-matches-btn[data-target-id="${targetId}"]`).forEach(hideBtn => {
+                        hideBtn.style.display = 'inline-block';
+                    });
                 });
             });
             prizeResultsDiv.querySelectorAll('.hide-more-matches-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const targetId = this.dataset.targetId;
                     document.querySelectorAll(`#${targetId} .hidden-matches`).forEach(el => el.style.display = 'none');
-                    this.style.display = 'none';
-                    const showBtn = prizeResultsDiv.querySelector(`.show-more-matches-btn[data-target-id="${targetId}"]`);
-                    if (showBtn) showBtn.style.display = 'inline-block';
+                    prizeResultsDiv.querySelectorAll(`.hide-more-matches-btn[data-target-id="${targetId}"]`).forEach(hideBtn => {
+                        hideBtn.style.display = 'none';
+                    });
+                    prizeResultsDiv.querySelectorAll(`.show-more-matches-btn[data-target-id="${targetId}"]`).forEach(showBtn => {
+                        showBtn.style.display = 'inline-block';
+                    });
                 });
             });
         } catch (error) {
@@ -1226,7 +1258,38 @@
     document.getElementById('ssq_fun_game_start').addEventListener('click', () => startFunGame('ssq'));
     document.getElementById('dlt_fun_game_start').addEventListener('click', () => startFunGame('dlt'));
 
-    // 清除趣味游戏选择的号码
+        // 复制成功提示和回退方案
+        function showCopySuccess(btn) {
+            const originalText = btn.textContent;
+            btn.textContent = '已复制!';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-info');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('btn-info');
+                btn.classList.add('btn-success');
+            }, 2000);
+        }
+        function fallbackCopy(text, btn) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                if (successful) {
+                    showCopySuccess(btn);
+                } else {
+                    alert('复制失败，请手动复制：' + text);
+                }
+            } catch (err) {
+                alert('复制失败，请手动复制：' + text);
+            }
+        }
+        // 清除趣味游戏选择的号码
     document.getElementById('ssq_fun_game_clear_selection').addEventListener('click', function() {
         document.getElementById('ssq_candidate_list').innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
         updateFunGameTip('ssq');
