@@ -802,7 +802,9 @@ def api_check_prizes():
                                 'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
                                 'prize_level': prize_level,
                                 'prize_count': prize_count, # 中奖注数
-                                'prize_amount': prize_amount_display # 用于显示的格式化字符串
+                                'prize_amount': prize_amount_display, # 用于显示的格式化字符串
+                                'draw_red_balls': draw.get_red_balls_list(),
+                                'draw_blue_balls': draw.get_blue_balls_list()
                             })
         
         # 计算总花费 (单次投注花费 * 实际检查的期数)

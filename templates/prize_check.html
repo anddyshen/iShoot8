@@ -81,6 +81,11 @@
     .hidden-matches {
         display: none;
     }
+    .ball-purple {
+        background: #9b59b6 !important;
+        color: white !important;
+        border-color: #8e44ad !important;
+    }
 
     /* 最新开奖号码显示区域样式 */
     .latest-draw-section {
@@ -200,7 +205,7 @@
                     <input type="radio" class="btn-check" name="ssq_highlight_mode" id="ssq_highlight_current" value="current" autocomplete="off" checked>
                     <label class="btn btn-outline-info btn-sm" for="ssq_highlight_current">当期中奖号码高亮</label>
                     <input type="radio" class="btn-check" name="ssq_highlight_mode" id="ssq_highlight_next" value="next" autocomplete="off">
-                    <label class="btn btn-outline-warning btn-sm" for="ssq_highlight_next">下期中奖号码高亮</label>
+                    <label class="btn btn-outline-warning btn-sm" for="ssq_highlight_next">+1期中奖号码高亮</label>
                 </div>
                 <label class="form-label">红球 (1-33, 可选任意数量)</label>
                 <div class="ball-selector-grid" id="ssq_red_selector">
@@ -323,7 +328,7 @@
                     <input type="radio" class="btn-check" name="dlt_highlight_mode" id="dlt_highlight_current" value="current" autocomplete="off" checked>
                     <label class="btn btn-outline-info btn-sm" for="dlt_highlight_current">当期中奖号码高亮</label>
                     <input type="radio" class="btn-check" name="dlt_highlight_mode" id="dlt_highlight_next" value="next" autocomplete="off">
-                    <label class="btn btn-outline-warning btn-sm" for="dlt_highlight_next">下期中奖号码高亮</label>
+                    <label class="btn btn-outline-warning btn-sm" for="dlt_highlight_next">+1期中奖号码高亮</label>
                 </div>
                 <label class="form-label">红球 (1-35, 可选任意数量)</label>
                 <div class="ball-selector-grid" id="dlt_red_selector">
@@ -731,6 +736,19 @@
                 return;
             }
 
+            // 检查号码数量是否足够
+            const minRed = lotteryType === 'ssq' ? 6 : 5;
+            const minBlue = lotteryType === 'ssq' ? 1 : 2;
+            const lotteryName = lotteryType === 'ssq' ? '双色球' : '大乐透';
+            if (selectedRedBalls.size < minRed) {
+                alert(`${lotteryName}红球至少需要 ${minRed} 个，当前只选择了 ${selectedRedBalls.size} 个。`);
+                return;
+            }
+            if (selectedBlueBalls.size < minBlue) {
+                alert(`${lotteryName}蓝球至少需要 ${minBlue} 个，当前只选择了 ${selectedBlueBalls.size} 个。`);
+                return;
+            }
+
             const currentCandidates = candidateList.querySelectorAll('.candidate-entry').length;
             if (currentCandidates >= {{ prediction_generated_count }}) {
                 alert(`最多只能添加 {{ prediction_generated_count }} 组号码。`);
@@ -747,6 +765,7 @@
                 <p>蓝球: ${renderBalls(blueArr, 'blue')}</p>
                 <input type="hidden" name="candidate_red_balls" value="${redArr.join(',')}">
                 <input type="hidden" name="candidate_blue_balls" value="${blueArr.join(',')}">
+                <button type="button" class="btn btn-sm btn-info copy-candidate-btn me-1">复制号码</button>
                 <button type="button" class="btn btn-sm btn-danger remove-candidate-btn">移除</button>
             `;
             candidateList.appendChild(newEntry);
@@ -760,14 +779,43 @@
             updateFunGameTip(lotteryType);
         });
 
+        // 同时监听 移除 和 复制号码 按钮
         candidateList.addEventListener('click', function(e) {
             if (e.target.classList.contains('remove-candidate-btn')) {
                 e.target.closest('.candidate-entry').remove();
                 if (candidateList.children.length === 0) {
                     candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
                 }
+                updateFunGameTip(lotteryType);
+                return;
             }
-            // 更新趣味游戏提示
+            if (e.target.classList.contains('copy-candidate-btn')) {
+                const entry = e.target.closest('.candidate-entry');
+                const redBallsStr = entry.querySelector('input[name="candidate_red_balls"]').value;
+                const blueBallsStr = entry.querySelector('input[name="candidate_blue_balls"]').value;
+                // 清空当前选择
+                clearSelectionBtn.click();
+                // 设置复制的号码到选择区域
+                const redArr = redBallsStr.split(',').map(Number);
+                const blueArr = blueBallsStr.split(',').map(Number);
+                redArr.forEach(val => {
+                    selectedRedBalls.add(val);
+                    const ballEl = redSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-red');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                blueArr.forEach(val => {
+                    selectedBlueBalls.add(val);
+                    const ballEl = blueSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-blue');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                updateDisplay();
+            }
             updateFunGameTip(lotteryType);
         });
 
@@ -849,10 +897,24 @@
             let html = '';
             const MAX_DISPLAY_MATCHES = 5;
 
+            function renderMatchedBalls(ballsStr, matchedBallsStr, ballType) {
+                const balls = ballsStr.toString().split(',').map(Number);
+                const matchedSet = new Set(matchedBallsStr.toString().split(',').map(Number));
+                let html = '';
+                const sortedBalls = [...balls].sort((a, b) => a - b);
+                for (const ball of sortedBalls) {
+                    const colorClass = matchedSet.has(ball) ? 'ball-purple' : `ball-${ballType}`;
+                    html += `<span class="lottery-ball ${colorClass}">${String(ball).padStart(2, '0')}</span>`;
+                }
+                return html;
+            }
+
             data.results.forEach((result, index) => {
+                const userRedArr = result.input_red_balls.split(',').map(Number);
+                const userBlueArr = result.input_blue_balls.split(',').map(Number);
                 html += `<h5>号码组合 ${index + 1}:</h5>`;
-                html += `<p>红球: ${renderBalls(result.input_red_balls.split(',').map(Number), 'red')}</p>`;
-                html += `<p>蓝球: ${renderBalls(result.input_blue_balls.split(',').map(Number), 'blue')}</p>`;
+                html += `<p>红球: ${renderBalls(userRedArr, 'red')}</p>`;
+                html += `<p>蓝球: ${renderBalls(userBlueArr, 'blue')}</p>`;
                 html += `<p><strong>单次投注花费:</strong> ${result.cost_per_draw.toLocaleString()} 元 (共 ${result.total_bets_per_draw.toLocaleString()} 注)</p>`;
 
                 if (result.total_winning_bets > 0) {
@@ -868,7 +930,15 @@
                     html += `<p><strong>中奖记录:</strong></p><ul id="match-list-${lotteryType}-${index}" class="match-list">`;
                     result.matches.forEach((match, matchIndex) => {
                         const hiddenClass = matchIndex >= MAX_DISPLAY_MATCHES ? 'hidden-matches' : '';
-                        html += `<li class="${hiddenClass}">第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元</li>`;
+                        html += `<li class="${hiddenClass}">第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元`;
+                        // 显示当期的开奖号码，匹配的号码用紫色高亮
+                        if (match.draw_red_balls && match.draw_blue_balls) {
+                            html += `<br><span style="font-size:0.9em;color:#666;">当期号码: `;
+                            html += `红球: ${renderMatchedBalls(match.draw_red_balls, userRedArr, 'red')} `;
+                            html += `蓝球: ${renderMatchedBalls(match.draw_blue_balls, userBlueArr, 'blue')}`;
+                            html += `</span>`;
+                        }
+                        html += `</li>`;
                     });
                     html += '</ul>';
                     if (result.matches.length > MAX_DISPLAY_MATCHES) {
