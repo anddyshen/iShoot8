@@ -139,31 +139,24 @@
 <div id="ssq_prediction_section" class="lottery-section">
 <h2 class="mb-3">双色球筛选</h2>
 
-    <div class="card mb-4">
-        <div class="card-header">最新 {{ settings.prediction_latest_draws }} 期开奖号码</div>
-        <div class="card-body">
-            {% if latest_ssq_draws %}
-                {% for draw in latest_ssq_draws %}
-                <p class="mb-1">
-                    <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
-                    {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
-                    红球: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
-                    {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
-                    蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
-                </p>
-                {% endfor %}
-            {% else %}
-                <p>暂无最新双色球开奖数据。</p>
-            {% endif %}
-        </div>
-    </div>
-
     <div class="row">
         <div class="col-md-6">
             <div class="card mb-4">
-                <div class="card-header">双色球筛选规则 (后台配置)</div>
-                <div class="card-body rule-list" id="ssq_active_rules_display">
-                    <p class="text-muted">加载中...</p>
+                <div class="card-header">最新 5 期开奖号码</div>
+                <div class="card-body">
+                    {% if latest_ssq_draws %}
+                        {% for draw in latest_ssq_draws %}
+                        <p class="mb-1">
+                            <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
+                            {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
+                            红球: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
+                            {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
+                            蓝球: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
+                        </p>
+                        {% endfor %}
+                    {% else %}
+                        <p>暂无最新双色球开奖数据。</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -177,23 +170,30 @@
                         <button class="btn btn-sm btn-outline-secondary" id="ssq_next_omission_issue_btn">下一期</button>
                     </div>
                 </div>
-                <div class="card-body">
-                    <p><strong>红球 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></p>
-                    <div class="ball-container" id="ssq_omitted_red_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                <div class="card-body" style="font-size:0.9em;">
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>红球 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="ssq_omitted_red_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
-                    <p><strong>蓝球 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></p>
-                    <div class="ball-container" id="ssq_omitted_blue_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>蓝球 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="ssq_omitted_blue_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
-                    <hr>
-                    <p class="mb-1" id="ssq_latest_draw_label"><strong>本期开奖号码:</strong></p>
-                    <div class="ball-container" id="ssq_latest_draw_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
-                    </div>
-                    <p class="mb-1"><strong>本期号码中含有上期遗漏最多的号码:</strong></p>
-                    <div class="ball-container" id="ssq_matched_omitted_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>本期号码中含有上期遗漏最多的号码:</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="ssq_matched_omitted_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -621,6 +621,20 @@
         </div>
         <div class="collapse" id="ssq_rule_section_collapse">
             <div class="card-body">
+                <!-- ===== 双色球筛选规则 (后台配置) 可折叠子卡片 ===== -->
+                <div class="card mb-3 border-secondary">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2" style="background-color:#f0f0f0;">
+                        <span><i class="bi bi-gear"></i> 双色球筛选规则 (后台配置)</span>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#ssq_active_rules_collapse" aria-expanded="false">
+                            展开/收起
+                        </button>
+                    </div>
+                    <div class="collapse" id="ssq_active_rules_collapse">
+                        <div class="card-body rule-list" id="ssq_active_rules_display">
+                            <p class="text-muted">加载中...</p>
+                        </div>
+                    </div>
+                </div>
                 <div class="mb-3 row align-items-center">
                     <label for="ssq_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
                     <div class="col-sm-3">
@@ -711,31 +725,24 @@
 <div id="dlt_prediction_section" class="lottery-section" style="display: none;">
 <h2 class="mb-3">大乐透筛选</h2>
 
-    <div class="card mb-4">
-        <div class="card-header">最新 {{ settings.prediction_latest_draws }} 期开奖号码</div>
-        <div class="card-body">
-            {% if latest_dlt_draws %}
-                {% for draw in latest_dlt_draws %}
-                <p class="mb-1">
-                    <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
-                    {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
-                    前区: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
-                    {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
-                    后区: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
-                </p>
-                {% endfor %}
-            {% else %}
-                <p>暂无最新大乐透开奖数据。</p>
-            {% endif %}
-        </div>
-    </div>
-
     <div class="row">
         <div class="col-md-6">
             <div class="card mb-4">
-                <div class="card-header">大乐透筛选规则 (后台配置)</div>
-                <div class="card-body rule-list" id="dlt_active_rules_display">
-                    <p class="text-muted">加载中...</p>
+                <div class="card-header">最新 5 期开奖号码</div>
+                <div class="card-body">
+                    {% if latest_dlt_draws %}
+                        {% for draw in latest_dlt_draws %}
+                        <p class="mb-1">
+                            <strong>第 {{ draw.issue }} 期 ({{ draw.draw_date.strftime('%Y-%m-%d') }}):</strong>
+                            {% set _, red_consecutive_map = get_consecutive_groups(draw.get_red_balls_list()) %}
+                            前区: {{ display_balls(draw.get_red_balls_list(), 'red', red_consecutive_map) }}
+                            {% set _, blue_consecutive_map = get_consecutive_groups(draw.get_blue_balls_list()) %}
+                            后区: {{ display_balls(draw.get_blue_balls_list(), 'blue', blue_consecutive_map) }}
+                        </p>
+                        {% endfor %}
+                    {% else %}
+                        <p>暂无最新大乐透开奖数据。</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -749,23 +756,30 @@
                         <button class="btn btn-sm btn-outline-secondary" id="dlt_next_omission_issue_btn">下一期</button>
                     </div>
                 </div>
-                <div class="card-body">
-                    <p><strong>前区 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></p>
-                    <div class="ball-container" id="dlt_omitted_red_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                <div class="card-body" style="font-size:0.9em;">
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>前区 (遗漏最多的 {{ settings.prediction_omitted_red_balls }} 个):</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="dlt_omitted_red_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
-                    <p><strong>后区 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></p>
-                    <div class="ball-container" id="dlt_omitted_blue_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>后区 (遗漏最多的 {{ settings.prediction_omitted_blue_balls }} 个):</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="dlt_omitted_blue_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
-                    <hr>
-                    <p class="mb-1" id="dlt_latest_draw_label"><strong>本期开奖号码:</strong></p>
-                    <div class="ball-container" id="dlt_latest_draw_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
-                    </div>
-                    <p class="mb-1"><strong>本期号码中含有上期遗漏最多的号码:</strong></p>
-                    <div class="ball-container" id="dlt_matched_omitted_balls">
-                        <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                    <div class="row mb-2">
+                        <label class="col-sm-3 col-form-label"><strong>本期号码中含有上期遗漏最多的号码:</strong></label>
+                        <div class="col-sm-9">
+                            <div class="ball-container" id="dlt_matched_omitted_balls">
+                                <p class="text-muted">加载中... <span class="loading-spinner"></span></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1207,6 +1221,20 @@
         </div>
         <div class="collapse" id="dlt_rule_section_collapse">
             <div class="card-body">
+                <!-- ===== 大乐透筛选规则 (后台配置) 可折叠子卡片 ===== -->
+                <div class="card mb-3 border-secondary">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2" style="background-color:#f0f0f0;">
+                        <span><i class="bi bi-gear"></i> 大乐透筛选规则 (后台配置)</span>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dlt_active_rules_collapse" aria-expanded="false">
+                            展开/收起
+                        </button>
+                    </div>
+                    <div class="collapse" id="dlt_active_rules_collapse">
+                        <div class="card-body rule-list" id="dlt_active_rules_display">
+                            <p class="text-muted">加载中...</p>
+                        </div>
+                    </div>
+                </div>
                 <div class="mb-3 row align-items-center">
                     <label for="dlt_num_generate" class="col-sm-3 col-form-label">生成号码组数:</label>
                     <div class="col-sm-3">

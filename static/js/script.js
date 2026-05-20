@@ -234,14 +234,10 @@ function updateOmissionIssueDisplay(lotteryType, issue, offset) {
 async function loadOmittedBalls(lotteryType, offset = 0) {
     const redContainer = document.getElementById(`${lotteryType}_omitted_red_balls`);
     const blueContainer = document.getElementById(`${lotteryType}_omitted_blue_balls`);
-    const latestDrawLabel = document.getElementById(`${lotteryType}_latest_draw_label`);
-    const latestDrawBallsContainer = document.getElementById(`${lotteryType}_latest_draw_balls`);
     const matchedOmittedBallsContainer = document.getElementById(`${lotteryType}_matched_omitted_balls`);
     
     redContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
     blueContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
-    latestDrawLabel.innerHTML = '<strong>本期开奖号码:</strong> <span class="loading-spinner"></span>';
-    latestDrawBallsContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
     matchedOmittedBallsContainer.innerHTML = '<p class="text-muted">加载中... <span class="loading-spinner"></span></p>';
 
     let url = `/api/prediction/omitted_balls?lottery_type=${lotteryType}&offset=${offset}`;
@@ -256,8 +252,6 @@ async function loadOmittedBalls(lotteryType, offset = 0) {
         if (data.error) {
             redContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
             blueContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
-            latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong> <span class="text-danger">加载失败</span>`;
-            latestDrawBallsContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
             matchedOmittedBallsContainer.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
             return;
         }
@@ -275,20 +269,6 @@ async function loadOmittedBalls(lotteryType, offset = 0) {
         redContainer.innerHTML = renderBallsWithOmission(data.red_balls, 'red');
         blueContainer.innerHTML = renderBallsWithOmission(data.blue_balls, 'blue');
 
-        // Render latest draw balls (using display_red_balls and display_blue_balls from API)
-        if (data.display_red_balls && data.display_blue_balls) {
-            latestDrawLabel.innerHTML = `<strong>第 ${data.display_issue} 期开奖号码:</strong>`;
-            const redConsecutiveMap = getConsecutiveGroupsJS(data.display_red_balls);
-            const blueConsecutiveMap = getConsecutiveGroupsJS(data.display_blue_balls);
-            latestDrawBallsContainer.innerHTML = `
-                红球: ${renderBalls(data.display_red_balls, 'red', redConsecutiveMap)}
-                蓝球: ${renderBalls(data.display_blue_balls, 'blue', blueConsecutiveMap)}
-            `;
-        } else {
-            latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong>`;
-            latestDrawBallsContainer.innerHTML = '<p class="text-muted">暂无数据。</p>';
-        }
-
         // Render matched omitted balls
         if (data.matched_omitted_balls && data.matched_omitted_balls.length > 0) {
             matchedOmittedBallsContainer.innerHTML = renderBallsWithOmission(data.matched_omitted_balls, 'red'); // Assuming matched are red balls
@@ -302,8 +282,6 @@ async function loadOmittedBalls(lotteryType, offset = 0) {
         console.error(`Frontend: Error loading omitted balls for ${lotteryType}:`, error);
         redContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
         blueContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
-        latestDrawLabel.innerHTML = `<strong>本期开奖号码:</strong>`;
-        latestDrawBallsContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
         matchedOmittedBallsContainer.innerHTML = '<p class="text-danger">加载失败。</p>';
     }
 }

@@ -179,8 +179,8 @@ def statistics():
 
 @bp.route('/prediction')
 def prediction():
-    # 获取最新开奖号码用于显示
-    num_latest_draws = CURRENT_SETTINGS.get('prediction_latest_draws', 3)
+    # 获取最新5期开奖号码用于显示（固定5期）
+    num_latest_draws = 5
     
     current_app.logger.info(f"Fetching latest {num_latest_draws} SSQ draws for prediction page.")
     latest_ssq_draws = get_latest_draws(SSQDraw, num_latest_draws)
