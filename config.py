@@ -138,6 +138,11 @@ DEFAULT_SETTINGS = {
     'dlt_back_size_midpoint': 7, # 大乐透后区 1-6 小，7-12 大
 
     "lookback_periods": "50,100,200,500", # 趋势计算回溯期数选项
+
+    # 定时更新设置
+    "scheduled_update_enabled": True,
+    "scheduled_update_hour": 3,
+    "scheduled_update_minute": 15,
 }
 
 # 双色球参数键
@@ -286,6 +291,11 @@ SETTING_LABELS_CHINESE = {
 
     # 趋势设置
     'lookback_periods': "趋势计算回溯期数",
+
+    # 定时更新设置
+    'scheduled_update_enabled': "启用定时更新",
+    'scheduled_update_hour': "定时更新 - 小时(0-23)",
+    'scheduled_update_minute': "定时更新 - 分钟(0-59)",
 
     # 新增趋势规则中文标签
     'ssq_red_trend_rules': "双色球红球趋势规则",

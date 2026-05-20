@@ -345,8 +345,14 @@ def admin_data_update():
         action = request.form.get('action')
         if action == 'manual_update':
             # 2. 修改这一行，传入 current_app
-            ssq_count, dlt_count = update_latest_draws(current_app)
-            flash(f'手动更新完成！双色球新增 {ssq_count} 条，大乐透新增 {dlt_count} 条。', 'success')
+            import logging
+            logger = logging.getLogger(__name__)
+            ssq_count, dlt_count, total_trend, total_smart = update_latest_draws(current_app)
+            logger.info(f"数据更新完成: SSQ={ssq_count}, DLT={dlt_count}, 趋势={total_trend}, 智能={total_smart}")
+            msg_parts = [f'手动更新完成！双色球新增 {ssq_count} 条，大乐透新增 {dlt_count} 条。']
+            msg_parts.append(f'趋势数据预计算 {total_trend} 条。')
+            msg_parts.append(f'智能筛选规则统计新增 {total_smart} 条。')
+            flash(' '.join(msg_parts), 'success')
         elif action == 'manual_add':
             lottery_type = request.form.get('lottery_type')
             data_string = request.form.get('data_string').strip()
@@ -366,7 +372,37 @@ def admin_data_update():
                     flash(f'手动添加 {lottery_type.upper()} 数据失败，可能期号已存在或数据格式有误。', 'warning')
             else:
                 flash(f'手动添加 {lottery_type.upper()} 数据格式校验失败: {msg}', 'danger')
-        # TODO: 添加定时任务控制逻辑
+        elif action == 'update_schedule':
+            # 保存定时更新设置
+            enabled = request.form.get('scheduled_update_enabled') == 'true'
+            hour = int(request.form.get('scheduled_update_hour', 3))
+            minute = int(request.form.get('scheduled_update_minute', 15))
+            
+            # 校验小时和分钟
+            if hour < 0 or hour > 23:
+                flash('小时值必须在 0-23 之间。', 'danger')
+                return redirect(url_for('admin_routes.admin_data_update'))
+            if minute < 0 or minute > 59:
+                flash('分钟值必须在 0-59 之间。', 'danger')
+                return redirect(url_for('admin_routes.admin_data_update'))
+            
+            # 保存到设置
+            CURRENT_SETTINGS['scheduled_update_enabled'] = enabled
+            CURRENT_SETTINGS['scheduled_update_hour'] = hour
+            CURRENT_SETTINGS['scheduled_update_minute'] = minute
+            save_settings(CURRENT_SETTINGS)
+            
+            # 尝试更新定时任务
+            try:
+                scheduler = current_app.scheduler
+                setup_fn = current_app.setup_scheduled_job
+                setup_fn(current_app)
+                flash(f'定时更新设置已保存！' + (f' 下次定时更新: {hour:02d}:{minute:02d}' if enabled else ' 定时更新已禁用。'), 'success')
+            except AttributeError as e:
+                flash(f'定时更新设置已保存，但无法更新调度器（应用重启后生效）。错误: {e}', 'warning')
+            
+            return redirect(url_for('admin_routes.admin_data_update'))
+        
         return redirect(url_for('admin_routes.admin_data_update'))
     return render_template('admin/data_update.html')
 

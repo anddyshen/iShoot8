@@ -172,24 +172,33 @@ def update_latest_draws(app): # <--- 修改这里，接收 app 参数
         app.logger.info(f"DLT data updated. Added {new_dlt_count} new entries.") # <--- 使用 app.logger
 
         # 数据更新完成后，触发趋势数据预计算
+        ssq_trend_count = 0
+        dlt_trend_count = 0
+        ssq_smart_count = 0
+        dlt_smart_count = 0
         if new_ssq_count > 0:
             app.logger.info("触发双色球趋势数据预计算...")
-            calculate_all_trend_data(app, 'ssq')
+            result = calculate_all_trend_data(app, 'ssq')
+            ssq_trend_count = len(result) if result else 0
         if new_dlt_count > 0:
             app.logger.info("触发大乐透趋势数据预计算...")
-            calculate_all_trend_data(app, 'dlt')
+            result = calculate_all_trend_data(app, 'dlt')
+            dlt_trend_count = len(result) if result else 0
 
         # 数据更新完成后，触发智能筛选规则统计更新
         if new_ssq_count > 0:
             app.logger.info("触发双色球智能筛选规则统计更新...")
             from smart_filter_engine import update_smart_filter_stats
-            update_smart_filter_stats('ssq', app)
+            ssq_smart_count = update_smart_filter_stats('ssq', app) or 0
         if new_dlt_count > 0:
             app.logger.info("触发大乐透智能筛选规则统计更新...")
             from smart_filter_engine import update_smart_filter_stats
-            update_smart_filter_stats('dlt', app)
+            dlt_smart_count = update_smart_filter_stats('dlt', app) or 0
 
-        return new_ssq_count, new_dlt_count
+        total_trend = ssq_trend_count + dlt_trend_count
+        total_smart = ssq_smart_count + dlt_smart_count
+
+        return new_ssq_count, new_dlt_count, total_trend, total_smart
 
 def get_latest_draws(model, count=1):
     """获取最新N期开奖数据"""

@@ -49,11 +49,33 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-header">定时更新设置 (TODO)</div>
+    <div class="card-header">定时更新设置</div>
     <div class="card-body">
-        <p>目前定时更新功能已在 `app.py` 中注释，如需启用，请取消注释并配置。</p>
-        <p>未来可在此处添加界面控制定时任务的开启/关闭和频率。</p>
-        <!-- TODO: 定时任务控制界面 -->
+        <form method="POST" action="{{ url_for('admin_routes.admin_data_update') }}">
+            <input type="hidden" name="action" value="update_schedule">
+            <div class="mb-3 form-check">
+                <input type="hidden" name="scheduled_update_enabled" value="false">
+                <input type="checkbox" class="form-check-input" id="scheduled_update_enabled" name="scheduled_update_enabled" value="true"
+                {{ 'checked' if settings.get('scheduled_update_enabled', True) else '' }}>
+                <label class="form-check-label" for="scheduled_update_enabled">启用定时自动更新</label>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="scheduled_update_hour" class="form-label">小时 (0-23)</label>
+                    <input type="number" class="form-control" id="scheduled_update_hour" name="scheduled_update_hour"
+                    min="0" max="23" value="{{ settings.get('scheduled_update_hour', 3) }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="scheduled_update_minute" class="form-label">分钟 (0-59)</label>
+                    <input type="number" class="form-control" id="scheduled_update_minute" name="scheduled_update_minute"
+                    min="0" max="59" value="{{ settings.get('scheduled_update_minute', 15) }}" required>
+                </div>
+            </div>
+            <div class="mb-3">
+                <small class="form-text text-muted">设置每天自动更新开奖数据的时间和频率。修改后点击"保存定时设置"立即生效。</small>
+            </div>
+            <button type="submit" class="btn btn-primary">保存定时设置</button>
+        </form>
     </div>
 </div>
 {% endblock %} {# <-- 修改这里 #}

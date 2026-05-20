@@ -1591,6 +1591,7 @@ def update_smart_filter_stats(lottery_type, app=None):
     
     if app:
         app.logger.info(f"{lottery_type} 智能筛选规则统计更新完成")
+    return new_count
 
 
 def _update_smart_filter_rankings(lottery_type, app=None):

@@ -39,6 +39,36 @@ db.init_app(app)
 # 初始化 APScheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Shanghai'))
 
+def setup_scheduled_job(app_instance):
+    """根据 CURRENT_SETTINGS 设置或更新定时任务"""
+    global scheduler
+    enabled = CURRENT_SETTINGS.get('scheduled_update_enabled', True)
+    hour = int(CURRENT_SETTINGS.get('scheduled_update_hour', 3))
+    minute = int(CURRENT_SETTINGS.get('scheduled_update_minute', 15))
+    
+    # 移除现有任务
+    existing_jobs = scheduler.get_jobs()
+    for job in existing_jobs:
+        if job.id == 'scheduled_data_update':
+            job.remove()
+    
+    if enabled:
+        job = scheduler.add_job(
+            func=update_latest_draws,
+            trigger="cron",
+            hour=hour,
+            minute=minute,
+            args=[app_instance],
+            id='scheduled_data_update'
+        )
+        try:
+            next_run = job.next_run_time
+            print(f"定时更新已启用，下次运行时间: {next_run}")
+        except AttributeError:
+            print(f"定时更新已启用，运行时间: 每天 {hour:02d}:{minute:02d}")
+    else:
+        print("定时更新已禁用")
+
 # 导入数据管理模块
 from data_manager import save_draw_data, get_latest_draws, update_latest_draws
 
@@ -96,19 +126,26 @@ with app.app_context():
     db.create_all()
     AdminSettings.initialize_default_settings() # Initialize default settings, including lookback periods
 
-    # 启动定时任务 (例如，每天凌晨3点更新数据)
-    # 重点修改下面这一行
-    job = scheduler.add_job(
-        func=update_latest_draws, 
-        trigger="cron", 
-        hour=3, 
-        minute=16, 
-        args=[app]  # <--- 在这里把 app 实例作为参数传进去
-    )
+    # 将调度器附加到 app 上，便于 admin_routes 访问
+    app.scheduler = scheduler
+    app.setup_scheduled_job = setup_scheduled_job
+    
+    # 使用动态设置启动定时任务
+    setup_scheduled_job(app)
     scheduler.start()
     print("APScheduler started.")
 
 
 if __name__ == '__main__':
-    print(f"下一次数据更新时间:  {job.next_run_time}")
+    # 查找现有任务获取下次运行时间
+    jobs = scheduler.get_jobs()
+    next_run = "N/A"
+    for j in jobs:
+        if j.id == 'scheduled_data_update':
+            try:
+                next_run = str(j.next_run_time)
+            except AttributeError:
+                next_run = "已设置 (查看日志获取具体时间)"
+            break
+    print(f"下一次数据更新时间:  {next_run}")
     app.run(debug=True, host='0.0.0.0', port=5000) # 生产环境请关闭 debug
