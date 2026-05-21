@@ -236,6 +236,7 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
+            <button class="btn btn-info me-2" id="ssq_add_to_fun_game">添加到大奖时光机</button>
             <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">填入最新奖号</button>
             <button class="btn btn-outline-secondary me-2" id="ssq_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="ssq_random_select">随机号码</button>
@@ -362,6 +363,7 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
+            <button class="btn btn-info me-2" id="dlt_add_to_fun_game">添加到大奖时光机</button>
             <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">填入最新奖号</button>
             <button class="btn btn-outline-secondary me-2" id="dlt_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="dlt_random_select">随机号码</button>
@@ -685,6 +687,7 @@
         const selectedBlueSpan = document.getElementById(`${lotteryType}_selected_blue`);
         const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
         const addToCandidatesBtn = document.getElementById(`${lotteryType}_add_to_candidates`);
+        const addToFunGameBtn = document.getElementById(`${lotteryType}_add_to_fun_game`);
         const clearSelectionBtn = document.getElementById(`${lotteryType}_clear_selection`);
 
         function updateDisplay() {
@@ -988,6 +991,39 @@
             });
         }
 
+        // 添加到大奖时光机按钮事件
+        addToFunGameBtn.addEventListener('click', function() {
+            if (selectedRedBalls.size === 0 && selectedBlueBalls.size === 0) {
+                alert('请至少选择一个红球或一个蓝球。');
+                return;
+            }
+
+            // 检查号码数量是否足够
+            const minRed = lotteryType === 'ssq' ? 6 : 5;
+            const minBlue = lotteryType === 'ssq' ? 1 : 2;
+            const lotteryName = lotteryType === 'ssq' ? '双色球' : '大乐透';
+            if (selectedRedBalls.size < minRed) {
+                alert(`${lotteryName}红球至少需要 ${minRed} 个，当前只选择了 ${selectedRedBalls.size} 个。`);
+                return;
+            }
+            if (selectedBlueBalls.size < minBlue) {
+                alert(`${lotteryName}蓝球至少需要 ${minBlue} 个，当前只选择了 ${selectedBlueBalls.size} 个。`);
+                return;
+            }
+
+            const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+            const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+            
+            // 存储到大奖时光机号码变量
+            funGameNumbers[lotteryType] = {
+                red: redArr.join(','),
+                blue: blueArr.join(',')
+            };
+            
+            // 更新提示显示
+            updateFunGameTip(lotteryType);
+        });
+
         addToCandidatesBtn.addEventListener('click', function() {
             if (selectedRedBalls.size === 0 && selectedBlueBalls.size === 0) {
                 alert('请至少选择一个红球或一个蓝球。');
@@ -1034,8 +1070,6 @@
             if (candidateList.querySelector('p.text-muted')) {
                 candidateList.querySelector('p.text-muted').remove();
             }
-            // 更新趣味游戏提示
-            updateFunGameTip(lotteryType);
         });
 
         // 同时监听 移除 和 复制号码 按钮
@@ -1045,7 +1079,6 @@
                 if (candidateList.children.length === 0) {
                     candidateList.innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
                 }
-                updateFunGameTip(lotteryType);
                 return;
             }
             if (e.target.classList.contains('copy-candidate-text-btn')) {
@@ -1093,7 +1126,6 @@
                 });
                 updateDisplay();
             }
-            updateFunGameTip(lotteryType);
         });
 
         updateDisplay(); // Initial display
@@ -1279,30 +1311,34 @@
     });
 
     // ========== 趣味游戏逻辑 ==========
+    // 存储每个彩票类型用于大奖时光机的号码
+    const funGameNumbers = {
+        ssq: null,
+        dlt: null
+    };
+
     function updateFunGameTip(lotteryType) {
-        const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
         const funGameTip = document.getElementById(`${lotteryType}_fun_game_tip`);
-        const firstEntry = candidateList.querySelector('.candidate-entry');
-        if (firstEntry) {
-            const redBalls = firstEntry.querySelector('input[name="candidate_red_balls"]').value;
-            const blueBalls = firstEntry.querySelector('input[name="candidate_blue_balls"]').value;
-            funGameTip.innerHTML = `当前用于趣味游戏的号码: 红球: ${renderBalls(redBalls.split(',').map(Number), 'red')} 蓝球: ${renderBalls(blueBalls.split(',').map(Number), 'blue')}`;
+        const numbers = funGameNumbers[lotteryType];
+        if (numbers) {
+            const redArr = numbers.red.split(',').map(Number);
+            const blueArr = numbers.blue.split(',').map(Number);
+            funGameTip.innerHTML = `当前用于趣味游戏的号码: 红球: ${renderBalls(redArr, 'red')} 蓝球: ${renderBalls(blueArr, 'blue')}`;
         } else {
-            funGameTip.innerHTML = `请从上方选择号码并添加到列表，列表中的第一个号码将用于趣味游戏。<br>我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！`;
+            funGameTip.innerHTML = `请从上方选择号码并点击"添加到大奖时光机"按钮设置趣味游戏号码。<br>我们将生成未来 {{ CURRENT_SETTINGS['fun_game_simulation_years'] }} 年的虚拟中奖号码进行核对，看看您的号码表现如何！`;
         }
     }
 
     // 趣味游戏 - 开始
     async function startFunGame(lotteryType) {
-        const candidateList = document.getElementById(`${lotteryType}_candidate_list`);
-        const firstEntry = candidateList.querySelector('.candidate-entry');
-        if (!firstEntry) {
-            alert('请先在待对奖列表中添加至少一组号码。');
+        const numbers = funGameNumbers[lotteryType];
+        if (!numbers) {
+            alert('请先选择号码并点击"添加到大奖时光机"按钮。');
             return;
         }
 
-        const redBalls = firstEntry.querySelector('input[name="candidate_red_balls"]').value;
-        const blueBalls = firstEntry.querySelector('input[name="candidate_blue_balls"]').value;
+        const redBalls = numbers.red;
+        const blueBalls = numbers.blue;
         const progressDiv = document.getElementById(`${lotteryType}_fun_game_progress`);
         const progressBar = progressDiv.querySelector('.progress-bar');
         const statusP = document.getElementById(`${lotteryType}_fun_game_status`);
@@ -1456,11 +1492,11 @@
         }
         // 清除趣味游戏选择的号码
     document.getElementById('ssq_fun_game_clear_selection').addEventListener('click', function() {
-        document.getElementById('ssq_candidate_list').innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
+        funGameNumbers.ssq = null;
         updateFunGameTip('ssq');
     });
     document.getElementById('dlt_fun_game_clear_selection').addEventListener('click', function() {
-        document.getElementById('dlt_candidate_list').innerHTML = '<p class="text-muted">请从上方选择号码并添加到列表。</p>';
+        funGameNumbers.dlt = null;
         updateFunGameTip('dlt');
     });
 
