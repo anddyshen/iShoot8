@@ -236,7 +236,8 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
-            <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">复制最新开奖号码</button>
+            <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">填入最新奖号</button>
+            <button class="btn btn-outline-secondary me-2" id="ssq_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="ssq_random_select">随机号码</button>
             <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
         </div>
@@ -361,7 +362,8 @@
                 </div>
             </div>
             <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
-            <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">复制最新开奖号码</button>
+            <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">填入最新奖号</button>
+            <button class="btn btn-outline-secondary me-2" id="dlt_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="dlt_random_select">随机号码</button>
             <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
         </div>
@@ -770,6 +772,169 @@
                     }
                 });
                 updateDisplay();
+            });
+        }
+
+        // 填入复制号码按钮 - 从剪贴板解析号码并填入选择区
+        const pasteFromClipboardBtn = document.getElementById(`${lotteryType}_paste_from_clipboard`);
+        if (pasteFromClipboardBtn) {
+            // 定义解析和填入号码的函数
+            function parseAndFillNumbers(text) {
+                if (!text || text.trim() === '') {
+                    alert('请输入号码，请先复制号码。');
+                    return;
+                }
+                
+                // 取第一行（如果有多个号码）
+                let firstLine = text.trim().split('\n')[0].trim();
+                
+                // 去除括号及括号内内容，例如 (11+5, 4620 元)
+                firstLine = firstLine.replace(/\(.*?\)/g, '').trim();
+                
+                // 按 + 号分割为两部分（红球部分和蓝球部分）
+                const parts = firstLine.split('+').map(p => p.trim());
+                if (parts.length < 2) {
+                    alert('无法识别号码格式。请确保号码格式如：01 02 03 + 04 05');
+                    return;
+                }
+                
+                // 解析红球部分
+                const redStr = parts[0];
+                const redNumbers = redStr.split(/\s+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                
+                // 解析蓝球部分
+                const blueStr = parts[1];
+                const blueNumbers = blueStr.split(/\s+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                
+                if (redNumbers.length === 0 || blueNumbers.length === 0) {
+                    alert('解析号码失败，请检查剪贴板内容格式。');
+                    return;
+                }
+                
+                // 验证号码范围
+                const redMax = lotteryType === 'ssq' ? 33 : 35;
+                const blueMax = lotteryType === 'ssq' ? 16 : 12;
+                const invalidRed = redNumbers.filter(n => n < 1 || n > redMax);
+                const invalidBlue = blueNumbers.filter(n => n < 1 || n > blueMax);
+                
+                if (invalidRed.length > 0) {
+                    alert(`红球号码 ${invalidRed.join(', ')} 超出范围 (1-${redMax})。`);
+                    return;
+                }
+                if (invalidBlue.length > 0) {
+                    alert(`蓝球号码 ${invalidBlue.join(', ')} 超出范围 (1-${blueMax})。`);
+                    return;
+                }
+                
+                // 清空当前选择
+                clearSelectionBtn.click();
+                
+                // 填入红球
+                redNumbers.forEach(val => {
+                    selectedRedBalls.add(val);
+                    const ballEl = redSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-red');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                
+                // 填入蓝球
+                blueNumbers.forEach(val => {
+                    selectedBlueBalls.add(val);
+                    const ballEl = blueSelector.querySelector(`.ball[data-ball-value="${val}"]`);
+                    if (ballEl) {
+                        ballEl.classList.add('selected-blue');
+                        ballEl.classList.remove('highlight-draw');
+                    }
+                });
+                
+                updateDisplay();
+                
+                // 移除粘贴输入框
+                if (pasteInput && pasteInput.parentNode) {
+                    pasteInput.parentNode.removeChild(pasteInput);
+                }
+            }
+
+            // 创建粘贴输入框（延迟创建，在需要时再添加到DOM）
+            let pasteInput = null;
+            let overlay = null;
+
+            function showPasteDialog() {
+                // 创建遮罩层
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;justify-content:center;align-items:center;';
+                    
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = 'background:white;border-radius:8px;padding:20px;max-width:500px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+                    
+                    dialog.innerHTML = `
+                        <h5 style="margin-bottom:10px;">粘贴号码</h5>
+                        <p style="font-size:0.9em;color:#666;margin-bottom:10px;">请将号码粘贴到下方输入框中，支持格式：<br>单式：01 02 03 04 05 06 + 07<br>复式：01 02 03 04 05 06 07 08 + 01 02 03 (8+3, 168 元)</p>
+                        <textarea id="${lotteryType}_paste_textarea" style="width:100%;min-height:60px;padding:8px;border:1px solid #ccc;border-radius:4px;resize:vertical;" placeholder="在此粘贴号码..."></textarea>
+                        <div style="margin-top:10px;text-align:right;">
+                            <button id="${lotteryType}_paste_cancel" class="btn btn-sm btn-secondary me-2">取消</button>
+                            <button id="${lotteryType}_paste_confirm" class="btn btn-sm btn-primary">确认填入</button>
+                        </div>
+                    `;
+                    
+                    overlay.appendChild(dialog);
+                    
+                    // 绑定按钮事件
+                    overlay.querySelector(`#${lotteryType}_paste_cancel`).addEventListener('click', function() {
+                        if (overlay && overlay.parentNode) {
+                            overlay.parentNode.removeChild(overlay);
+                        }
+                    });
+                    
+                    overlay.querySelector(`#${lotteryType}_paste_confirm`).addEventListener('click', function() {
+                        const textarea = overlay.querySelector(`#${lotteryType}_paste_textarea`);
+                        parseAndFillNumbers(textarea.value);
+                        if (overlay && overlay.parentNode) {
+                            overlay.parentNode.removeChild(overlay);
+                        }
+                    });
+                    
+                    // 点击遮罩层外部关闭
+                    overlay.addEventListener('click', function(e) {
+                        if (e.target === overlay) {
+                            if (overlay && overlay.parentNode) {
+                                overlay.parentNode.removeChild(overlay);
+                            }
+                        }
+                    });
+                }
+                
+                document.body.appendChild(overlay);
+                // 延迟聚焦到textarea
+                setTimeout(() => {
+                    const textarea = overlay.querySelector(`#${lotteryType}_paste_textarea`);
+                    if (textarea) textarea.focus();
+                }, 100);
+            }
+
+            pasteFromClipboardBtn.addEventListener('click', async function() {
+                try {
+                    // 先尝试 Clipboard API
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        const text = await navigator.clipboard.readText();
+                        if (!text || text.trim() === '') {
+                            // 剪贴板为空，弹出输入框
+                            showPasteDialog();
+                            return;
+                        }
+                        parseAndFillNumbers(text);
+                    } else {
+                        // 不支持 Clipboard API，弹出输入框让用户手动粘贴
+                        showPasteDialog();
+                    }
+                } catch (error) {
+                    // 读取剪贴板失败（可能是无权限），弹出输入框让用户手动粘贴
+                    console.warn('Clipboard read failed, showing paste dialog:', error);
+                    showPasteDialog();
+                }
             });
         }
 
