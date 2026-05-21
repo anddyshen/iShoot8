@@ -1197,23 +1197,10 @@ def api_latest_blue_stats():
     for b in last_blue_balls:
         last_blue_properties[str(b)] = get_blue_properties(b, lottery_type)
     
-    # 计算推荐号码（与上期蓝球相反属性）
-    # 取上期第一个蓝球的相反属性（对于双色球只有一个蓝球）
-    recommended_balls = []
-    if last_blue_balls:
-        first_ball = last_blue_balls[0]
-        props = get_blue_properties(first_ball, lottery_type)
-        # 相反的属性：大->小, 小->大, 奇->偶, 偶->奇
-        opp_big = props['small']  # 上期小则推荐大
-        opp_small = props['big']  # 上期大则推荐小
-        opp_odd = props['even']   # 上期偶则推荐奇
-        opp_even = props['odd']   # 上期奇则推荐偶
-        
-        for b in range(1, blue_range + 1):
-            b_props = get_blue_properties(b, lottery_type)
-            if ((opp_big and b_props['big']) or (opp_small and b_props['small'])) and \
-               ((opp_odd and b_props['odd']) or (opp_even and b_props['even'])):
-                recommended_balls.append(b)
+    # 计算推荐号码（遗漏最少的5个号码作为默认选择，即最热门的号码）
+    # 所有蓝球按遗漏升序排列（遗漏越少越热）
+    sorted_by_omission_asc = sorted(all_blue_omissions, key=lambda x: x['omission'])
+    recommended_balls = [item['ball'] for item in sorted_by_omission_asc[:5]]
     
     return jsonify({
         'last_blue_balls': last_blue_balls,
