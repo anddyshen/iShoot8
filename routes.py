@@ -1284,8 +1284,25 @@ def api_smart_filter_check():
                 p, count, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
                 if p and count == 0: passed = True; break
             elif opt == '1_group_2':
-                p, count, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
-                if p and count <= 1: passed = True; break
+                p, count, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
+                if p and count == 1:
+                    for g in groups:
+                        if len(g) == 2:
+                            passed = True; break
+                if passed: break
+            elif opt == '2_group_2':
+                p, count, groups = check_consecutive_balls(red_balls, max_groups=2, max_length=2)
+                if p and count == 2:
+                    all_are_2 = all(len(g) == 2 for g in groups)
+                    if all_are_2:
+                        passed = True; break
+            elif opt == '1_group_3':
+                p, count, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=3)
+                if p and count == 1:
+                    for g in groups:
+                        if len(g) == 3:
+                            passed = True; break
+                if passed: break
         results['连号原则'] = {'passed': passed, 'message': '通过' if passed else '不符合连号规则'}
 
     # 与上期重号

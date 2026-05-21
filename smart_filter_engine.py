@@ -510,6 +510,11 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
     num_red = 6 if lottery_type == 'ssq' else 5
     num_blue = 1 if lottery_type == 'ssq' else 2
     
+    front_rules = [
+        'zone_ratio', 'consecutive', 'repeat', 'omission_pattern',
+        'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value'
+    ]
+    
     generated = []
     max_attempts = 50000  # 增加尝试次数，因为多个条件组合需要更多尝试
     attempts = 0
@@ -527,8 +532,13 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
         if blue_balls is None:
             continue
         
-        # 验证所有规则
-        if _validate_all_rules(lottery_type, red_balls, blue_balls, red_omission, blue_omission, options):
+        # 每组号码独立随机忽略 0-2 个前区规则
+        # 这样用户在一批5组结果中能看到不同的忽略组合
+        ignore_count_for_group = random.randint(0, 2)
+        group_ignored_rules = random.sample(front_rules, ignore_count_for_group) if ignore_count_for_group > 0 else []
+        
+        # 验证所有规则（每组使用独立的 ignored_rules）
+        if _validate_all_rules(lottery_type, red_balls, blue_balls, red_omission, blue_omission, options, group_ignored_rules):
             # 计算统计信息
             stats = _calculate_stats(lottery_type, red_balls, blue_balls)
             generated.append({
@@ -545,14 +555,17 @@ def _generate_red_balls_smart(lottery_type, num_red, red_range, red_omission, op
     """智能生成红球 - 根据遗漏规则加权随机生成，然后由验证函数过滤"""
     max_attempts = 2000
     
-    # 检查是否选择了"无连号"选项
+    # 检查是否只选了"无连号"（没有其他连号选项）
+    # 如果只选无连号，在生成阶段就排除连号以提高效率
+    # 如果同时选了无连号和其他连号选项，让验证阶段处理过滤逻辑
     consecutive_options = options.get('consecutive', None)
     if consecutive_options is None:
         no_consecutive_mode = False
     else:
         if isinstance(consecutive_options, str):
             consecutive_options = [consecutive_options]
-        no_consecutive_mode = 'no_consecutive' in consecutive_options
+        # 只有当选中的唯一选项就是'no_consecutive'时，才在生成阶段启用无连号模式
+        no_consecutive_mode = (len(consecutive_options) == 1 and 'no_consecutive' in consecutive_options)
     
     # 获取遗漏号原则选项，用于加权生成
     omission_patterns = options.get('omission_pattern', None)
@@ -833,17 +846,24 @@ def _generate_blue_balls_smart(lottery_type, num_blue, blue_range, blue_omission
     return None
 
 
-def _validate_all_rules(lottery_type, red_balls, blue_balls, red_omission, blue_omission, options):
-    """验证所有启用的规则"""
+def _validate_all_rules(lottery_type, red_balls, blue_balls, red_omission, blue_omission, options, ignored_rules=None):
+    """验证所有启用的规则
     
-    # 随机决定忽略 0-2 个前区规则，实现"可以不完全满足所有条件"的需求
-    # 每次生成独立随机，不同组号码可能忽略不同的规则
-    front_rules = [
-        'zone_ratio', 'consecutive', 'repeat', 'omission_pattern',
-        'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value'
-    ]
-    ignore_count = random.randint(0, 2)
-    ignored_rules = random.sample(front_rules, ignore_count) if ignore_count > 0 else []
+    Args:
+        ignored_rules: 本次验证中要忽略的前区规则名称列表。
+                       如果为 None，则随机决定忽略 0-2 个规则（向后兼容）。
+                       建议在生成整批号码前统一决定，使效果对用户可见。
+    """
+    
+    if ignored_rules is None:
+        # 随机决定忽略 0-2 个前区规则，实现"可以不完全满足所有条件"的需求
+        # 所有规则（包括连号原则）平等参与随机忽略
+        front_rules = [
+            'zone_ratio', 'consecutive', 'repeat', 'omission_pattern',
+            'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value'
+        ]
+        ignore_count = random.randint(0, 2)
+        ignored_rules = random.sample(front_rules, ignore_count) if ignore_count > 0 else []
     
     if lottery_type == 'ssq':
         return _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, options, ignored_rules)
@@ -883,18 +903,25 @@ def _validate_ssq_rules(red_balls, blue_balls, red_omission, blue_omission, opti
                         p, count, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
                         if p and count == 0: passed = True; break
                     elif opt == '1_group_2':
-                        # 最多1组2连号：允许0组或1组，但不能超过1组
-                        p, count, _ = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
-                        if p and count <= 1: passed = True; break
+                        # 恰好1组2连号：精确匹配1组且长度为2，不能无连号也不能有其他类型连号
+                        p, count, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
+                        if p and count == 1:
+                            for g in groups:
+                                if len(g) == 2:
+                                    passed = True; break
+                        if passed: break
                     elif opt == '2_group_2':
-                        # 恰好2组2连号：允许2组2连号，不能有3连号
+                        # 恰好2组2连号：精确匹配2组且每组的长度为2
                         p, count, groups = check_consecutive_balls(red_balls, max_groups=2, max_length=2)
-                        if p and count == 2: passed = True; break
+                        if p and count == 2:
+                            # 确保每组都是2连号
+                            all_are_2 = all(len(g) == 2 for g in groups)
+                            if all_are_2:
+                                passed = True; break
                     elif opt == '1_group_3':
-                        # 恰好1组3连号
+                        # 恰好1组3连号：精确匹配1组且长度为3，不能有其他连号组
                         p, count, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=3)
                         if p and count == 1:
-                            # 检查是否确实是3连号
                             for g in groups:
                                 if len(g) == 3:
                                     passed = True; break
@@ -1132,14 +1159,23 @@ def _validate_dlt_rules(front_balls, blue_balls, red_omission, blue_omission, op
                         p, count, _ = check_consecutive_balls(front_balls, max_groups=0, max_length=0)
                         if p and count == 0: passed = True; break
                     elif opt == '1_group_2':
-                        p, count, _ = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
-                        if p and count <= 1: passed = True; break
+                        # 恰好1组2连号：精确匹配1组且长度为2
+                        p, count, groups = check_consecutive_balls(front_balls, max_groups=1, max_length=2)
+                        if p and count == 1:
+                            for g in groups:
+                                if len(g) == 2:
+                                    passed = True; break
+                        if passed: break
                     elif opt == '2_group_2':
-                        # 恰好2组2连号
+                        # 恰好2组2连号：精确匹配2组且每组的长度为2
                         p, count, groups = check_consecutive_balls(front_balls, max_groups=2, max_length=2)
-                        if p and count == 2: passed = True; break
+                        if p and count == 2:
+                            # 确保每组都是2连号
+                            all_are_2 = all(len(g) == 2 for g in groups)
+                            if all_are_2:
+                                passed = True; break
                     elif opt == '1_group_3':
-                        # 恰好1组3连号
+                        # 恰好1组3连号：精确匹配1组且长度为3
                         p, count, groups = check_consecutive_balls(front_balls, max_groups=1, max_length=3)
                         if p and count == 1:
                             for g in groups:
