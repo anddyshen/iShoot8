@@ -1197,10 +1197,12 @@ def api_latest_blue_stats():
     for b in last_blue_balls:
         last_blue_properties[str(b)] = get_blue_properties(b, lottery_type)
     
-    # 计算推荐号码（遗漏最少的5个号码作为默认选择，即最热门的号码）
-    # 所有蓝球按遗漏升序排列（遗漏越少越热）
-    sorted_by_omission_asc = sorted(all_blue_omissions, key=lambda x: x['omission'])
-    recommended_balls = [item['ball'] for item in sorted_by_omission_asc[:5]]
+    # 计算推荐号码（遗漏期数小于等于5期的号码作为默认值）
+    recommended_balls = [item['ball'] for item in all_blue_omissions if item['omission'] <= 5]
+    # 如果没有遗漏≤5期的号码（极端情况），取遗漏最小的1个作为保底
+    if not recommended_balls:
+        sorted_by_omission_asc = sorted(all_blue_omissions, key=lambda x: x['omission'])
+        recommended_balls = [sorted_by_omission_asc[0]['ball']]
     
     return jsonify({
         'last_blue_balls': last_blue_balls,
