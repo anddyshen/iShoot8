@@ -1108,7 +1108,7 @@ def api_latest_blue_stats():
     - last_blue_properties: 每个蓝球的属性（大小、奇偶）
     - recommended_balls: 根据相反属性推荐的号码列表
     - all_blue_omissions: 所有蓝球的遗漏数据
-    - top_5_omissions: 遗漏最多的前5个蓝球
+    - top_8_omissions: 遗漏最多的前8个蓝球
     - recent_10_freq: 最近10期出现最多的号码及其次数（SSQ返回前2，DLT返回前3）
     """
     lottery_type = request.args.get('lottery_type')
@@ -1128,7 +1128,7 @@ def api_latest_blue_stats():
             'last_blue_properties': {},
             'recommended_balls': [],
             'all_blue_omissions': all_blue_omissions,
-            'top_5_omissions': all_blue_omissions[:5],
+            'top_8_omissions': all_blue_omissions[:8],
             'last_issue': None,
             'has_data': False,
             'recent_10_freq': []
@@ -1157,9 +1157,9 @@ def api_latest_blue_stats():
             'frequency_percentage': freq_pct
         })
     
-    # 遗漏最多的前5个（已包含 frequency_percentage）
+    # 遗漏最多的前8个（已包含 frequency_percentage）
     sorted_by_omission = sorted(all_blue_omissions, key=lambda x: x['omission'], reverse=True)
-    top_5_omissions = sorted_by_omission[:5]
+    top_8_omissions = sorted_by_omission[:8]
     
     # === 计算最近10期的蓝球出现频率 ===
     recent_10_draws = model_class.query.order_by(model_class.issue.desc()).limit(10).all()
@@ -1220,7 +1220,7 @@ def api_latest_blue_stats():
         'last_blue_properties': last_blue_properties,
         'recommended_balls': recommended_balls,
         'all_blue_omissions': all_blue_omissions,
-        'top_5_omissions': top_5_omissions,
+        'top_8_omissions': top_8_omissions,
         'recent_10_freq': recent_10_freq,
         'last_issue': latest_draw.issue,
         'has_data': True

@@ -404,6 +404,12 @@ def check_omission_rule_dlt(front_balls, red_omission, pattern="3:1:1"):
     elif pattern == "1+4+0":
         if h == 1 and w == 4 and c == 0:
             return True, f"热{h}温{w}冷{c}"
+    elif pattern == "5+0+0" or pattern == "5:0:0":
+        if h == 5 and w == 0 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
+    elif pattern == "0+5+0" or pattern == "0:5:0":
+        if h == 0 and w == 5 and c == 0:
+            return True, f"热{h}温{w}冷{c}"
     else:
         # 未知模式，使用宽松检查
         if h + w + c == 5:

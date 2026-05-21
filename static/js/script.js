@@ -1035,7 +1035,7 @@ document.getElementById('dlt_complex_prediction_output').addEventListener('click
 // 加载蓝球/后区遗漏统计和号码选择器
 async function loadBlueBallSelectors(lotteryType) {
     const container = document.getElementById(`${lotteryType}_blue_ball_selectors`);
-    const top5Container = document.getElementById(`${lotteryType}_top_5_blue_omissions`);
+    const top8Container = document.getElementById(`${lotteryType}_top_8_blue_omissions`);
     const recentFreqContainer = document.getElementById(`${lotteryType}_recent_10_freq`);
     if (!container) return;
     
@@ -1048,14 +1048,14 @@ async function loadBlueBallSelectors(lotteryType) {
             return;
         }
         
-        // 显示遗漏最多的前5个（只显示数字，小号字体，不加粗）
-        if (top5Container && data.top_5_omissions) {
-            let top5Html = '';
-            data.top_5_omissions.forEach(function(item) {
+        // 显示遗漏最多的前8个（只显示数字，小号字体，不加粗）
+        if (top8Container && data.top_8_omissions) {
+            let top8Html = '';
+            data.top_8_omissions.forEach(function(item) {
                 var omissionNum = item.omission || 0;
-                top5Html += `<span style="font-size:0.78rem;">${String(item.ball).padStart(2, '0')}</span><span style="color:#dc3545;font-size:0.65rem;">(${omissionNum})</span> `;
+                top8Html += `<span style="font-size:0.78rem;">${String(item.ball).padStart(2, '0')}</span><span style="color:#dc3545;font-size:0.65rem;">(${omissionNum})</span> `;
             });
-            top5Container.innerHTML = top5Html;
+            top8Container.innerHTML = top8Html;
         }
         
         // 显示最近10期出现最多的号码（小号字体，不加粗）
