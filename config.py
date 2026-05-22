@@ -3,7 +3,7 @@ import os
 import json
 
 # 项目版本号
-__version__ = "1.6.1" # 更新版本号
+__version__ = "1.6.2" # 更新版本号
 
 # 网站基本信息
 SITE_NAME = "iShoot"
