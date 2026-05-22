@@ -258,7 +258,7 @@ def api_prediction_omitted_balls():
         current_app.logger.warning(f"API call: Invalid offset '{offset_str}' for omitted_balls.")
         return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
 
-    # 1. 获取指定 offset 的遗漏数据 (用于可导航的“遗漏最多”部分)
+    # 1. 获取指定 offset 的遗漏数据 (用于可导航的"遗漏最多"部分)
     omitted_data_for_offset = get_omitted_balls_for_prediction(lottery_type, offset)
     if 'error' in omitted_data_for_offset:
         current_app.logger.error(f"API call: Error getting omitted balls for {lottery_type} with offset {offset}: {omitted_data_for_offset['error']}")
@@ -1223,8 +1223,7 @@ def api_smart_filter_check():
     """
     检查指定号码组合是否符合当前智能筛选规则
     返回每个规则的检查结果
-    注意：与生成过程一致，会随机忽略0-2个前区规则，尝试5种不同的忽略组合
-    只要有一种组合能全部通过即视为检查通过
+    注意：与生成过程不同，检查时不忽略任何规则，所有用户选择的规则都会严格检查
     """
     data = request.get_json()
     lottery_type = data.get('lottery_type')
@@ -1249,7 +1248,6 @@ def api_smart_filter_check():
     all_draws = get_latest_draws_for_smart(lottery_type, 200)
     red_omission, blue_omission = get_omission_data(lottery_type, all_draws)
 
-    import random
     from smart_filter_engine import (
         check_ssq_red_zone_distribution, check_dlt_front_zone_distribution,
         check_consecutive_balls, check_repeat_with_previous,
@@ -1260,22 +1258,17 @@ def api_smart_filter_check():
         check_dlt_blue_odd_even, check_dlt_blue_size
     )
 
-    front_rules = [
-        'zone_ratio', 'consecutive', 'repeat', 'omission_pattern',
-        'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value'
-    ]
-
-    def _run_single_check(ignored):
+    def _run_single_check():
         """执行单次规则检查，返回(是否全部通过, 结果字典)"""
+        # 注意：检查时不忽略任何规则，所有用户选择的规则都会严格检查
+        # 生成号码时的随机忽略机制保留在 smart_filter_engine.py 中
         res = {}
 
         # 1. 分区原则
         zr = options.get('zone_ratio', [])
         if isinstance(zr, str): zr = [zr]
         if zr and 'disabled' not in zr:
-            if 'zone_ratio' in ignored:
-                res['分区原则'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            elif lottery_type == 'ssq':
+            if lottery_type == 'ssq':
                 passed = False; actual = ""
                 for ratio in zr:
                     p, a = check_ssq_red_zone_distribution(red_balls, ratio)
@@ -1290,55 +1283,47 @@ def api_smart_filter_check():
         co = options.get('consecutive', [])
         if isinstance(co, str): co = [co]
         if co and 'disabled' not in co:
-            if 'consecutive' in ignored:
-                res['连号原则'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False
-                for opt in co:
-                    if opt == 'no_consecutive':
-                        p, cnt, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
-                        if p and cnt == 0: passed = True; break
-                    elif opt == '1_group_2':
-                        p, cnt, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
-                        if p and cnt == 1:
-                            for g in groups:
-                                if len(g) == 2: passed = True; break
-                        if passed: break
-                    elif opt == '2_group_2':
-                        p, cnt, groups = check_consecutive_balls(red_balls, max_groups=2, max_length=2)
-                        if p and cnt == 2 and all(len(g) == 2 for g in groups): passed = True; break
-                    elif opt == '1_group_3':
-                        p, cnt, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=3)
-                        if p and cnt == 1:
-                            for g in groups:
-                                if len(g) == 3: passed = True; break
-                        if passed: break
-                res['连号原则'] = {'passed': passed, 'message': '通过' if passed else '不符合连号规则'}
+            passed = False
+            for opt in co:
+                if opt == 'no_consecutive':
+                    p, cnt, _ = check_consecutive_balls(red_balls, max_groups=0, max_length=0)
+                    if p and cnt == 0: passed = True; break
+                elif opt == '1_group_2':
+                    p, cnt, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=2)
+                    if p and cnt == 1:
+                        for g in groups:
+                            if len(g) == 2: passed = True; break
+                    if passed: break
+                elif opt == '2_group_2':
+                    p, cnt, groups = check_consecutive_balls(red_balls, max_groups=2, max_length=2)
+                    if p and cnt == 2 and all(len(g) == 2 for g in groups): passed = True; break
+                elif opt == '1_group_3':
+                    p, cnt, groups = check_consecutive_balls(red_balls, max_groups=1, max_length=3)
+                    if p and cnt == 1:
+                        for g in groups:
+                            if len(g) == 3: passed = True; break
+                    if passed: break
+            res['连号原则'] = {'passed': passed, 'message': '通过' if passed else '不符合连号规则'}
 
         # 3. 与上期重号
         ro = options.get('repeat', [])
         if isinstance(ro, str): ro = [ro]
         if ro and 'disabled' not in ro:
-            if 'repeat' in ignored:
-                res['与上期重号'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False; cnt = 0
-                for opt in ro:
-                    if opt == '1': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 1, 1)
-                    elif opt == '2': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 2, 2)
-                    elif opt == '1_or_2': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 1, 2)
-                    elif opt == '0': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 0, 0)
-                    else: continue
-                    if p: passed = True; break
-                res['与上期重号'] = {'passed': passed, 'message': f'通过, 重号: {cnt}' if passed else f'重号数量: {cnt}'}
+            passed = False; cnt = 0
+            for opt in ro:
+                if opt == '1': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 1, 1)
+                elif opt == '2': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 2, 2)
+                elif opt == '1_or_2': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 1, 2)
+                elif opt == '0': p, cnt = check_repeat_with_previous(red_balls, lottery_type, 0, 0)
+                else: continue
+                if p: passed = True; break
+            res['与上期重号'] = {'passed': passed, 'message': f'通过, 重号: {cnt}' if passed else f'重号数量: {cnt}'}
 
         # 4. 遗漏号原则
         op = options.get('omission_pattern', [])
         if isinstance(op, str): op = [op]
         if op and 'disabled' not in op:
-            if 'omission_pattern' in ignored:
-                res['遗漏号原则'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            elif lottery_type == 'ssq':
+            if lottery_type == 'ssq':
                 passed = False; last = ""
                 for pattern in op:
                     p, r = check_omission_rule_ssq(red_balls, red_omission, pattern)
@@ -1358,95 +1343,77 @@ def api_smart_filter_check():
         oe = options.get('odd_even', [])
         if isinstance(oe, str): oe = oe.split(',')
         if oe and 'disabled' not in oe:
-            if 'odd_even' in ignored:
-                res['奇偶比'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed, actual = check_odd_even_ratio(red_balls, oe)
-                res['奇偶比'] = {'passed': passed, 'message': f'通过, 奇偶比: {actual}' if passed else f'实际: {actual}, 期望: {",".join(oe)}'}
+            passed, actual = check_odd_even_ratio(red_balls, oe)
+            res['奇偶比'] = {'passed': passed, 'message': f'通过, 奇偶比: {actual}' if passed else f'实际: {actual}, 期望: {",".join(oe)}'}
 
         # 6. 最大跨度
         sp = options.get('span', [])
         if isinstance(sp, str): sp = [sp]
         if sp and 'disabled' not in sp:
-            if 'span' in ignored:
-                res['最大跨度'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False; asp = 0
-                for opt in sp:
-                    if opt.startswith('lt_'):
-                        p, s = check_max_span(red_balls, max_span=int(opt.replace('lt_', '')))
-                    else:
-                        p, s = check_max_span(red_balls, min_span=int(opt.replace('gt_', '')))
-                    asp = s
-                    if p: passed = True; break
-                res['最大跨度'] = {'passed': passed, 'message': f'通过, 跨度: {asp}' if passed else f'实际跨度: {asp}'}
+            passed = False; asp = 0
+            for opt in sp:
+                if opt.startswith('lt_'):
+                    p, s = check_max_span(red_balls, max_span=int(opt.replace('lt_', '')))
+                else:
+                    p, s = check_max_span(red_balls, min_span=int(opt.replace('gt_', '')))
+                asp = s
+                if p: passed = True; break
+            res['最大跨度'] = {'passed': passed, 'message': f'通过, 跨度: {asp}' if passed else f'实际跨度: {asp}'}
 
         # 7. 号码总和
         su = options.get('sum', [])
         if isinstance(su, str): su = [su]
         if su and 'disabled' not in su:
-            if 'sum' in ignored:
-                res['号码总和'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False; asum = 0
-                for opt in su:
-                    if opt == 'lt_70': p, s = check_sum_range(red_balls, 1, 69)
-                    elif opt == 'gt_140': p, s = check_sum_range(red_balls, 141, 200)
-                    elif opt == 'gt_120': p, s = check_sum_range(red_balls, 121, 200)
-                    else:
-                        parts = opt.split('-')
-                        if len(parts) == 2: p, s = check_sum_range(red_balls, int(parts[0]), int(parts[1]))
-                        else: continue
-                    asum = s
-                    if p: passed = True; break
-                res['号码总和'] = {'passed': passed, 'message': f'通过, 和值: {asum}' if passed else f'实际和值: {asum}'}
+            passed = False; asum = 0
+            for opt in su:
+                if opt == 'lt_70': p, s = check_sum_range(red_balls, 1, 69)
+                elif opt == 'gt_140': p, s = check_sum_range(red_balls, 141, 200)
+                elif opt == 'gt_120': p, s = check_sum_range(red_balls, 121, 200)
+                else:
+                    parts = opt.split('-')
+                    if len(parts) == 2: p, s = check_sum_range(red_balls, int(parts[0]), int(parts[1]))
+                    else: continue
+                asum = s
+                if p: passed = True; break
+            res['号码总和'] = {'passed': passed, 'message': f'通过, 和值: {asum}' if passed else f'实际和值: {asum}'}
 
         # 8. 同尾号
         ta = options.get('same_tail', [])
         if isinstance(ta, str): ta = [ta]
         if ta and 'disabled' not in ta:
-            if 'same_tail' in ignored:
-                res['同尾号'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False
-                for opt in ta:
-                    p, _ = check_same_tail(red_balls, opt)
-                    if p: passed = True; break
-                res['同尾号'] = {'passed': passed, 'message': '通过' if passed else '不符合同尾号规则'}
+            passed = False
+            for opt in ta:
+                p, _ = check_same_tail(red_balls, opt)
+                if p: passed = True; break
+            res['同尾号'] = {'passed': passed, 'message': '通过' if passed else '不符合同尾号规则'}
 
         # 9. 邻号(边号)
         nb = options.get('neighbor', [])
         if isinstance(nb, str): nb = [nb]
         if nb and 'disabled' not in nb:
-            if 'neighbor' in ignored:
-                res['邻号(边号)'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False; cnt = 0
-                for opt in nb:
-                    nc = int(opt) if opt.isdigit() else None
-                    if nc is not None:
-                        p, cnt = check_neighbor_numbers(red_balls, lottery_type, nc, 'exactly')
-                        if p: passed = True; break
-                res['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else f'不符合规则, 实际邻号数: {cnt}'}
+            passed = False; cnt = 0
+            for opt in nb:
+                nc = int(opt) if opt.isdigit() else None
+                if nc is not None:
+                    p, cnt = check_neighbor_numbers(red_balls, lottery_type, nc, 'exactly')
+                    if p: passed = True; break
+            res['邻号(边号)'] = {'passed': passed, 'message': '通过' if passed else f'不符合规则, 实际邻号数: {cnt}'}
 
         # 10. AC值
         ac = options.get('ac_value', [])
         if isinstance(ac, str): ac = [ac]
         if ac and 'disabled' not in ac:
-            if 'ac_value' in ignored:
-                res['AC值'] = {'passed': True, 'message': '⏭️ 已忽略'}
-            else:
-                passed = False; av = 0
-                for opt in ac:
-                    if lottery_type == 'ssq':
-                        if opt == 'lt_5': p, av = check_ac_value(red_balls, [0, 1, 2, 3, 4])
-                        elif opt in ['5','6','7','8','9','10']: p, av = check_ac_value(red_balls, [int(opt)])
-                        else: continue
-                    else:
-                        if opt in ['0','1','2','3','4','5','6']: p, av = check_ac_value(red_balls, [int(opt)])
-                        else: continue
-                    if p: passed = True; break
-                res['AC值'] = {'passed': passed, 'message': f'通过, AC值: {av}' if passed else f'实际AC值: {av}'}
+            passed = False; av = 0
+            for opt in ac:
+                if lottery_type == 'ssq':
+                    if opt == 'lt_5': p, av = check_ac_value(red_balls, [0, 1, 2, 3, 4])
+                    elif opt in ['5','6','7','8','9','10']: p, av = check_ac_value(red_balls, [int(opt)])
+                    else: continue
+                else:
+                    if opt in ['0','1','2','3','4','5','6']: p, av = check_ac_value(red_balls, [int(opt)])
+                    else: continue
+                if p: passed = True; break
+            res['AC值'] = {'passed': passed, 'message': f'通过, AC值: {av}' if passed else f'实际AC值: {av}'}
 
         # 11-12. 蓝球相关（不会被随机忽略）
         if lottery_type == 'ssq':
@@ -1500,20 +1467,8 @@ def api_smart_filter_check():
         all_passed = all(r.get('passed', True) for r in res.values())
         return all_passed, res
 
-    # 尝试5种不同的随机忽略组合
-    for _ in range(5):
-        ignore_count = random.randint(0, 2)
-        ignored_rules = random.sample(front_rules, ignore_count) if ignore_count > 0 else []
-        all_passed, final_results = _run_single_check(ignored_rules)
-        if all_passed:
-            # 找到一种通过组合，返回此组合的详细结果
-            # 在消息中标记哪些规则被忽略
-            for rule_key in final_results:
-                if final_results[rule_key].get('message', '').startswith('⏭️'):
-                    continue  # 已有忽略标记
-            return jsonify(final_results)
-
-    # 所有尝试都未通过，返回最后一次尝试的结果
+    # 单次执行，不随机忽略任何规则，直接返回实际检查结果
+    _, final_results = _run_single_check()
     return jsonify(final_results)
 
 
