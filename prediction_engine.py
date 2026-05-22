@@ -1130,7 +1130,14 @@ def get_omitted_balls_for_prediction(lottery_type, offset=0, blue_strategy=None)
     # 因此，用于计算遗漏的“历史数据”应该是从 all_draws[offset] 往后的所有数据
     
     current_draw_for_display = all_draws[offset]
-    draws_for_omission_calculation = all_draws[offset:]
+    # 修复：计算遗漏时应排除当前开奖期本身
+    # 例如 offset=0（最新一期）时，draws_for_omission_calculation 应从 all_draws[1:] 开始
+    # 这样计算出的遗漏值反映的是"当前期开奖之前"各号码的遗漏情况
+    # 而不是"当前期开奖之后"（会导致当前期开出的号码遗漏值被重置为0）
+    if offset + 1 < len(all_draws):
+        draws_for_omission_calculation = all_draws[offset + 1:]
+    else:
+        draws_for_omission_calculation = []
 
     current_issue = current_draw_for_display.issue
 
