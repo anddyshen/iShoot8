@@ -84,8 +84,15 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
             draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
             red_balls = ','.join(sorted([str(int(p)) for p in parts[2:7]]))
             blue_balls = ','.join(sorted([str(int(p)) for p in parts[7:9]]))
-            red_order = ','.join([str(int(p)) for p in parts[9:14]])
-            blue_order = ','.join([str(int(p)) for p in parts[14:16]])
+            # 出球顺序字段可能为 '-'（无实际出球顺序数据），需要特殊处理
+            try:
+                red_order = ','.join([str(int(p)) for p in parts[9:14]])
+            except ValueError:
+                red_order = ','.join(parts[9:14])  # 保留原始值（可能包含 '-'）
+            try:
+                blue_order = ','.join([str(int(p)) for p in parts[14:16]])
+            except ValueError:
+                blue_order = ','.join(parts[14:16])  # 保留原始值（可能包含 '-'）
             sales_amount = int(parts[16])
             prize_pool = int(parts[17])
             first_prize_count = int(parts[18])
@@ -208,15 +215,18 @@ def get_draw_by_issue(model, issue):
     """根据期号获取开奖数据"""
     return model.query.filter_by(issue=issue).first()
 
-def add_manual_draw(lottery_type, data_string):
+def add_manual_draw(lottery_type, data_string, app=None):
     """手动添加一期开奖数据"""
+    if app is None:
+        from flask import current_app
+        app = current_app._get_current_object()
     if lottery_type == 'ssq':
         # 假设 data_string 是 '2025105 2025-09-11 04 07 18 24 26 28 08 ...'
-        draw_objects = parse_ssq_data(data_string + '\n') # 模拟文件内容
+        draw_objects = parse_ssq_data(data_string + '\n', app) # 模拟文件内容
         if draw_objects:
             return save_draw_data(draw_objects, 'ssq')
     elif lottery_type == 'dlt':
-        draw_objects = parse_dlt_data(data_string + '\n')
+        draw_objects = parse_dlt_data(data_string + '\n', app)
         if draw_objects:
             return save_draw_data(draw_objects, 'dlt')
     return 0
@@ -243,7 +253,10 @@ def validate_dlt_format(data_string):
     try:
         datetime.strptime(parts[1], '%Y-%m-%d') # 日期
         [int(p) for p in parts[2:9]] # 红蓝球
-        [int(p) for p in parts[9:16]] # 红蓝球出球顺序
+        # 出球顺序字段可能为 '-'，特殊处理
+        for p in parts[9:16]:
+            if p != '-':
+                int(p)
         int(parts[16]) # 销售额
         # ... 更多详细校验
         return True, ""
