@@ -40,7 +40,7 @@ ADMIN_ROUTE_PREFIX = os.environ.get('ADMIN_ROUTE_PREFIX', 'admin_xyz12') # 首�
 DEFAULT_SETTINGS = {
     "history_page_size": 25,
     "prediction_latest_draws": 3, # 预测页面显示最新开奖期数
-    "prediction_omitted_red_balls": 7, # 预测页面显示遗漏最多红球数量
+    "prediction_omitted_red_balls": 10, # 预测页面显示遗漏最多红球数量
     "prediction_omitted_blue_balls": 7, # 预测页面显示遗漏最多蓝球数量
     "prediction_generated_count": 5, # 预测页面默认生成号码组数
     "prediction_generation_mode": "rule_based", # 预测页面默认生成模式: "rule_based" 或 "random"
