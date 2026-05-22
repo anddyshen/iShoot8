@@ -1637,15 +1637,17 @@ def update_smart_filter_stats(lottery_type, app=None):
     if app:
         app.logger.info(f"共 {len(all_draws)} 期 {lottery_type} 数据需要处理")
     
+    # 批量查询已存在的期号（避免 MySQL PyMySQL 逐条查询导致 Command Out of Sync）
+    existing_issues = set(
+        r[0] for r in db.session.query(SmartFilterStats.issue)
+        .filter(SmartFilterStats.lottery_type == lottery_type)
+        .distinct().all()
+    )
+    
     # 逐期计算并保存
     new_count = 0
     for draw in all_draws:
-        # 检查是否已存在该期的统计
-        existing = SmartFilterStats.query.filter_by(
-            lottery_type=lottery_type,
-            issue=draw.issue
-        ).first()
-        if existing:
+        if draw.issue in existing_issues:
             continue  # 已存在，跳过
         
         # 计算该期的所有规则值
