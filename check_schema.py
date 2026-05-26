@@ -1,1 +1,0 @@
-"from app import app, db; from sqlalchemy import inspect; with app.app_context(): i=inspect(db.engine); print('ssq:',[c['name'] for c in i.get_columns('ssq_draws')]); print('dlt:',[c['name'] for c in i.get_columns('dlt_draws')])"  

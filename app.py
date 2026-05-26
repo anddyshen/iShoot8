@@ -1,6 +1,7 @@
 # app.py
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import pytz # 用于处理时区
@@ -35,6 +36,9 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'super_secret_key_
 
 # 初始化 SQLAlchemy
 db.init_app(app)
+
+# 初始化 Flask-Migrate
+migrate = Migrate(app, db)
 
 # 初始化 APScheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Shanghai'))
