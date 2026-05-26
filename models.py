@@ -46,6 +46,10 @@ class SSQDraw(LotteryDraw):
     fifth_prize_amount = db.Column(db.BigInteger)
     sixth_prize_count = db.Column(db.Integer)
     sixth_prize_amount = db.Column(db.BigInteger)
+    # 2026年新增：福运奖（特别规定期专属，奖池≥15亿启用，<3亿关闭）
+    fuyun_prize_active = db.Column(db.Boolean, default=False) # 福运奖是否启用
+    fuyun_prize_count = db.Column(db.Integer) # 福运奖中奖注数
+    fuyun_prize_amount = db.Column(db.BigInteger) # 福运奖中奖金额
 
 
 class DLTDraw(LotteryDraw):
@@ -53,6 +57,7 @@ class DLTDraw(LotteryDraw):
     # 大乐透特有字段
     red_order = db.Column(db.String(50)) # 红球出球顺序
     blue_order = db.Column(db.String(20)) # 蓝球出球顺序
+    # 2026年新规：奖级从9级改为7级（一~七等奖），追加投注仅浮动奖
     second_prize_count = db.Column(db.Integer)
     second_prize_amount = db.Column(db.BigInteger)
     third_prize_count = db.Column(db.Integer)
@@ -65,10 +70,7 @@ class DLTDraw(LotteryDraw):
     sixth_prize_amount = db.Column(db.BigInteger)
     seventh_prize_count = db.Column(db.Integer)
     seventh_prize_amount = db.Column(db.BigInteger)
-    eighth_prize_count = db.Column(db.Integer)
-    eighth_prize_amount = db.Column(db.BigInteger)
-    ninth_prize_count = db.Column(db.Integer)
-    ninth_prize_amount = db.Column(db.BigInteger)
+    # 追加投注（仅一、二等奖可追加，固定奖不可追加）
     additional_first_prize_count = db.Column(db.Integer)
     additional_first_prize_amount = db.Column(db.BigInteger)
     additional_second_prize_count = db.Column(db.Integer)

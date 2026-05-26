@@ -689,6 +689,9 @@ def api_check_prizes():
     if not isinstance(combinations, list) or not combinations:
         return jsonify({'error': 'Missing or invalid combinations data'}), 400
 
+    # 获取追加投注选项（仅大乐透有效）
+    is_addition = data.get('is_addition', False)
+
     check_range_val = data.get('check_range', CURRENT_SETTINGS.get('prize_check_range', 10))
     try:
         check_range = int(check_range_val)
@@ -711,6 +714,15 @@ def api_check_prizes():
 
     if not recent_draws:
         return jsonify({'error': '未找到历史开奖数据'}), 404
+
+    # 获取最新一期用于判断福运奖状态和奖池金额
+    latest_draw = recent_draws[0] if recent_draws else None
+    pool_amount = latest_draw.prize_pool if latest_draw else None
+    
+    # 判断福运奖是否启用（双色球）
+    fuyun_prize_active = False
+    if lottery_type == 'ssq' and latest_draw:
+        fuyun_prize_active = latest_draw.fuyun_prize_active if hasattr(latest_draw, 'fuyun_prize_active') else False
 
     all_results = []
     for combo in combinations:
@@ -746,8 +758,8 @@ def api_check_prizes():
             current_app.logger.error(f"Error processing combination: {combo}. Error: {e}")
             return jsonify({'error': 'Error processing lottery combination.'}), 500
 
-        # 计算该组合的投注花费
-        cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type)
+        # 计算该组合的投注花费（支持追加投注）
+        cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type, is_addition)
 
         matches = []
         total_winning_bets_for_combo = 0
@@ -757,18 +769,30 @@ def api_check_prizes():
             draw_red_balls = draw.get_red_balls_list()
             draw_blue_balls = draw.get_blue_balls_list()
 
+            # 获取该期奖池金额（大乐透用于固定奖联动判断）
+            draw_pool_amount = draw.prize_pool if hasattr(draw, 'prize_pool') else pool_amount
+            
+            # 获取该期福运奖状态（双色球）
+            draw_fuyun_active = False
+            if lottery_type == 'ssq':
+                draw_fuyun_active = draw.fuyun_prize_active if hasattr(draw, 'fuyun_prize_active') else fuyun_prize_active
+
             # 使用新的 calculate_prize_details 获取所有奖项的中奖注数
             prize_details_for_draw = calculate_prize_details(
                 user_red_balls, user_blue_balls,
                 draw_red_balls, draw_blue_balls,
-                lottery_type
+                lottery_type,
+                pool_amount=draw_pool_amount,
+                is_addition=is_addition,
+                fuyun_prize_active=draw_fuyun_active
             )
             
             if prize_details_for_draw: # 如果有任何奖项中奖
                 # 遍历所有中奖的奖项和注数
-                for prize_level, prize_count in prize_details_for_draw.items():
+                for prize_level, info in prize_details_for_draw.items():
+                    prize_count = info['count']
                     if prize_count > 0:
-                        # 从 PRIZE_RULES 中获取该奖项的固定金额
+                        # 获取该奖项的详细信息
                         prize_rule = next((p for p in PRIZE_RULES[lottery_type]['prizes'] if p['level'] == prize_level), None)
                         if prize_rule:
                             current_prize_amount_numeric = 0 # 用于计算总金额的数字
@@ -780,16 +804,15 @@ def api_check_prizes():
                                     current_prize_amount_numeric = draw.first_prize_amount
                                 elif prize_level == '二等奖':
                                     current_prize_amount_numeric = draw.second_prize_amount
-                                # 大乐透的浮动奖金也需要类似处理
-                                elif lottery_type == 'dlt':
-                                    if prize_level == '一等奖':
-                                        current_prize_amount_numeric = draw.first_prize_amount
-                                    elif prize_level == '二等奖':
-                                        current_prize_amount_numeric = draw.second_prize_amount
-                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" # 格式化为字符串
+                                # 追加投注额外增加
+                                if is_addition and lottery_type == 'dlt':
+                                    add_amount = prize_rule.get('max_single_add', 0)
+                                    if current_prize_amount_numeric:
+                                        current_prize_amount_numeric = min(current_prize_amount_numeric + add_amount, add_amount)
+                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" if current_prize_amount_numeric else "浮动"
                             else:
-                                current_prize_amount_numeric = prize_rule['amount']
-                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" # 固定奖金也格式化
+                                current_prize_amount_numeric = info['amount'] / prize_count if prize_count > 0 else 0
+                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}"
 
                             # 累加总中奖注数和总中奖金额
                             total_winning_bets_for_combo += prize_count
@@ -818,15 +841,19 @@ def api_check_prizes():
             'input_blue_balls': user_blue_balls_str,
             'total_bets_per_draw': cost_details['total_bets'], # 单次投注总注数
             'cost_per_draw': cost_details['total_cost'], # 单次投注花费
+            'base_cost_per_draw': cost_details['base_cost'], # 基础投注花费
+            'add_cost_per_draw': cost_details.get('add_cost', 0), # 追加投注花费
             'total_winning_bets': total_winning_bets_for_combo, # 总中奖注数
             'total_winning_amount': total_winning_amount_for_combo, # 总中奖金额
             'actual_checked_draws_count': actual_checked_draws_count, # 实际检查的期数
             'total_cost_for_range': total_cost_for_range, # 在此范围内的总花费
             'return_rate': round(return_rate, 1), # 新增：回报率，保留1位小数
-            'matches': matches
+            'matches': matches,
+            'is_addition': is_addition, # 返回追加投注状态
+            'fuyun_prize_active': fuyun_prize_active  # 返回福运奖状态
         })
     
-    return jsonify({'results': all_results})
+    return jsonify({'results': all_results, 'fuyun_prize_active': fuyun_prize_active, 'is_addition': is_addition})
 
 @bp.route('/api/prediction/check_generated_rules', methods=['POST']) # 新增API路由，用于检查生成号码的规则
 def api_check_generated_rules():

@@ -1,14 +1,15 @@
-# config.py
+﻿# config.py
 import os
 import json
 
 # 项目版本号
-__version__ = "1.6.3" # 更新版本号
+__version__ = "2.0.0" # 更新版本号 - 2026年新奖金规则
 
 # 网站基本信息
 SITE_NAME = "iShoot"
 SITE_URL = "ishoot.cc"
 PER_BET_PRICE = 2 # 每注号码价格
+PER_BET_ADD_PRICE = 1 # 大乐透追加投注价格（每注+1元）
 
 # 数据源URL
 SSQ_URL = "https://data.17500.cn/ssq_desc.txt"
@@ -440,41 +441,80 @@ STAT_EXPLANATIONS = {
     'blue_tail': "蓝球开奖号码中最大的数字（凤尾）。",
 }
 
-# --- 中奖规则定义 ---
+# =====================================================================
+# 2026年最新奖金规则
+# =====================================================================
+
+# 双色球福运奖状态阈值
+FUYUN_PRIZE_ENABLE_THRESHOLD = 1500000000  # 15亿元，启用福运奖
+FUYUN_PRIZE_DISABLE_THRESHOLD = 300000000  # 3亿元，关闭福运奖
+
+# 大乐透奖池联动阈值
+DLT_POOL_LINKAGE_THRESHOLD = 800000000  # 8亿元，固定奖提升阈值
+
+# --- 中奖规则定义 (2026年最新版) ---
 PRIZE_RULES = {
     'ssq': {
-        'red_range': 33, # 红球范围 1-33
-        'blue_range': 16, # 蓝球范围 1-16
+        'red_range': 33,  # 红球范围 1-33
+        'blue_range': 16,  # 蓝球范围 1-16
+        'standard_red': 6,  # 标准单式红球数量
+        'standard_blue': 1,  # 标准单式蓝球数量
         'prizes': [
-            {'level': '一等奖', 'match_red': 6, 'match_blue': 1, 'amount': '浮动'},
-            {'level': '二等奖', 'match_red': 6, 'match_blue': 0, 'amount': '浮动'},
+            # 浮动奖
+            {'level': '一等奖', 'match_red': 6, 'match_blue': 1, 'amount': '浮动', 
+             'pool_cap': 100000000, 'max_single': 5000000},  # 单期总奖金封顶1亿，单注最高500万
+            {'level': '二等奖', 'match_red': 6, 'match_blue': 0, 'amount': '浮动',
+             'pool_cap': 70000000, 'max_single': 460000},  # 单期总奖金封顶7000万，单注最高约46万
+            # 固定奖
             {'level': '三等奖', 'match_red': 5, 'match_blue': 1, 'amount': 3000},
             {'level': '四等奖', 'match_red': 5, 'match_blue': 0, 'amount': 200},
             {'level': '四等奖', 'match_red': 4, 'match_blue': 1, 'amount': 200},
             {'level': '五等奖', 'match_red': 4, 'match_blue': 0, 'amount': 10},
             {'level': '五等奖', 'match_red': 3, 'match_blue': 1, 'amount': 10},
-            {'level': '六等奖', 'match_red': 2, 'match_blue': 1, 'amount': 5},
-            {'level': '六等奖', 'match_red': 1, 'match_blue': 1, 'amount': 5},
-            {'level': '六等奖', 'match_red': 0, 'match_blue': 1, 'amount': 5},
+            # 六等奖：中蓝球即中奖（只要蓝球匹配，红球任意）
+            {'level': '六等奖', 'match_red_min': 0, 'match_red_max': 5, 'match_blue': 1, 'amount': 5},
+            # 福运奖（特别规定期专属）：3+0
+            {'level': '福运奖', 'match_red': 3, 'match_blue': 0, 'amount': 5, 'special': 'fuyun_prize'},
         ]
     },
     'dlt': {
-        'red_range': 35, # 红球范围 1-35
-        'blue_range': 12, # 蓝球范围 1-12
+        'red_range': 35,  # 前区范围 1-35
+        'blue_range': 12,  # 后区范围 1-12
+        'standard_red': 5,  # 标准单式前区数量
+        'standard_blue': 2,  # 标准单式后区数量
         'prizes': [
-            {'level': '一等奖', 'match_red': 5, 'match_blue': 2, 'amount': '浮动'},
-            {'level': '二等奖', 'match_red': 5, 'match_blue': 1, 'amount': '浮动'},
-            {'level': '三等奖', 'match_red': 5, 'match_blue': 0, 'amount': 10000},
-            {'level': '四等奖', 'match_red': 4, 'match_blue': 2, 'amount': 3000},
-            {'level': '五等奖', 'match_red': 4, 'match_blue': 1, 'amount': 300},
-            {'level': '六等奖', 'match_red': 3, 'match_blue': 2, 'amount': 200},
-            {'level': '七等奖', 'match_red': 4, 'match_blue': 0, 'amount': 100},
-            {'level': '八等奖', 'match_red': 3, 'match_blue': 1, 'amount': 15},
-            {'level': '八等奖', 'match_red': 2, 'match_blue': 2, 'amount': 15},
-            {'level': '九等奖', 'match_red': 3, 'match_blue': 0, 'amount': 5},
-            {'level': '九等奖', 'match_red': 1, 'match_blue': 2, 'amount': 5},
-            {'level': '九等奖', 'match_red': 2, 'match_blue': 1, 'amount': 5},
-            {'level': '九等奖', 'match_red': 0, 'match_blue': 2, 'amount': 5},
+            # 浮动奖（可追加投注）
+            {'level': '一等奖', 'match_red': 5, 'match_blue': 2, 'amount': '浮动',
+             'pool_cap': 100000000, 'max_single': 10000000, 'max_single_add': 18000000},  # 单期总奖金封顶1亿，基本最高1000万，追加最高1800万
+            {'level': '二等奖', 'match_red': 5, 'match_blue': 1, 'amount': '浮动',
+             'pool_cap': 100000000, 'max_single': 5000000, 'max_single_add': 9000000},  # 单期总奖金封顶1亿，基本最高500万，追加最高900万
+            # 固定奖（与奖池是否≥8亿联动）
+            {'level': '三等奖', 'match_red': 5, 'match_blue': 0, 'amount': 5000, 
+             'amount_pool_ge_8e8': 6666},
+            {'level': '四等奖', 'match_red': 4, 'match_blue': 2, 'amount': 300,
+             'amount_pool_ge_8e8': 380},
+            {'level': '五等奖', 'match_red': 4, 'match_blue': 1, 'amount': 150,
+             'amount_pool_ge_8e8': 200},
+            {'level': '五等奖', 'match_red': 3, 'match_blue': 2, 'amount': 150,
+             'amount_pool_ge_8e8': 200},
+            {'level': '六等奖', 'match_red': 4, 'match_blue': 0, 'amount': 15,
+             'amount_pool_ge_8e8': 18},
+            {'level': '六等奖', 'match_red': 3, 'match_blue': 1, 'amount': 15,
+             'amount_pool_ge_8e8': 18},
+            {'level': '六等奖', 'match_red': 2, 'match_blue': 2, 'amount': 15,
+             'amount_pool_ge_8e8': 18},
+            {'level': '七等奖', 'match_red': 4, 'match_blue': 0, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
+            {'level': '七等奖', 'match_red': 3, 'match_blue': 1, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
+            {'level': '七等奖', 'match_red': 2, 'match_blue': 2, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
+            {'level': '七等奖', 'match_red': 1, 'match_blue': 2, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
+            {'level': '七等奖', 'match_red': 0, 'match_blue': 2, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
         ]
     }
 }
+
+

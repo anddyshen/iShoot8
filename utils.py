@@ -3,11 +3,11 @@ from datetime import datetime, timedelta, date
 import math
 from collections import Counter, OrderedDict
 import random
-from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE # 导入中奖规则和当前设置
+from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE, PER_BET_ADD_PRICE, FUYUN_PRIZE_ENABLE_THRESHOLD, FUYUN_PRIZE_DISABLE_THRESHOLD, DLT_POOL_LINKAGE_THRESHOLD # 导入中奖规则和当前设置
 from models import SSQDraw, DLTDraw, db # 新增导入
 
 # 版本号，每次生成文件时更新
-__version__ = "1.2.2" # 更新版本号
+__version__ = "2.0.0" # 更新版本号 - 2026年新奖金规则
 
 from flask import current_app # Import current_app for logging
 
@@ -574,12 +574,13 @@ def combinations(n, k):
     return res
 
 # --- 计算复式投注花费 ---
-def calculate_combination_cost(user_red_balls_count, user_blue_balls_count, lottery_type):
+def calculate_combination_cost(user_red_balls_count, user_blue_balls_count, lottery_type, is_addition=False):
     """
     根据用户选择的红蓝球数量，计算复式投注的总注数和花费。
     user_red_balls_count: 用户选择的红球数量
     user_blue_balls_count: 用户选择的蓝球数量
     lottery_type: 'ssq' 或 'dlt'
+    is_addition: 是否追加投注（仅大乐透有效，仅浮动奖可追加）
     返回: {'total_bets': int, 'total_cost': float}
     """
     if lottery_type == 'ssq':
@@ -594,8 +595,12 @@ def calculate_combination_cost(user_red_balls_count, user_blue_balls_count, lott
         return {'total_bets': 0, 'total_cost': 0}
     
     total_bets = red_bets * blue_bets
-    total_cost = total_bets * PER_BET_PRICE
-    return {'total_bets': total_bets, 'total_cost': total_cost}
+    # 计算基础花费
+    base_cost = total_bets * PER_BET_PRICE
+    # 追加投注只在浮动奖有效，但价格按每注+1元计算
+    add_cost = total_bets * PER_BET_ADD_PRICE if is_addition and lottery_type == 'dlt' else 0
+    total_cost = base_cost + add_cost
+    return {'total_bets': total_bets, 'total_cost': total_cost, 'base_cost': base_cost, 'add_cost': add_cost}
 
 def calculate_total_lottery_combinations(lottery_type):
     """
@@ -618,8 +623,28 @@ def calculate_total_lottery_combinations(lottery_type):
     return combinations(red_total, red_pick) * combinations(blue_total, blue_pick)
 
 
-# --- 对奖逻辑辅助函数 ---
-def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, draw_blue_balls, lottery_type):
+# --- 2026年新版对奖逻辑辅助函数 ---
+
+def _get_prize_amount_for_rule(prize_rule, pool_amount=None, is_addition=False):
+    """
+    根据奖池情况获取奖项的实际金额。
+    prize_rule: 奖项规则字典
+    pool_amount: 当前奖池金额（大乐透用于固定奖联动判断）
+    is_addition: 是否追加投注（仅大乐透浮动奖有效）
+    """
+    if isinstance(prize_rule['amount'], (int, float)):
+        # 固定奖 - 检查是否有奖池联动
+        base_amount = prize_rule['amount']
+        if pool_amount is not None and pool_amount >= DLT_POOL_LINKAGE_THRESHOLD:
+            # 奖池≥8亿，使用提升后的金额
+            return prize_rule.get('amount_pool_ge_8e8', base_amount)
+        return base_amount
+    else:
+        # 浮动奖 - 返回0（调用方会从开奖数据中获取实际金额）
+        return 0
+
+def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, draw_blue_balls, lottery_type, 
+                            pool_amount=None, is_addition=False, fuyun_prize_active=False):
     """
     检查用户号码与一期开奖号码的中奖情况，并计算每个奖项的中奖注数。
     user_red_balls: 用户选择的红球列表 (已排序)
@@ -627,7 +652,10 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     draw_red_balls: 开奖红球列表 (已排序)
     draw_blue_balls: 开奖蓝球列表 (已排序)
     lottery_type: 'ssq' 或 'dlt'
-    返回: { 'prize_level': count, ... }
+    pool_amount: 当前奖池金额（用于福运奖和大乐透固定奖联动）
+    is_addition: 是否追加投注（仅大乐透浮动奖有效）
+    fuyun_prize_active: 福运奖是否启用（仅双色球）
+    返回: { 'prize_level': {'count': count, 'amount': amount}, ... }
     """
     rules = PRIZE_RULES.get(lottery_type)
     if not rules:
@@ -648,43 +676,93 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     matched_red_count = len(matched_red_balls)
     matched_blue_count = len(matched_blue_balls)
 
-    # 假设标准玩法是 SSQ: 6红1蓝, DLT: 5红2蓝
-    standard_red_count = 6 if lottery_type == 'ssq' else 5
-    standard_blue_count = 1 if lottery_type == 'ssq' else 2
+    # 标准单式号码数量
+    standard_red_count = rules['standard_red']  # SSQ: 6, DLT: 5
+    standard_blue_count = rules['standard_blue']  # SSQ: 1, DLT: 2
 
     # 存储中奖详情
-    prize_details = Counter()
+    prize_details = OrderedDict()
 
     # 遍历所有奖项规则，计算中奖注数
     for prize_rule in rules['prizes']:
+        # 检查是否为特殊条件奖项（如福运奖）
+        special = prize_rule.get('special')
+        if special == 'fuyun_prize':
+            # 福运奖：仅当福运奖启用时有效
+            if not fuyun_prize_active:
+                continue
+            # 福运奖条件：3红+0蓝
+            if matched_red_count == 3 and matched_blue_count == 0:
+                # 从用户选中的匹配红球中选3个
+                c_matched_red = combinations(matched_red_count, 3)
+                # 从用户选中的非匹配红球中选(standard_red_count - 3)个
+                c_unmatched_red = combinations(len(user_red_set - draw_red_set), standard_red_count - 3)
+                # 蓝球必须全不匹配：从用户选中的非匹配蓝球中选standard_blue_count个
+                c_unmatched_blue = combinations(len(user_blue_set - draw_blue_set), standard_blue_count)
+                total_count = c_matched_red * c_unmatched_red * c_unmatched_blue
+                if total_count > 0:
+                    amount = prize_rule['amount']
+                    level_name = prize_rule['level']
+                    if level_name not in prize_details:
+                        prize_details[level_name] = {'count': 0, 'amount': 0}
+                    prize_details[level_name]['count'] += total_count
+                    prize_details[level_name]['amount'] += amount * total_count
+            continue
+
+        # 检查是否为六等奖（中蓝球即中奖）- 使用 match_red_min / match_red_max
+        if 'match_red_min' in prize_rule and 'match_red_max' in prize_rule:
+            # 六等奖条件：红球在0-5范围内 + 蓝球匹配
+            if prize_rule['match_red_min'] <= matched_red_count <= prize_rule['match_red_max'] and matched_blue_count >= prize_rule['match_blue']:
+                # 从匹配蓝球中选match_blue个
+                c_matched_blue = combinations(matched_blue_count, prize_rule['match_blue'])
+                # 从非匹配蓝球中选(standard_blue_count - match_blue)个
+                c_unmatched_blue = combinations(len(user_blue_set - draw_blue_set), standard_blue_count - prize_rule['match_blue'])
+                total_count = c_matched_blue * c_unmatched_blue
+                if total_count > 0:
+                    amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition)
+                    level_name = prize_rule['level']
+                    if level_name not in prize_details:
+                        prize_details[level_name] = {'count': 0, 'amount': 0}
+                    prize_details[level_name]['count'] += total_count
+                    prize_details[level_name]['amount'] += amount * total_count
+            continue
+
+        # 标准奖项规则
         required_red = prize_rule['match_red']
         required_blue = prize_rule['match_blue']
 
-        # 计算红球部分的中奖注数
-        # 从用户选中的匹配红球中选 `required_red` 个
+        # 检查红球是否满足条件
+        if matched_red_count < required_red:
+            continue
+        # 检查蓝球是否满足条件
+        if matched_blue_count < required_blue:
+            continue
+
+        # 计算红球组合
         c_matched_red = combinations(matched_red_count, required_red)
-        
-        # 从用户选中的非匹配红球中选 `standard_red_count - required_red` 个
-        # 这些非匹配红球必须是用户选了但开奖号码中没有的
+        # 从非匹配红球中选 (standard_red_count - required_red) 个
         c_unmatched_red = combinations(len(user_red_set - draw_red_set), standard_red_count - required_red)
-        
         red_prize_combinations = c_matched_red * c_unmatched_red
 
-        # 计算蓝球部分的中奖注数
-        # 从用户选中的匹配蓝球中选 `required_blue` 个
+        # 计算蓝球组合
         c_matched_blue = combinations(matched_blue_count, required_blue)
-        
-        # 从用户选中的非匹配蓝球中选 `standard_blue_count - required_blue` 个
+        # 从非匹配蓝球中选 (standard_blue_count - required_blue) 个
         c_unmatched_blue = combinations(len(user_blue_set - draw_blue_set), standard_blue_count - required_blue)
-        
         blue_prize_combinations = c_matched_blue * c_unmatched_blue
-        
-        total_prize_count_for_level = red_prize_combinations * blue_prize_combinations
-        
-        if total_prize_count_for_level > 0:
-            prize_details[prize_rule['level']] += total_prize_count_for_level
-            
+
+        total_count = red_prize_combinations * blue_prize_combinations
+
+        if total_count > 0:
+            # 获取奖金金额
+            amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition)
+            level_name = prize_rule['level']
+            if level_name not in prize_details:
+                prize_details[level_name] = {'count': 0, 'amount': 0}
+            prize_details[level_name]['count'] += total_count
+            prize_details[level_name]['amount'] += amount * total_count
+
     return prize_details
+
 
 def _calculate_draws_in_years(lottery_type, num_years, start_date=None):
     """
@@ -833,12 +911,13 @@ def _calculate_future_draw_date(lottery_type, start_date, draw_offset):
     return None
 
 
-# --- 趣味游戏模拟函数 ---
-def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=None, tasks_dict=None):
+# --- 趣味游戏模拟函数 (2026年升级版) ---
+def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=None, tasks_dict=None, is_addition=False):
     """
     模拟虚拟开奖，在指定年数内进行对奖。
     返回模拟结果，包括中奖次数、总花费、预计中奖日期等。
     task_id 和 tasks_dict 用于在长时间运行时更新进度。
+    is_addition: 是否追加投注（仅大乐透有效）
     """
     rules = PRIZE_RULES.get(lottery_type)
     if not rules:
@@ -850,8 +929,8 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     if not user_red_balls and not user_blue_balls:
         return {'error': '请至少选择一个红球或一个蓝球进行模拟。'}
 
-    num_red_balls_to_draw = 6 if lottery_type == 'ssq' else 5
-    num_blue_balls_to_draw = 1 if lottery_type == 'ssq' else 2
+    num_red_balls_to_draw = rules['standard_red']  # SSQ: 6, DLT: 5
+    num_blue_balls_to_draw = rules['standard_blue']  # SSQ: 1, DLT: 2
 
     for ball in user_red_balls:
         if not (1 <= ball <= red_range):
@@ -867,12 +946,20 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     if max_simulations == 0:
         return {'error': f"无法计算 {simulation_years} 年内的开奖期数，请检查配置。"}
 
-    # 获取最新一期开奖数据，用于浮动奖金计算
+    # 获取最新一期开奖数据，用于浮动奖金计算和福运奖状态
     latest_draw = None
     if lottery_type == 'ssq':
         latest_draw = db.session.query(SSQDraw).order_by(SSQDraw.issue.desc()).first()
     elif lottery_type == 'dlt':
         latest_draw = db.session.query(DLTDraw).order_by(DLTDraw.issue.desc()).first()
+
+    # 获取最新奖池金额（大乐透用于固定奖联动，双色球用于福运奖）
+    latest_pool_amount = latest_draw.prize_pool if latest_draw else None
+    
+    # 判断福运奖状态（双色球）
+    fuyun_prize_active = False
+    if lottery_type == 'ssq' and latest_draw:
+        fuyun_prize_active = latest_draw.fuyun_prize_active if hasattr(latest_draw, 'fuyun_prize_active') else False
 
     draw_count = 0
     total_prizes_counter = Counter() # 统计各奖项中奖次数
@@ -883,7 +970,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     estimated_first_prize_date = None # 预计中一等奖的日期
 
     # 计算单次投注花费
-    cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type)
+    cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type, is_addition)
     cost_per_draw = cost_details['total_cost']
     
     progress_update_interval = max(1, max_simulations // 1000) # 至少每千分之一更新一次，避免频繁更新
@@ -902,10 +989,14 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
         prize_details_for_draw = calculate_prize_details(
             user_red_balls, user_blue_balls,
             simulated_red_balls, simulated_blue_balls,
-            lottery_type
+            lottery_type,
+            pool_amount=latest_pool_amount,
+            is_addition=is_addition,
+            fuyun_prize_active=fuyun_prize_active
         )
 
-        for level, count in prize_details_for_draw.items():
+        for level, info in prize_details_for_draw.items():
+            count = info['count']
             if count > 0:
                 total_prizes_counter[level] += count
                 prize_rule = next((p for p in rules['prizes'] if p['level'] == level), None)
@@ -916,11 +1007,20 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
                         if latest_draw:
                             if level == '一等奖':
                                 current_prize_amount_numeric = latest_draw.first_prize_amount
+                                # 追加投注情况下，一等奖奖金为基本+追加
+                                if is_addition and lottery_type == 'dlt':
+                                    add_amount = prize_rule.get('max_single_add', 18000000)
+                                    current_prize_amount_numeric = min(current_prize_amount_numeric + add_amount, prize_rule.get('max_single_add', 18000000))
                             elif level == '二等奖':
                                 current_prize_amount_numeric = latest_draw.second_prize_amount
+                                # 追加投注情况下，二等奖奖金为基本+追加
+                                if is_addition and lottery_type == 'dlt':
+                                    add_amount = prize_rule.get('max_single_add', 9000000)
+                                    current_prize_amount_numeric = min(current_prize_amount_numeric + add_amount, prize_rule.get('max_single_add', 9000000))
                         # 如果没有最新开奖数据，浮动奖金按0处理
                     else:
-                        current_prize_amount_numeric = prize_rule['amount']
+                        # 固定奖 - 使用实际金额
+                        current_prize_amount_numeric = info['amount'] / count if count > 0 else 0
                 
                 level_total_amount = current_prize_amount_numeric * count
                 total_winning_amount += level_total_amount
@@ -941,10 +1041,17 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
     
     # 获取奖项的固定顺序 (从 config.py 中定义，通常是从高到低)
     prize_level_order = [p['level'] for p in rules['prizes']]
+    # 去重保留顺序
+    seen = set()
+    prize_level_order_unique = []
+    for level in prize_level_order:
+        if level not in seen:
+            seen.add(level)
+            prize_level_order_unique.append(level)
     
     # 创建一个新的 OrderedDict，按照 prize_level_order 的顺序填充中奖次数
     ordered_total_prizes = OrderedDict()
-    for level in prize_level_order:
+    for level in prize_level_order_unique:
         if level in total_prizes_counter:
             ordered_total_prizes[level] = total_prizes_counter[level]
         else:
@@ -952,7 +1059,7 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
 
     # 同样，按照 prize_level_order 的顺序填充中奖金额
     ordered_total_prize_level_amounts = OrderedDict()
-    for level in prize_level_order:
+    for level in prize_level_order_unique:
         if level in total_prize_level_amounts:
             ordered_total_prize_level_amounts[level] = total_prize_level_amounts[level]
         else:
@@ -979,7 +1086,8 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
         'first_prize_won': first_prize_won,
         'first_prize_draw_count': first_prize_draw_count,
         'estimated_first_prize_date': estimated_first_prize_date.strftime('%Y-%m-%d') if estimated_first_prize_date else None,
-        'message': message
+        'message': message,
+        'is_addition': is_addition
     }
 
 def calculate_all_trend_data(app, lottery_type, lookback_periods=None):
@@ -1165,3 +1273,26 @@ def calculate_all_trend_data(app, lottery_type, lookback_periods=None):
         db.session.commit()
         app.logger.info(f"{lottery_type} 趋势数据计算完成并存储到数据库。共 {len(trend_entries)} 条记录。")
         return trend_entries # 返回存储的记录列表
+
+
+# --- 福运奖状态管理 ---
+def update_fuyun_prize_status(pool_amount, current_status):
+    """
+    更新福运奖的启用/关闭状态。
+    pool_amount: 当前奖池金额
+    current_status: 当前福运奖状态 (True/False)
+    返回: 新的福运奖状态
+    """
+    if pool_amount is None:
+        return current_status
+    
+    new_status = current_status
+    if pool_amount >= FUYUN_PRIZE_ENABLE_THRESHOLD:
+        # 奖池≥15亿，启用福运奖
+        new_status = True
+    elif pool_amount < FUYUN_PRIZE_DISABLE_THRESHOLD:
+        # 奖池<3亿，关闭福运奖
+        new_status = False
+    # 奖池在3亿~15亿之间时，保持当前状态不变（有滞后性）
+    
+    return new_status
