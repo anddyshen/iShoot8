@@ -5,7 +5,7 @@ from data_manager import get_latest_draws
 import threading
 import uuid
 from time import sleep
-from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE, SETTING_LABELS_CHINESE
+from config import CURRENT_SETTINGS, STAT_EXPLANATIONS, PRIZE_RULES, PER_BET_PRICE, SETTING_LABELS_CHINESE, FUYUN_PRIZE_ENABLE_THRESHOLD, FUYUN_PRIZE_DISABLE_THRESHOLD, DLT_POOL_LINKAGE_THRESHOLD, PER_BET_ADD_PRICE
 from utils import (
     format_lottery_numbers, 
     get_aggregated_stats, calculate_frequency_and_omissions_for_balls,

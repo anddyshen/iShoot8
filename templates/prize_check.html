@@ -197,6 +197,136 @@
         </div>
     </div>
 
+    <!-- ==================== 双色球奖金规则说明（折叠/展开） ==================== -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#ssq_prize_rules_collapse" aria-expanded="false">
+            <h5 class="mb-0"><i class="bi bi-credit-card-2-front"></i> 双色球奖金规则说明 <small class="text-muted ms-2">点击展开/收起</small></h5>
+            <i class="bi bi-chevron-down"></i>
+        </div>
+        <div class="collapse" id="ssq_prize_rules_collapse">
+            <div class="card-body">
+
+                <!-- 奖级概览表 -->
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>奖级</th>
+                                <th>中奖条件</th>
+                                <th>奖金</th>
+                                <th>中奖概率（单注）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-danger">
+                                <td><strong>一等奖</strong></td>
+                                <td>6红 + 1蓝</td>
+                                <td><strong>浮动</strong><br><small class="text-muted">单期总奖金封顶1亿元，单注最高500万元</small></td>
+                                <td>1 / 17,721,088</td>
+                            </tr>
+                            <tr class="table-warning">
+                                <td><strong>二等奖</strong></td>
+                                <td>6红 + 0蓝</td>
+                                <td><strong>浮动</strong><br><small class="text-muted">单期总奖金封顶7000万元，单注最高约46万元</small></td>
+                                <td>1 / 1,971,216</td>
+                            </tr>
+                            <tr>
+                                <td><strong>三等奖</strong></td>
+                                <td>5红 + 1蓝</td>
+                                <td><strong>3,000元</strong></td>
+                                <td>1 / 108,129</td>
+                            </tr>
+                            <tr>
+                                <td><strong>四等奖</strong></td>
+                                <td>5红 + 0蓝<br>4红 + 1蓝</td>
+                                <td><strong>200元</strong></td>
+                                <td>1 / 2,303</td>
+                            </tr>
+                            <tr>
+                                <td><strong>五等奖</strong></td>
+                                <td>4红 + 0蓝<br>3红 + 1蓝</td>
+                                <td><strong>10元</strong></td>
+                                <td>1 / 129</td>
+                            </tr>
+                            <tr>
+                                <td><strong>六等奖</strong></td>
+                                <td>2红 + 1蓝<br>1红 + 1蓝<br>0红 + 1蓝<br><span class="text-muted">(中蓝球即中奖)</span></td>
+                                <td><strong>5元</strong></td>
+                                <td>1 / 16</td>
+                            </tr>
+                            <tr class="table-info">
+                                <td><strong>福运奖 <span class="badge bg-info">2026新增</span></strong></td>
+                                <td>3红 + 0蓝</td>
+                                <td><strong>5元</strong></td>
+                                <td>约 1 / 76</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 详细说明 -->
+                <h5 class="mb-3"><i class="bi bi-list-ol"></i> 详细说明</h5>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>一、浮动奖（一等奖、二等奖）</strong></div>
+                    <div class="card-body">
+                        <ul>
+                            <li><strong>一等奖：</strong>全部6个红球 + 1个蓝球全中。当期奖金封顶1亿元，按中奖注数均分。单注最高不超过500万元。</li>
+                            <li><strong>二等奖：</strong>全部6个红球命中，蓝球未中。当期奖金封顶7000万元，按中奖注数均分。单注最高不超过46万元。</li>
+                            <li>浮动奖奖金分配比例：扣除固定奖总奖金后，一等奖占70%，二等奖占30%。</li>
+                            <li>当奖池资金低于1000万元时，一等奖奖金由奖池和调节基金补足至单注最高500万元。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>二、固定奖（三至六等奖）</strong></div>
+                    <div class="card-body">
+                        <ul>
+                            <li><strong>三等奖：</strong>5红+1蓝中，固定奖金3,000元。</li>
+                            <li><strong>四等奖：</strong>5红+0蓝 或 4红+1蓝中，固定奖金200元。</li>
+                            <li><strong>五等奖：</strong>4红+0蓝 或 3红+1蓝中，固定奖金10元。</li>
+                            <li><strong>六等奖：</strong>蓝球命中即中奖（红球任意），固定奖金5元。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>三、福运奖 <span class="badge bg-info">2026年新增</span></strong></div>
+                    <div class="card-body">
+                        <p><strong>启用条件：</strong>当双色球奖池资金达到 <strong>15亿元</strong> 时，福运奖自动启用。</p>
+                        <p><strong>关闭条件：</strong>当奖池资金低于 <strong>12亿元</strong> 时，福运奖自动关闭。</p>
+                        <p><strong>中奖条件：</strong><span class="text-info">3个红球命中 + 蓝球未中</span>（即"3+0"）。</p>
+                        <p><strong>奖金：</strong>固定奖金 <strong>5元</strong>。</p>
+                        <p class="text-muted small"><i class="bi bi-lightbulb"></i> 小提示：福运奖填补了传统规则中"3+0"不中奖的空白，大大提升了每注号码"保本"的机会。</p>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>四、中奖规则概要</strong></div>
+                    <div class="card-body">
+                        <p class="mb-0">单式号码（6红+1蓝）的中奖规则归纳：</p>
+                        <ul>
+                            <li>6+1 → 一等奖（浮动）</li>
+                            <li>6+0 → 二等奖（浮动）</li>
+                            <li>5+1 → 三等奖（3000元）</li>
+                            <li>5+0 → 四等奖（200元）</li>
+                            <li>4+1 → 四等奖（200元）</li>
+                            <li>4+0 → 五等奖（10元）</li>
+                            <li>3+1 → 五等奖（10元）</li>
+                            <li>3+0 → 福运奖（5元）</li>
+                            <li>2+1 → 六等奖（5元）</li>
+                            <li>1+1 → 六等奖（5元）</li>
+                            <li>0+1 → 六等奖（5元）</li>
+                            <li>其他 → 未中奖</li>
+                        </ul>
+                            <p class="text-warning small mt-2"><i class="bi bi-exclamation-triangle"></i> <strong>注意：</strong>同一注号码不可同时中多个奖级，按最高奖金等级计算。</p>
+                    </div>                <!-- closes inner card-body -->
+                </div>                    <!-- closes inner card mb-3 (四、中奖规则概要) -->
+            </div>                        <!-- closes collapse card-body -->
+        </div>                            <!-- closes collapse div -->
+    </div>                                <!-- closes outer card mb-4 (双色球奖金规则说明) -->
+
     <div class="card mb-4">
         <div class="card-header">输入您的号码</div>
         <div class="card-body">
@@ -325,6 +455,206 @@
         </div>
         <div id="dlt_latest_draw_content">
             <p class="text-muted">加载中...</p>
+        </div>
+    </div>
+
+    <!-- ==================== 大乐透奖金规则说明（折叠/展开） ==================== -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#dlt_prize_rules_collapse" aria-expanded="false">
+            <h5 class="mb-0"><i class="bi bi-credit-card-2-front"></i> 大乐透奖金规则说明 <small class="text-muted ms-2">点击展开/收起</small></h5>
+            <i class="bi bi-chevron-down"></i>
+        </div>
+        <div class="collapse" id="dlt_prize_rules_collapse">
+            <div class="card-body">
+
+                <!-- 基本投注奖级概览表 -->
+                <h5 class="mb-3">基本投注奖金表</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>奖级</th>
+                                <th>中奖条件</th>
+                                <th>基本奖金</th>
+                                <th>奖池≥8亿时奖金</th>
+                                <th>中奖概率（单注）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-danger">
+                                <td><strong>一等奖</strong></td>
+                                <td>5前 + 2后</td>
+                                <td><strong>浮动</strong><br><small>单期封顶1亿，单注最高1000万</small></td>
+                                <td><strong>浮动</strong><br><small>同上</small></td>
+                                <td>1 / 21,425,712</td>
+                            </tr>
+                            <tr class="table-warning">
+                                <td><strong>二等奖</strong></td>
+                                <td>5前 + 1后</td>
+                                <td><strong>浮动</strong><br><small>单期封顶1亿，单注最高500万</small></td>
+                                <td><strong>浮动</strong><br><small>同上</small></td>
+                                <td>1 / 476,127</td>
+                            </tr>
+                            <tr>
+                                <td><strong>三等奖</strong></td>
+                                <td>5前 + 0后</td>
+                                <td><strong>5,000元</strong></td>
+                                <td><strong>6,666元</strong></td>
+                                <td>1 / 142,838</td>
+                            </tr>
+                            <tr>
+                                <td><strong>四等奖</strong></td>
+                                <td>4前 + 2后</td>
+                                <td><strong>300元</strong></td>
+                                <td><strong>380元</strong></td>
+                                <td>1 / 5,952</td>
+                            </tr>
+                            <tr>
+                                <td><strong>五等奖</strong></td>
+                                <td>4前 + 1后<br>3前 + 2后</td>
+                                <td><strong>150元</strong></td>
+                                <td><strong>200元</strong></td>
+                                <td>1 / 892</td>
+                            </tr>
+                            <tr>
+                                <td><strong>六等奖</strong></td>
+                                <td>4前 + 0后<br>3前 + 1后<br>2前 + 2后</td>
+                                <td><strong>15元</strong></td>
+                                <td><strong>18元</strong></td>
+                                <td>1 / 129</td>
+                            </tr>
+                            <tr>
+                                <td><strong>七等奖</strong></td>
+                                <td>3前 + 0后<br>2前 + 1后<br>1前 + 2后<br>0前 + 2后</td>
+                                <td><strong>5元</strong></td>
+                                <td><strong>7元</strong></td>
+                                <td>1 / 16</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 追加投注说明 -->
+                <h5 class="mb-3">追加投注奖金说明</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>奖级</th>
+                                <th>基本投注</th>
+                                <th>追加投注</th>
+                                <th>追加后最高奖金</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-danger">
+                                <td><strong>一等奖</strong></td>
+                                <td>浮动，单注最高1000万</td>
+                                <td class="table-success">可追加，+800万</td>
+                                <td><strong class="text-danger">最高1800万</strong></td>
+                            </tr>
+                            <tr class="table-warning">
+                                <td><strong>二等奖</strong></td>
+                                <td>浮动，单注最高500万</td>
+                                <td class="table-success">可追加，+400万</td>
+                                <td><strong class="text-danger">最高900万</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>三~七等奖</strong></td>
+                                <td>固定奖</td>
+                                <td class="table-secondary text-muted">不可追加</td>
+                                <td class="text-muted">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 奖池联动说明 -->
+                <div class="card mb-3">
+                    <div class="card-header"><strong>奖池联动：固定奖上浮机制</strong></div>
+                    <div class="card-body">
+                        <p><strong>触发条件：</strong>当大乐透奖池资金达到 <strong>8亿元</strong> 时，<strong>三至七等奖</strong>的固定奖奖金在原有基础上上浮约10%~33%不等。</p>
+                        <p class="text-muted small"><i class="bi bi-lightbulb"></i> 小提示：奖池越高，固定奖越值钱！关注奖池动态，在奖池突破8亿元时投注，同等中奖条件下可获得更高固定奖金。</p>
+                    </div>
+                </div>
+
+                <!-- 详细说明 -->
+                <h5 class="mb-3"><i class="bi bi-list-ol"></i> 详细说明</h5>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>一、浮动奖（一等奖、二等奖）</strong></div>
+                    <div class="card-body">
+                        <ul>
+                            <li><strong>一等奖：</strong>前区5个 + 后区2个全中。单期奖金封顶1亿元，基本投注单注最高1000万，追加投注最高1800万。</li>
+                            <li><strong>二等奖：</strong>前区5个 + 后区1个命中。单期奖金封顶1亿元，基本投注单注最高500万，追加投注最高900万。</li>
+                            <li>浮动奖奖金分配：一等奖占浮动奖总奖金的70%，二等奖占30%。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>二、追加投注</strong></div>
+                    <div class="card-body">
+                        <p>大乐透特色玩法。每注在2元基本投注基础上 <strong>增加1元</strong>，即可对 <strong>一、二等奖</strong> 进行追加。</p>
+                        <ul>
+                            <li>一等奖追加：基本奖金 + 追加奖金，合计最高1800万元</li>
+                            <li>二等奖追加：基本奖金 + 追加奖金，合计最高900万元</li>
+                            <li>三至七等奖：不参与追加投注</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>三、固定奖（三至七等奖）</strong></div>
+                    <div class="card-body">
+                        <ul>
+                            <li><strong>三等奖：</strong>5前+0后，基本5,000元 / 奖池联动6,666元</li>
+                            <li><strong>四等奖：</strong>4前+2后，基本300元 / 奖池联动380元</li>
+                            <li><strong>五等奖：</strong>4前+1后 或 3前+2后，基本150元 / 奖池联动200元</li>
+                            <li><strong>六等奖：</strong>4前+0后 或 3前+1后 或 2前+2后，基本15元 / 奖池联动18元</li>
+                            <li><strong>七等奖：</strong>3前+0后 或 2前+1后 或 1前+2后 或 0前+2后，基本5元 / 奖池联动7元</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>四、中奖规则概要</strong></div>
+                    <div class="card-body">
+                        <p class="mb-0">单式号码（5前+2后）的中奖规则归纳：</p>
+                        <ul>
+                            <li>5+2 → 一等奖（浮动，可追加）</li>
+                            <li>5+1 → 二等奖（浮动，可追加）</li>
+                            <li>5+0 → 三等奖（5000元 / 联动6666元）</li>
+                            <li>4+2 → 四等奖（300元 / 联动380元）</li>
+                            <li>4+1 → 五等奖（150元 / 联动200元）</li>
+                            <li>3+2 → 五等奖（150元 / 联动200元）</li>
+                            <li>4+0 → 六等奖（15元 / 联动18元）</li>
+                            <li>3+1 → 六等奖（15元 / 联动18元）</li>
+                            <li>2+2 → 六等奖（15元 / 联动18元）</li>
+                            <li>3+0 → 七等奖（5元 / 联动7元）</li>
+                            <li>2+1 → 七等奖（5元 / 联动7元）</li>
+                            <li>1+2 → 七等奖（5元 / 联动7元）</li>
+                            <li>0+2 → 七等奖（5元 / 联动7元）</li>
+                            <li>其他 → 未中奖</li>
+                        </ul>
+                        <p class="text-warning small mt-2"><i class="bi bi-exclamation-triangle"></i> <strong>注意：</strong>同一注号码按最高奖级计算，不可跨奖级累计。追加投注仅影响一、二等奖的奖金金额。</p>
+                    </div>
+                </div>
+
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark"><strong>重要声明</strong></div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li>以上奖金规则根据官方公告整理，仅供参考。实际奖金以官方开奖公告为准。</li>
+                            <li><strong>2026年重大变更：</strong>大乐透三至七等奖在奖池≥8亿元时联动上浮。</li>
+                            <li>浮动奖具体金额取决于当期销售额、奖池累积金额和中奖注数，每期不同。</li>
+                            <li>大乐透追加投注仅对一、二等奖有效，固定奖不参与追加。</li>
+                            <li><strong class="text-danger">彩票有风险，投注需谨慎。理性购彩，量力而行。</strong></li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 
