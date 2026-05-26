@@ -1823,3 +1823,167 @@ def _update_smart_filter_rankings(lottery_type, app=None):
     
     if app:
         app.logger.info(f"{lottery_type} 排名更新完成（共 {len(lookback_periods)} 个回溯期数，含蓝球遗漏排名）")
+
+
+# ==================== 历史页面智能筛选规则核查 ====================
+
+def check_draw_against_smart_filter_rankings(lottery_type, draw, lookback_period=100):
+    """
+    检查一期开奖号码是否符合智能筛选规则排名
+    前区红球用排名前2位的规则核查，后区蓝球用排名前5位的规则核查
+    
+    Args:
+        lottery_type: 'ssq' 或 'dlt'
+        draw: 开奖记录对象
+        lookback_period: 回溯期数，默认100
+    
+    Returns:
+        dict
+    """
+    from models import SmartFilterStatsRanking
+    
+    red_balls = draw.get_red_balls_list()
+    blue_balls = draw.get_blue_balls_list()
+    
+    # 计算该期的所有智能筛选规则实际值
+    actual_stats = calculate_smart_filter_stats_for_draw(lottery_type, draw)
+    
+    # 获取排名数据
+    rankings = SmartFilterStatsRanking.query.filter_by(
+        lottery_type=lottery_type,
+        lookback_period=lookback_period
+    ).order_by(SmartFilterStatsRanking.rule_name, SmartFilterStatsRanking.rank).all()
+    
+    # 按规则名称分组排名
+    rule_rankings = {}
+    for r in rankings:
+        if r.rule_name not in rule_rankings:
+            rule_rankings[r.rule_name] = []
+        rule_rankings[r.rule_name].append(r)
+    
+    red_results = []
+    blue_results = []
+    
+    # 定义红球规则名称
+    red_rule_names = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 
+                      'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value']
+    
+    # 检查每个红球规则 - 用排名前2位核查
+    for rule_name in red_rule_names:
+        if rule_name not in rule_rankings:
+            continue
+        
+        top_2 = rule_rankings[rule_name][:2]
+        actual_value = actual_stats.get(rule_name, '')
+        expected_values = [r.rule_value for r in top_2]
+        passed = actual_value in expected_values
+        
+        red_results.append({
+            'rule_name': rule_name,
+            'rule_label': _get_rule_label(rule_name, lottery_type),
+            'actual_value': actual_value,
+            'expected_values': expected_values,
+            'passed': passed,
+            'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+        })
+    
+    # 检查蓝球/后区规则 - 用排名前5位核查
+    if lottery_type == 'ssq':
+        # 双色球蓝球
+        if 'blue_omission' in rule_rankings:
+            top_5 = rule_rankings['blue_omission'][:5]
+            blue_num = blue_balls[0] if blue_balls else None
+            expected_blue_nums = [r.rule_value for r in top_5]
+            passed = str(blue_num).zfill(2) in expected_blue_nums if blue_num else False
+            
+            blue_results.append({
+                'rule_name': 'blue_omission',
+                'rule_label': '蓝球遗漏',
+                'actual_value': str(blue_num).zfill(2) if blue_num else '',
+                'expected_values': expected_blue_nums,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_5]
+            })
+    else:
+        # 大乐透后区遗漏
+        if 'blue_omission' in rule_rankings:
+            top_5 = rule_rankings['blue_omission'][:5]
+            expected_blue_nums = [r.rule_value for r in top_5]
+            passed_count = sum(1 for b in blue_balls if str(b).zfill(2) in expected_blue_nums)
+            passed = passed_count >= 1
+            actual_values = [str(b).zfill(2) for b in blue_balls]
+            
+            blue_results.append({
+                'rule_name': 'blue_omission',
+                'rule_label': '后区遗漏',
+                'actual_value': ','.join(actual_values),
+                'expected_values': expected_blue_nums,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_5]
+            })
+        
+        # 大乐透后区奇偶
+        if 'blue_odd_even' in rule_rankings:
+            top_2 = rule_rankings['blue_odd_even'][:2]
+            actual_value = actual_stats.get('blue_odd_even', '')
+            expected_values = [r.rule_value for r in top_2]
+            passed = actual_value in expected_values
+            blue_results.append({
+                'rule_name': 'blue_odd_even',
+                'rule_label': '后区奇偶',
+                'actual_value': actual_value,
+                'expected_values': expected_values,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+            })
+        
+        # 大乐透后区大小
+        if 'blue_size' in rule_rankings:
+            top_2 = rule_rankings['blue_size'][:2]
+            actual_value = actual_stats.get('blue_size', '')
+            expected_values = [r.rule_value for r in top_2]
+            passed = actual_value in expected_values
+            blue_results.append({
+                'rule_name': 'blue_size',
+                'rule_label': '后区大小',
+                'actual_value': actual_value,
+                'expected_values': expected_values,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+            })
+    
+    red_passed_count = sum(1 for r in red_results if r['passed'])
+    red_total_count = len(red_results)
+    blue_passed_count = sum(1 for r in blue_results if r['passed'])
+    blue_total_count = len(blue_results)
+    
+    return {
+        'red_rules': red_results,
+        'blue_rules': blue_results,
+        'red_passed_count': red_passed_count,
+        'red_total_count': red_total_count,
+        'blue_passed_count': blue_passed_count,
+        'blue_total_count': blue_total_count,
+        'overall_red_passed': red_passed_count == red_total_count if red_total_count > 0 else True,
+        'overall_blue_passed': blue_passed_count == blue_total_count if blue_total_count > 0 else True
+    }
+
+
+def _get_rule_label(rule_name, lottery_type):
+    """获取规则的中文标签"""
+    labels = {
+        'zone_ratio': '分区分布',
+        'consecutive': '连号',
+        'repeat': '重号',
+        'omission_pattern': '遗漏号分布',
+        'odd_even': '奇偶比',
+        'span': '最大跨度',
+        'sum': '号码和值',
+        'same_tail': '同尾号',
+        'neighbor': '邻号',
+        'ac_value': 'AC值',
+        'blue_omission': '蓝球遗漏' if lottery_type == 'ssq' else '后区遗漏',
+        'blue_odd_even': '后区奇偶',
+        'blue_size': '后区大小'
+    }
+    return labels.get(rule_name, rule_name)

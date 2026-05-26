@@ -18,7 +18,7 @@ from prediction_engine import (
     generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls, # 导入新的规则检查函数
     get_draw_and_matched_omitted_balls_for_offset # 导入新的函数
 )
-from smart_filter_engine import generate_smart_filtered_numbers, update_smart_filter_stats # 导入智能筛选引擎
+from smart_filter_engine import generate_smart_filtered_numbers, update_smart_filter_stats, check_draw_against_smart_filter_rankings, calculate_smart_filter_stats_for_draw # 导入智能筛选引擎
 
 bp = Blueprint('routes', __name__)
 
@@ -103,9 +103,7 @@ def history():
                            per_page=per_page,
                            start_date=start_date_str,
                            end_date=end_date_str,
-                           get_consecutive_groups=get_consecutive_groups, # Pass the function to the template
-                           calculate_odd_even_ratio_per_draw=calculate_odd_even_ratio_per_draw, # Pass new function
-                           calculate_sum_per_draw=calculate_sum_per_draw # Pass new function
+                           get_consecutive_groups=get_consecutive_groups # Pass the function to the template
                            )
 
 @bp.route('/statistics')
@@ -1214,6 +1212,34 @@ def api_latest_blue_stats():
         'last_issue': latest_draw.issue,
         'has_data': True
     })
+
+
+# ==================== 历史页面智能筛选核查 API ====================
+
+@bp.route('/api/history/smart_filter_check', methods=['GET'])
+def api_history_smart_filter_check():
+    """
+    检查一期开奖号码是否符合智能筛选规则排名
+    前区红球用排名前2位的规则核查，后区蓝球用排名前5位的规则核查
+    """
+    lottery_type = request.args.get('lottery_type', 'ssq')
+    issue = request.args.get('issue')
+    
+    if lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid lottery_type'}), 400
+    
+    if not issue:
+        return jsonify({'error': 'Missing issue parameter'}), 400
+    
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    draw = model_class.query.filter_by(issue=issue).first()
+    
+    if not draw:
+        return jsonify({'error': 'Draw not found'}), 404
+    
+    result = check_draw_against_smart_filter_rankings(lottery_type, draw, lookback_period=100)
+    
+    return jsonify(result)
 
 
 # ==================== 智能筛选 API ====================
