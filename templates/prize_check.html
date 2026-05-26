@@ -367,6 +367,7 @@
             </div>
             <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
             <button class="btn btn-info me-2" id="ssq_add_to_fun_game">添加到大奖时光机</button>
+            <button class="btn btn-outline-warning me-2" id="ssq_check_smart_filter">检查智选号码规则</button>
             <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">填入最新奖号</button>
             <button class="btn btn-outline-secondary me-2" id="ssq_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="ssq_random_select">随机号码</button>
@@ -698,6 +699,7 @@
             </div>
             <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
             <button class="btn btn-info me-2" id="dlt_add_to_fun_game">添加到大奖时光机</button>
+            <button class="btn btn-outline-warning me-2" id="dlt_check_smart_filter">检查智选号码规则</button>
             <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">填入最新奖号</button>
             <button class="btn btn-outline-secondary me-2" id="dlt_paste_from_clipboard">填入复制号码</button>
             <button class="btn btn-outline-warning me-2" id="dlt_random_select">随机号码</button>
@@ -777,9 +779,42 @@
     </div>
 </div>
 
+<!-- 规则检查结果模态框（与历史数据页面一致） -->
+<div class="modal fade" id="ruleCheckModal" tabindex="-1" aria-labelledby="ruleCheckModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleCheckModalLabel">规则检查结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body rule-check-modal-body">
+                <p class="text-muted">点击"检查智选号码规则"按钮查看结果。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<style>
+/* 规则检查模态框样式（与历史数据页面一致） */
+.rule-check-modal-body .rule-item {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+.rule-check-modal-body .rule-item.passed {
+    background-color: #d4edda;
+    color: #155724;
+}
+.rule-check-modal-body .rule-item.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
 <script>
     // Function to calculate combination cost (replicated from Python for frontend display)
     function combinations(n, k) {
@@ -1529,6 +1564,96 @@
     });
     document.getElementById('dlt_clear_prize_results').addEventListener('click', function() {
         document.getElementById('dlt_prize_results').innerHTML = '<p class="text-muted">点击"核对中奖"按钮查看结果。</p>';
+    });
+
+    // ========== 检查智选号码规则逻辑（与历史数据页面智能筛选规则功能一致） ==========
+    function checkSmartFilterRules(lotteryType) {
+        // 获取当前显示的期号（从开奖号码显示区域获取）
+        const titleSpan = document.getElementById(`${lotteryType}_draw_title`);
+        const titleText = titleSpan.textContent;
+        const issueMatch = titleText.match(/第\s*(\d+)\s*期/);
+        if (!issueMatch) {
+            alert('未能获取当前期号，请先加载开奖号码。');
+            return;
+        }
+        const issue = issueMatch[1];
+        
+        const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body');
+        modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+        const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
+        ruleCheckModal.show();
+
+        // 调用与历史数据页面相同的 API
+        fetch('/api/history/smart_filter_check?lottery_type=' + lotteryType + '&issue=' + issue)
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(err) {
+                        throw new Error(err.error || '服务器错误');
+                    });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                var lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : '双色球';
+                var html = '<div class="mb-2 text-muted"><small>智能筛选规则核查 - ' + lotteryTypeName + ' 第 ' + issue + ' 期（前区用排名前2位，后区用排名前5位）</small></div>';
+
+                // 处理前区红球规则
+                html += '<h6 class="mt-3 mb-2"><strong>【前区红球规则】</strong></h6>';
+                if (data.red_rules && data.red_rules.length > 0) {
+                    data.red_rules.forEach(function(rule) {
+                        var statusClass = rule.passed ? 'passed' : 'failed';
+                        html += '<div class="rule-item ' + statusClass + '">' +
+                                    '<strong>' + rule.rule_label + '</strong> ' +
+                                    '实际=' + rule.actual_value + ', ' +
+                                    '期望排名前2=' + rule.expected_values.join(', ') +
+                                '</div>';
+                    });
+                    html += '<div class="mt-2 mb-2"><strong>前区通过: ' + data.red_passed_count + '/' + data.red_total_count + '</strong></div>';
+                } else {
+                    html += '<div class="text-muted">无前区规则数据</div>';
+                }
+
+                // 处理后区蓝球规则
+                html += '<h6 class="mt-3 mb-2"><strong>【后区蓝球规则】</strong></h6>';
+                if (data.blue_rules && data.blue_rules.length > 0) {
+                    data.blue_rules.forEach(function(rule) {
+                        var statusClass = rule.passed ? 'passed' : 'failed';
+                        var detailsLen = rule.details ? rule.details.length : 5;
+                        html += '<div class="rule-item ' + statusClass + '">' +
+                                    '<strong>' + rule.rule_label + '</strong> ' +
+                                    '实际=' + rule.actual_value + ', ' +
+                                    '期望排名前' + detailsLen + '=' + rule.expected_values.join(', ') +
+                                '</div>';
+                    });
+                    html += '<div class="mt-2 mb-2"><strong>后区通过: ' + data.blue_passed_count + '/' + data.blue_total_count + '</strong></div>';
+                } else {
+                    html += '<div class="text-muted">无后区规则数据</div>';
+                }
+
+                // 总体结果
+                var overallRedClass = data.overall_red_passed ? 'passed' : 'failed';
+                var overallBlueClass = data.overall_blue_passed ? 'passed' : 'failed';
+                html += '<hr><div class="rule-item ' + overallRedClass + '">' +
+                            '<strong>前区红球核查：' + (data.overall_red_passed ? '✅ 全部通过' : '❌ 部分未通过') + '</strong>' +
+                        '</div>' +
+                        '<div class="rule-item ' + overallBlueClass + '">' +
+                            '<strong>后区蓝球核查：' + (data.overall_blue_passed ? '✅ 全部通过' : '❌ 部分未通过') + '</strong>' +
+                        '</div>';
+
+                modalBody.innerHTML = html;
+            })
+            .catch(function(error) {
+                console.error('智选号码规则检查请求失败:', error);
+                modalBody.innerHTML = '<p class="text-danger">检查失败: ' + (error.message || error) + '</p>';
+            });
+    }
+    
+    // 绑定智选号码规则检查按钮
+    document.getElementById('ssq_check_smart_filter').addEventListener('click', function() {
+        checkSmartFilterRules('ssq');
+    });
+    document.getElementById('dlt_check_smart_filter').addEventListener('click', function() {
+        checkSmartFilterRules('dlt');
     });
 
     // ========== 趣味游戏逻辑 ==========
