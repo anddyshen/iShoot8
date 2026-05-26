@@ -532,9 +532,14 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
         if blue_balls is None:
             continue
         
-        # 每组号码独立随机忽略 0-2 个前区规则
-        # 这样用户在一批5组结果中能看到不同的忽略组合
-        ignore_count_for_group = random.randint(0, 2)
+        # 从 options 中读取用户设置的忽略规则数量，默认为 5
+        # 范围 0-11（动态根据前区规则总数计算最大值）
+        ignore_count_for_group = options.get('ignore_rules_count', 5)
+        if ignore_count_for_group < 0:
+            ignore_count_for_group = 0
+        max_possible = len(front_rules)
+        if ignore_count_for_group > max_possible:
+            ignore_count_for_group = max_possible
         group_ignored_rules = random.sample(front_rules, ignore_count_for_group) if ignore_count_for_group > 0 else []
         
         # 验证所有规则（每组使用独立的 ignored_rules）

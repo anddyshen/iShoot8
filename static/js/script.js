@@ -1215,6 +1215,15 @@ function getSmartFilterOptions(lotteryType) {
         options.sum = sumValues;
     }
     
+    // 随机忽略规则数量
+    const ignoreRulesCountInput = document.getElementById(`${lotteryType}_ignore_rules_count`);
+    if (ignoreRulesCountInput) {
+        const ignoreRulesCount = parseInt(ignoreRulesCountInput.value);
+        if (!isNaN(ignoreRulesCount) && ignoreRulesCount >= 0) {
+            options.ignore_rules_count = ignoreRulesCount;
+        }
+    }
+    
     // 同尾号（checkbox多选）
     const tailValues = getCheckedValues(`${lotteryType}_smart_same_tail`);
     if (tailValues.length > 0 && !isDisabled(`${lotteryType}_smart_same_tail`)) {
