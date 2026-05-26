@@ -784,7 +784,8 @@ def api_check_prizes():
                 lottery_type,
                 pool_amount=draw_pool_amount,
                 is_addition=is_addition,
-                fuyun_prize_active=draw_fuyun_active
+                fuyun_prize_active=draw_fuyun_active,
+                draw_date=draw.draw_date
             )
             
             if prize_details_for_draw: # 如果有任何奖项中奖

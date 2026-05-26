@@ -1,10 +1,10 @@
 # data_manager.py
 import requests
-from datetime import datetime
+from datetime import datetime, date
 from flask import current_app
 from models import db, SSQDraw, DLTDraw
 from config import SSQ_URL, DLT_URL, USER_AGENT
-from utils import calculate_all_trend_data # 导入趋势计算函数
+from utils import calculate_all_trend_data, update_fuyun_prize_status # 导入趋势计算函数和福运奖状态更新函数
 
 # 版本号，每次生成文件时更新
 __version__ = "1.0.1" # 更新版本号
@@ -52,6 +52,20 @@ def parse_ssq_data(raw_data, app): # <--- 添加 app 参数
             sixth_prize_count = int(parts[27])
             sixth_prize_amount = int(parts[28])
 
+            # 福运奖仅在2026年2月1日（含）之后生效
+            FUYUN_START_DATE = date(2026, 2, 1)
+            if draw_date < FUYUN_START_DATE:
+                # 2026年2月1日之前，福运奖强制关闭
+                current_fuyun_active = False
+            else:
+                # 2026年2月1日之后，根据奖池金额计算福运奖状态
+                # 使用draws列表中前一条记录的福运奖状态作为当前状态，实现正确的滞后性递推
+                if draws:
+                    prev_fuyun_active = draws[-1].fuyun_prize_active if hasattr(draws[-1], 'fuyun_prize_active') else False
+                else:
+                    prev_fuyun_active = False
+                current_fuyun_active = update_fuyun_prize_status(prize_pool, prev_fuyun_active)
+
             draws.append(SSQDraw(
                 issue=issue, draw_date=draw_date,
                 red_balls=red_balls, blue_balls=blue_balls,
@@ -62,7 +76,8 @@ def parse_ssq_data(raw_data, app): # <--- 添加 app 参数
                 third_prize_count=third_prize_count, third_prize_amount=third_prize_amount,
                 fourth_prize_count=fourth_prize_count, fourth_prize_amount=fourth_prize_amount,
                 fifth_prize_count=fifth_prize_count, fifth_prize_amount=fifth_prize_amount,
-                sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount
+                sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount,
+                fuyun_prize_active=current_fuyun_active
             ))
         except (ValueError, IndexError) as e:
             app.logger.error(f"Error parsing SSQ line '{line}': {e}") # <--- 使用 app.logger
@@ -206,6 +221,42 @@ def update_latest_draws(app): # <--- 修改这里，接收 app 参数
         total_smart = ssq_smart_count + dlt_smart_count
 
         return new_ssq_count, new_dlt_count, total_trend, total_smart
+
+def update_ssq_fuyun_status(app):
+    """
+    批量更新已有双色球开奖记录的福运奖状态。
+    按期号升序遍历所有SSQDraw记录，根据奖池金额递推福运奖状态。
+    2026年2月1日之前的记录强制关闭福运奖（福运奖规则当日才启用）。
+    """
+    FUYUN_START_DATE = date(2026, 2, 1)  # 福运奖启用日期
+    
+    with app.app_context():
+        app.logger.info("开始批量更新双色球福运奖状态...")
+        records = SSQDraw.query.order_by(SSQDraw.issue.asc()).all()
+        updated_count = 0
+        current_fuyun_status = False  # 初始状态：关闭
+        before_start_date = True  # 标记是否还在福运奖启用日期之前
+        
+        for record in records:
+            # 2026年2月1日之前的记录，福运奖强制关闭
+            if record.draw_date < FUYUN_START_DATE:
+                if record.fuyun_prize_active:
+                    record.fuyun_prize_active = False
+                    updated_count += 1
+                current_fuyun_status = False  # 保持递推状态为关闭
+                continue
+            
+            # 2026年2月1日（含）之后，按奖池递推
+            old_status = record.fuyun_prize_active
+            new_status = update_fuyun_prize_status(record.prize_pool, current_fuyun_status)
+            if old_status != new_status:
+                record.fuyun_prize_active = new_status
+                updated_count += 1
+            current_fuyun_status = new_status  # 更新当前状态，用于下一期的递推
+        
+        db.session.commit()
+        app.logger.info(f"双色球福运奖状态批量更新完成，共更新 {updated_count} 条记录。")
+        return updated_count
 
 def get_latest_draws(model, count=1):
     """获取最新N期开奖数据"""

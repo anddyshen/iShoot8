@@ -473,7 +473,7 @@ PRIZE_RULES = {
             {'level': '五等奖', 'match_red': 3, 'match_blue': 1, 'amount': 10},
             # 六等奖：中蓝球即中奖（只要蓝球匹配，红球任意）
             {'level': '六等奖', 'match_red_min': 0, 'match_red_max': 5, 'match_blue': 1, 'amount': 5},
-            # 福运奖（特别规定期专属）：3+0
+            # 福运奖（特别规定期专属）：3+0，固定奖金5元
             {'level': '福运奖', 'match_red': 3, 'match_blue': 0, 'amount': 5, 'special': 'fuyun_prize'},
         ]
     },
@@ -516,5 +516,3 @@ PRIZE_RULES = {
         ]
     }
 }
-
-

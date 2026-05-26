@@ -625,18 +625,22 @@ def calculate_total_lottery_combinations(lottery_type):
 
 # --- 2026年新版对奖逻辑辅助函数 ---
 
-def _get_prize_amount_for_rule(prize_rule, pool_amount=None, is_addition=False):
+def _get_prize_amount_for_rule(prize_rule, pool_amount=None, is_addition=False, draw_date=None):
     """
     根据奖池情况获取奖项的实际金额。
     prize_rule: 奖项规则字典
     pool_amount: 当前奖池金额（大乐透用于固定奖联动判断）
     is_addition: 是否追加投注（仅大乐透浮动奖有效）
+    draw_date: 开奖日期（用于判断大乐透加奖是否生效，2026年2月1日之后才启用）
     """
     if isinstance(prize_rule['amount'], (int, float)):
         # 固定奖 - 检查是否有奖池联动
         base_amount = prize_rule['amount']
-        if pool_amount is not None and pool_amount >= DLT_POOL_LINKAGE_THRESHOLD:
-            # 奖池≥8亿，使用提升后的金额
+        # 大乐透加奖联动仅在2026年2月1日（含）之后生效
+        DLT_BONUS_START_DATE = date(2026, 2, 1)
+        if (pool_amount is not None and pool_amount >= DLT_POOL_LINKAGE_THRESHOLD 
+            and draw_date is not None and draw_date >= DLT_BONUS_START_DATE):
+            # 奖池≥8亿且日期在2026年2月1日之后，使用提升后的金额
             return prize_rule.get('amount_pool_ge_8e8', base_amount)
         return base_amount
     else:
@@ -644,7 +648,7 @@ def _get_prize_amount_for_rule(prize_rule, pool_amount=None, is_addition=False):
         return 0
 
 def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, draw_blue_balls, lottery_type, 
-                            pool_amount=None, is_addition=False, fuyun_prize_active=False):
+                            pool_amount=None, is_addition=False, fuyun_prize_active=False, draw_date=None):
     """
     检查用户号码与一期开奖号码的中奖情况，并计算每个奖项的中奖注数。
     user_red_balls: 用户选择的红球列表 (已排序)
@@ -680,11 +684,17 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     standard_red_count = rules['standard_red']  # SSQ: 6, DLT: 5
     standard_blue_count = rules['standard_blue']  # SSQ: 1, DLT: 2
 
+    # 判断是否为单式投注（单式投注只能中一个最高奖项，不能叠加小奖）
+    is_single_bet = (len(user_red_balls) == standard_red_count and len(user_blue_balls) == standard_blue_count)
+
     # 存储中奖详情
     prize_details = OrderedDict()
 
     # 遍历所有奖项规则，计算中奖注数
     for prize_rule in rules['prizes']:
+        # 单式投注：如果已经中了更高的奖项，则跳过后续所有奖项的检查
+        if is_single_bet and prize_details:
+            continue
         # 检查是否为特殊条件奖项（如福运奖）
         special = prize_rule.get('special')
         if special == 'fuyun_prize':
@@ -719,7 +729,7 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
                 c_unmatched_blue = combinations(len(user_blue_set - draw_blue_set), standard_blue_count - prize_rule['match_blue'])
                 total_count = c_matched_blue * c_unmatched_blue
                 if total_count > 0:
-                    amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition)
+                    amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition, draw_date)
                     level_name = prize_rule['level']
                     if level_name not in prize_details:
                         prize_details[level_name] = {'count': 0, 'amount': 0}
@@ -754,7 +764,7 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
 
         if total_count > 0:
             # 获取奖金金额
-            amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition)
+            amount = _get_prize_amount_for_rule(prize_rule, pool_amount, is_addition, draw_date)
             level_name = prize_rule['level']
             if level_name not in prize_details:
                 prize_details[level_name] = {'count': 0, 'amount': 0}
@@ -992,7 +1002,8 @@ def simulate_fun_game(user_red_balls, user_blue_balls, lottery_type, task_id=Non
             lottery_type,
             pool_amount=latest_pool_amount,
             is_addition=is_addition,
-            fuyun_prize_active=fuyun_prize_active
+            fuyun_prize_active=fuyun_prize_active,
+            draw_date=date.today()  # 模拟游戏使用当前日期，大乐透加奖按当前规则
         )
 
         for level, info in prize_details_for_draw.items():
