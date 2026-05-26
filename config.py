@@ -513,6 +513,11 @@ PRIZE_RULES = {
              'amount_pool_ge_8e8': 7},
             {'level': '七等奖', 'match_red': 0, 'match_blue': 2, 'amount': 5,
              'amount_pool_ge_8e8': 7},
+            # 七等奖补充：2+1 和 3+0
+            {'level': '七等奖', 'match_red': 2, 'match_blue': 1, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
+            {'level': '七等奖', 'match_red': 3, 'match_blue': 0, 'amount': 5,
+             'amount_pool_ge_8e8': 7},
         ]
     }
 }
