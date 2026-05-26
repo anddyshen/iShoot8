@@ -1,5 +1,5 @@
 <!-- templates/history.html -->
-<!-- 版本: 1.1.2 - 历史数据页面 (添加智能筛选规则核查按钮，加入二等奖/三等奖，移除奇偶比和值) -->
+<!-- 版本: 1.1.3 - 规则检查改为模态框弹出，与预测页面样式一致 -->
 {% extends "base.html" %}
 
 {% from "components/lottery_balls.html" import display_balls %}
@@ -58,6 +58,21 @@
 .history-page .table th small,
 .history-page .table td small {
     font-size: 0.7rem;
+}
+
+/* 规则检查模态框样式（与号码筛选页面一致） */
+.rule-check-modal-body .rule-item {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+.rule-check-modal-body .rule-item.passed {
+    background-color: #d4edda;
+    color: #155724;
+}
+.rule-check-modal-body .rule-item.failed {
+    background-color: #f8d7da;
+    color: #721c24;
 }
 </style>
 {% endblock %}
@@ -176,124 +191,155 @@
     </ul>
 </nav>
 </div>
+
+<!-- 规则检查结果模态框（与号码筛选页面一致） -->
+<div class="modal fade" id="ruleCheckModal" tabindex="-1" aria-labelledby="ruleCheckModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleCheckModalLabel">规则检查结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body rule-check-modal-body">
+                <p class="text-muted">点击"检查规则"按钮查看结果。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- 规则检查按钮逻辑 (保持不变) ---
-        document.querySelectorAll('.check-rule-btn').forEach(button => {
+        // --- 规则检查按钮逻辑（使用模态框，与号码筛选页面一致）---
+        document.querySelectorAll('.check-rule-btn').forEach(function(button) {
             button.addEventListener('click', function() {
                 const lotteryType = this.dataset.lotteryType;
                 const issue = this.dataset.issue;
+                const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body');
+                modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
+                const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
+                ruleCheckModal.show();
 
-                fetch(`/api/check_rules?lottery_type=${lotteryType}&issue=${issue}`)
-                    .then(response => {
+                fetch('/api/check_rules?lottery_type=' + lotteryType + '&issue=' + issue)
+                    .then(function(response) {
                         if (!response.ok) {
-                            return response.json().then(err => { 
-                                throw new Error(err.message || err.error || '服务器错误'); 
+                            return response.json().then(function(err) {
+                                throw new Error(err.message || err.error || '服务器错误');
                             });
                         }
                         return response.json();
                     })
-                    .then(data => {
-                        let lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : (lotteryType === 'ssq' ? '双色球' : lotteryType);
-                        let message = `检查 ${lotteryTypeName} 第 ${issue} 期规则结果：\n\n`;
-                        if (data.error) {
-                            message += `错误: ${data.message || data.error}`;
-                        } else {
-                            let passedRules = [];
-                            let failedRules = [];
-                            for (const ruleName in data) {
-                                const rule = data[ruleName];
-                                if (rule.passed) {
-                                    passedRules.push(rule.message);
-                                } else {
-                                    failedRules.push(rule.message);
-                                }
-                            }
-                            if (passedRules.length > 0) {
-                                message += "符合规则:\n" + passedRules.join('\n') + "\n\n";
-                            }
-                            if (failedRules.length > 0) {
-                                message += "不符合规则:\n" + failedRules.join('\n') + "\n";
-                            }
-                            if (passedRules.length === 0 && failedRules.length === 0) {
-                                message += "没有可用的规则检查结果。";
-                            }
+                    .then(function(data) {
+                        let html = '';
+                        var allPassed = true;
+                        for (var ruleKey in data) {
+                            var ruleResult = data[ruleKey];
+                            var statusClass = ruleResult.passed ? 'passed' : 'failed';
+                            if (!ruleResult.passed) allPassed = false;
+                            // 清理规则名称前缀
+                            var displayRuleKey = ruleKey.replace(/^[a-zA-Z0-9_:\s]+/, '').trim();
+                            html += '<div class="rule-item ' + statusClass + '">' +
+                                        '<strong>' + displayRuleKey + '</strong> ' + ruleResult.message +
+                                    '</div>';
                         }
-                        alert(message);
-                        console.log('规则检查结果:', data);
+                        // 添加总体结果
+                        var overallClass = allPassed ? 'passed' : 'failed';
+                        var overallText = allPassed ? '✅ 所有规则均通过！' : '❌ 部分规则未通过！';
+                        html = '<div class="rule-item ' + overallClass + '" style="font-size: 1.1em; margin-bottom: 10px;">' +
+                                    '<strong>' + overallText + '</strong>' +
+                               '</div>' + html;
+                        modalBody.innerHTML = html;
                     })
-                    .catch(error => {
+                    .catch(function(error) {
                         console.error('规则检查请求失败:', error);
-                        alert(`规则检查失败: ${error.message || error}`);
+                        modalBody.innerHTML = '<p class="text-danger">规则检查失败: ' + (error.message || error) + '</p>';
                     });
             });
         });
 
-        // --- 智能筛选规则核查按钮逻辑 ---
-        document.querySelectorAll('.smart-filter-check-btn').forEach(button => {
+        // --- 智能筛选规则核查按钮逻辑（使用模态框，与号码筛选页面一致）---
+        document.querySelectorAll('.smart-filter-check-btn').forEach(function(button) {
             button.addEventListener('click', function() {
                 const lotteryType = this.dataset.lotteryType;
                 const issue = this.dataset.issue;
                 const btn = this;
                 const originalText = btn.textContent;
+                const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body');
+                modalBody.innerHTML = '<p class="text-muted">核查中... <span class="loading-spinner"></span></p>';
+                const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
+                ruleCheckModal.show();
+
                 btn.textContent = '核查中...';
                 btn.disabled = true;
 
-                fetch(`/api/history/smart_filter_check?lottery_type=${lotteryType}&issue=${issue}`)
-                    .then(response => {
+                fetch('/api/history/smart_filter_check?lottery_type=' + lotteryType + '&issue=' + issue)
+                    .then(function(response) {
                         if (!response.ok) {
-                            return response.json().then(err => { 
-                                throw new Error(err.error || '服务器错误'); 
+                            return response.json().then(function(err) {
+                                throw new Error(err.error || '服务器错误');
                             });
                         }
                         return response.json();
                     })
-                    .then(data => {
-                        let lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : '双色球';
-                        let message = `智能筛选规则核查 - ${lotteryTypeName} 第 ${issue} 期\n`;
-                        message += `（前区规则用排名前2位核查，后区号码用排名前5位核查）\n`;
-                        message += `========================================\n\n`;
-                        
-                        message += "【前区红球规则】\n";
-                        message += `------------------------------\n`;
+                    .then(function(data) {
+                        var lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : '双色球';
+                        var html = '<div class="mb-2 text-muted"><small>智能筛选规则核查 - ' + lotteryTypeName + ' 第 ' + issue + ' 期（前区用排名前2位，后区用排名前5位）</small></div>';
+
+                        // 处理前区红球规则
+                        html += '<h6 class="mt-3 mb-2"><strong>【前区红球规则】</strong></h6>';
                         if (data.red_rules && data.red_rules.length > 0) {
-                            data.red_rules.forEach(rule => {
-                                const icon = rule.passed ? '✅' : '❌';
-                                message += `${icon} ${rule.rule_label}: 实际=${rule.actual_value}, 期望排名前2=${rule.expected_values.join(', ')}\n`;
+                            data.red_rules.forEach(function(rule) {
+                                var statusClass = rule.passed ? 'passed' : 'failed';
+                                html += '<div class="rule-item ' + statusClass + '">' +
+                                            '<strong>' + rule.rule_label + '</strong> ' +
+                                            '实际=' + rule.actual_value + ', ' +
+                                            '期望排名前2=' + rule.expected_values.join(', ') +
+                                        '</div>';
                             });
-                            message += `\n前区通过: ${data.red_passed_count}/${data.red_total_count}\n\n`;
+                            html += '<div class="mt-2 mb-2"><strong>前区通过: ' + data.red_passed_count + '/' + data.red_total_count + '</strong></div>';
                         } else {
-                            message += "无前区规则数据\n\n";
+                            html += '<div class="text-muted">无前区规则数据</div>';
                         }
-                        
-                        message += "【后区蓝球规则】\n";
-                        message += `------------------------------\n`;
+
+                        // 处理后区蓝球规则
+                        html += '<h6 class="mt-3 mb-2"><strong>【后区蓝球规则】</strong></h6>';
                         if (data.blue_rules && data.blue_rules.length > 0) {
-                            data.blue_rules.forEach(rule => {
-                                const icon = rule.passed ? '✅' : '❌';
-                                message += `${icon} ${rule.rule_label}: 实际=${rule.actual_value}, 期望排名前${rule.details ? rule.details.length : 5}=${rule.expected_values.join(', ')}\n`;
+                            data.blue_rules.forEach(function(rule) {
+                                var statusClass = rule.passed ? 'passed' : 'failed';
+                                var detailsLen = rule.details ? rule.details.length : 5;
+                                html += '<div class="rule-item ' + statusClass + '">' +
+                                            '<strong>' + rule.rule_label + '</strong> ' +
+                                            '实际=' + rule.actual_value + ', ' +
+                                            '期望排名前' + detailsLen + '=' + rule.expected_values.join(', ') +
+                                        '</div>';
                             });
-                            message += `\n后区通过: ${data.blue_passed_count}/${data.blue_total_count}\n\n`;
+                            html += '<div class="mt-2 mb-2"><strong>后区通过: ' + data.blue_passed_count + '/' + data.blue_total_count + '</strong></div>';
                         } else {
-                            message += "无后区规则数据\n\n";
+                            html += '<div class="text-muted">无后区规则数据</div>';
                         }
-                        
-                        message += `========================================\n`;
-                        message += `前区红球核查：${data.overall_red_passed ? '✅ 全部通过' : '❌ 部分未通过'}\n`;
-                        message += `后区蓝球核查：${data.overall_blue_passed ? '✅ 全部通过' : '❌ 部分未通过'}`;
-                        
-                        alert(message);
-                        console.log('智能筛选核查结果:', data);
+
+                        // 总体结果
+                        var overallRedClass = data.overall_red_passed ? 'passed' : 'failed';
+                        var overallBlueClass = data.overall_blue_passed ? 'passed' : 'failed';
+                        html += '<hr><div class="rule-item ' + overallRedClass + '">' +
+                                    '<strong>前区红球核查：' + (data.overall_red_passed ? '✅ 全部通过' : '❌ 部分未通过') + '</strong>' +
+                                '</div>' +
+                                '<div class="rule-item ' + overallBlueClass + '">' +
+                                    '<strong>后区蓝球核查：' + (data.overall_blue_passed ? '✅ 全部通过' : '❌ 部分未通过') + '</strong>' +
+                                '</div>';
+
+                        modalBody.innerHTML = html;
                     })
-                    .catch(error => {
+                    .catch(function(error) {
                         console.error('智能筛选核查请求失败:', error);
-                        alert(`智能筛选核查失败: ${error.message || error}`);
+                        modalBody.innerHTML = '<p class="text-danger">智能筛选核查失败: ' + (error.message || error) + '</p>';
                     })
-                    .finally(() => {
+                    .finally(function() {
                         btn.textContent = originalText;
                         btn.disabled = false;
                     });
