@@ -95,15 +95,20 @@ def check_consecutive_balls(red_balls, max_groups=1, max_length=2):
     return True, groups_count, consecutive_groups
 
 
-def check_repeat_with_previous(red_balls, lottery_type, min_repeat=0, max_repeat=2):
+def check_repeat_with_previous(red_balls, lottery_type, min_repeat=0, max_repeat=2, previous_draw=None):
     """
     检查与上期重号数量
+    Args:
+        previous_draw: 可指定上期开奖数据，如果不指定则使用整个数据库的最新一期
     """
-    latest = get_latest_draw(lottery_type)
-    if not latest:
-        return True, 0
+    if previous_draw is not None:
+        prev_reds = set(previous_draw.get_red_balls_list())
+    else:
+        latest = get_latest_draw(lottery_type)
+        if not latest:
+            return True, 0
+        prev_reds = set(latest.get_red_balls_list())
     
-    prev_reds = set(latest.get_red_balls_list())
     current_set = set(red_balls)
     repeat_count = len(current_set.intersection(prev_reds))
     
@@ -258,18 +263,22 @@ def check_same_tail(red_balls, mode="exactly_1"):
         return True, count
 
 
-def check_neighbor_numbers(red_balls, lottery_type, min_groups=1, mode='at_least'):
+def check_neighbor_numbers(red_balls, lottery_type, min_groups=1, mode='at_least', previous_draw=None):
     """
     检查邻号（边号）- 与上期开奖号码相差±1的号码
     邻号定义：上期开奖号码的相邻号码（+1或-1）
     例如上期有05，则04、06是邻号
+    Args:
+        previous_draw: 可指定上期开奖数据，如果不指定则使用整个数据库的最新一期
     mode: 'at_least' - 至少min_groups个, 'exactly' - 正好min_groups个
     """
-    latest = get_latest_draw(lottery_type)
-    if not latest:
-        return True, 0
-    
-    prev_reds = set(latest.get_red_balls_list())
+    if previous_draw is not None:
+        prev_reds = set(previous_draw.get_red_balls_list())
+    else:
+        latest = get_latest_draw(lottery_type)
+        if not latest:
+            return True, 0
+        prev_reds = set(latest.get_red_balls_list())
     neighbor_count = 0
     neighbor_balls = []
     
@@ -1488,16 +1497,68 @@ def _calculate_stats(lottery_type, red_balls, blue_balls):
 def calculate_smart_filter_stats_for_draw(lottery_type, draw):
     """
     计算一期开奖号码的所有智能筛选规则实际值
+    - 遗漏数据：基于该期之前的数据计算（而非最新数据）
+    - 重号和邻号：基于该期之前一期计算
     返回规则名 -> 规则值的字典
     """
+    from models import SSQDraw, DLTDraw
+    
     red_balls = draw.get_red_balls_list()
     blue_balls = draw.get_blue_balls_list()
     
+    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    
+    # 获取该期之前的所有开奖数据（按期号降序，找到该期之前的所有期）
+    all_draws = model_class.query.order_by(model_class.issue.desc()).all()
+    
+    # 找到该期在列表中的位置
+    draw_idx = -1
+    for i, d in enumerate(all_draws):
+        if d.issue == draw.issue:
+            draw_idx = i
+            break
+    
+    # 如果找到了该期，使用该期之前的数据（包括该期自身用于计算重号/邻号的上期）
+    # 重号和邻号需要基于该期的上一期（即 draw_idx+1 期）
+    if draw_idx >= 0:
+        # 用于计算遗漏的数据：该期之前（不包含该期本身）最多200期
+        prior_draws = all_draws[draw_idx + 1:draw_idx + 201] if draw_idx + 1 < len(all_draws) else []
+        # 用于重号和邻号的上期数据：该期紧邻的上一期
+        prev_draw_for_stats = all_draws[draw_idx + 1] if draw_idx + 1 < len(all_draws) else None
+    else:
+        # 没找到该期（理论上不会发生），使用全部数据
+        prior_draws = all_draws[:200] if len(all_draws) > 200 else all_draws
+        prev_draw_for_stats = all_draws[0] if all_draws else None
+    
+    return _calculate_stats_for_balls(lottery_type, red_balls, blue_balls, 
+                                       prior_draws=prior_draws, 
+                                       previous_draw=prev_draw_for_stats)
+
+
+def _calculate_stats_for_balls(lottery_type, red_balls, blue_balls, previous_draw=None, prior_draws=None):
+    """
+    计算一组号码的智能筛选规则实际值
+    
+    Args:
+        lottery_type: 'ssq' 或 'dlt'
+        red_balls: 红球号码列表
+        blue_balls: 蓝球号码列表
+        previous_draw: 上一期开奖数据（用于重号和邻号计算），如果不传则使用最新一期
+        prior_draws: 用于计算遗漏的历史数据列表，如果不传则使用最新的200期数据
+    
+    Returns:
+        dict: {规则名: 实际值字符串}
+    """
     stats = {}
     
-    # 获取遗漏数据（用于遗漏号原则计算）
-    all_draws = get_latest_draws_for_smart(lottery_type, 200)
-    red_omission, blue_omission = get_omission_data(lottery_type, all_draws)
+    # 获取遗漏数据
+    if prior_draws is not None:
+        # 使用指定的历史数据计算遗漏
+        red_omission, blue_omission = get_omission_data(lottery_type, prior_draws)
+    else:
+        # 使用最新的200期数据计算遗漏
+        all_draws = get_latest_draws_for_smart(lottery_type, 200)
+        red_omission, blue_omission = get_omission_data(lottery_type, all_draws)
     
     if lottery_type == 'ssq':
         # 1. 分区原则
@@ -1514,8 +1575,8 @@ def calculate_smart_filter_stats_for_draw(lottery_type, draw):
                 group_strs.append(f"{len(g)}连号")
             stats['consecutive'] = f"{count}组{' + '.join(group_strs)}"
         
-        # 3. 与上期重号
-        _, repeat_count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=6)
+        # 3. 与上期重号 - 使用previous_draw参数
+        _, repeat_count = check_repeat_with_previous(red_balls, 'ssq', min_repeat=0, max_repeat=6, previous_draw=previous_draw)
         stats['repeat'] = str(repeat_count)
         
         # 4. 遗漏号原则 - 计算热温冷分布
@@ -1540,8 +1601,8 @@ def calculate_smart_filter_stats_for_draw(lottery_type, draw):
         _, tail_count = check_same_tail(red_balls, 'at_least_1')
         stats['same_tail'] = str(tail_count)
         
-        # 9. 邻号
-        _, neighbor_count = check_neighbor_numbers(red_balls, 'ssq', 0)
+        # 9. 邻号 - 使用previous_draw参数
+        _, neighbor_count = check_neighbor_numbers(red_balls, 'ssq', 0, 'at_least', previous_draw=previous_draw)
         stats['neighbor'] = str(neighbor_count)
         
         # 10. AC值
@@ -1566,8 +1627,8 @@ def calculate_smart_filter_stats_for_draw(lottery_type, draw):
                 group_strs.append(f"{len(g)}连号")
             stats['consecutive'] = f"{count}组{' + '.join(group_strs)}"
         
-        # 3. 与上期重号
-        _, repeat_count = check_repeat_with_previous(red_balls, 'dlt', min_repeat=0, max_repeat=5)
+        # 3. 与上期重号 - 使用previous_draw参数
+        _, repeat_count = check_repeat_with_previous(red_balls, 'dlt', min_repeat=0, max_repeat=5, previous_draw=previous_draw)
         stats['repeat'] = str(repeat_count)
         
         # 4. 遗漏号原则
@@ -1592,8 +1653,8 @@ def calculate_smart_filter_stats_for_draw(lottery_type, draw):
         _, tail_count = check_same_tail(red_balls, 'at_least_1')
         stats['same_tail'] = str(tail_count)
         
-        # 9. 邻号
-        _, neighbor_count = check_neighbor_numbers(red_balls, 'dlt', 0)
+        # 9. 邻号 - 使用previous_draw参数
+        _, neighbor_count = check_neighbor_numbers(red_balls, 'dlt', 0, 'at_least', previous_draw=previous_draw)
         stats['neighbor'] = str(neighbor_count)
         
         # 10. AC值
@@ -1992,3 +2053,152 @@ def _get_rule_label(rule_name, lottery_type):
         'blue_size': '后区大小'
     }
     return labels.get(rule_name, rule_name)
+
+
+# ==================== 对奖页面"智选规则"检查函数 ====================
+
+def check_user_numbers_against_smart_filter_rankings(lottery_type, red_balls, blue_balls, lookback_period=100):
+    """
+    检查用户选中的号码是否符合智能筛选规则排名
+    前区红球用排名前2位的规则核查，后区蓝球用排名前5位的规则核查
+    
+    与 check_draw_against_smart_filter_rankings 不同的是，此函数接受用户自定义号码，
+    并且使用最新的遗漏数据（而不是基于被核查期之前的数据）。
+    重号和邻号检查使用最新一期开奖号码作为上一期数据。
+    
+    Args:
+        lottery_type: 'ssq' 或 'dlt'
+        red_balls: 用户选中的红球号码列表
+        blue_balls: 用户选中的蓝球号码列表
+        lookback_period: 回溯期数，默认100
+    
+    Returns:
+        dict
+    """
+    from models import SmartFilterStatsRanking
+    
+    # 获取最新一期开奖数据，用于重号和邻号检查
+    latest_draw = get_latest_draw(lottery_type)
+    
+    # 计算该号码组合的所有智能筛选规则实际值（传入上一期数据）
+    actual_stats = _calculate_stats_for_balls(lottery_type, red_balls, blue_balls, previous_draw=latest_draw)
+    
+    # 获取排名数据
+    rankings = SmartFilterStatsRanking.query.filter_by(
+        lottery_type=lottery_type,
+        lookback_period=lookback_period
+    ).order_by(SmartFilterStatsRanking.rule_name, SmartFilterStatsRanking.rank).all()
+    
+    # 按规则名称分组排名
+    rule_rankings = {}
+    for r in rankings:
+        if r.rule_name not in rule_rankings:
+            rule_rankings[r.rule_name] = []
+        rule_rankings[r.rule_name].append(r)
+    
+    red_results = []
+    blue_results = []
+    
+    # 定义红球规则名称
+    red_rule_names = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 
+                      'odd_even', 'span', 'sum', 'same_tail', 'neighbor', 'ac_value']
+    
+    # 检查每个红球规则 - 用排名前2位核查
+    for rule_name in red_rule_names:
+        if rule_name not in rule_rankings:
+            continue
+        
+        top_2 = rule_rankings[rule_name][:2]
+        actual_value = actual_stats.get(rule_name, '')
+        expected_values = [r.rule_value for r in top_2]
+        passed = actual_value in expected_values
+        
+        red_results.append({
+            'rule_name': rule_name,
+            'rule_label': _get_rule_label(rule_name, lottery_type),
+            'actual_value': actual_value,
+            'expected_values': expected_values,
+            'passed': passed,
+            'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+        })
+    
+    # 检查蓝球/后区规则 - 用排名前5位核查
+    if lottery_type == 'ssq':
+        # 双色球蓝球
+        if 'blue_omission' in rule_rankings:
+            top_5 = rule_rankings['blue_omission'][:5]
+            blue_num = blue_balls[0] if blue_balls else None
+            expected_blue_nums = [r.rule_value for r in top_5]
+            passed = str(blue_num).zfill(2) in expected_blue_nums if blue_num else False
+            
+            blue_results.append({
+                'rule_name': 'blue_omission',
+                'rule_label': '蓝球遗漏',
+                'actual_value': str(blue_num).zfill(2) if blue_num else '',
+                'expected_values': expected_blue_nums,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_5]
+            })
+    else:
+        # 大乐透后区遗漏
+        if 'blue_omission' in rule_rankings:
+            top_5 = rule_rankings['blue_omission'][:5]
+            expected_blue_nums = [r.rule_value for r in top_5]
+            passed_count = sum(1 for b in blue_balls if str(b).zfill(2) in expected_blue_nums)
+            passed = passed_count >= 1
+            actual_values = [str(b).zfill(2) for b in blue_balls]
+            
+            blue_results.append({
+                'rule_name': 'blue_omission',
+                'rule_label': '后区遗漏',
+                'actual_value': ','.join(actual_values),
+                'expected_values': expected_blue_nums,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_5]
+            })
+        
+        # 大乐透后区奇偶
+        if 'blue_odd_even' in rule_rankings:
+            top_2 = rule_rankings['blue_odd_even'][:2]
+            actual_value = actual_stats.get('blue_odd_even', '')
+            expected_values = [r.rule_value for r in top_2]
+            passed = actual_value in expected_values
+            blue_results.append({
+                'rule_name': 'blue_odd_even',
+                'rule_label': '后区奇偶',
+                'actual_value': actual_value,
+                'expected_values': expected_values,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+            })
+        
+        # 大乐透后区大小
+        if 'blue_size' in rule_rankings:
+            top_2 = rule_rankings['blue_size'][:2]
+            actual_value = actual_stats.get('blue_size', '')
+            expected_values = [r.rule_value for r in top_2]
+            passed = actual_value in expected_values
+            blue_results.append({
+                'rule_name': 'blue_size',
+                'rule_label': '后区大小',
+                'actual_value': actual_value,
+                'expected_values': expected_values,
+                'passed': passed,
+                'details': [{'rank': r.rank, 'value': r.rule_value, 'frequency': r.frequency, 'percentage': r.percentage} for r in top_2]
+            })
+    
+    red_passed_count = sum(1 for r in red_results if r['passed'])
+    red_total_count = len(red_results)
+    blue_passed_count = sum(1 for r in blue_results if r['passed'])
+    blue_total_count = len(blue_results)
+    
+    return {
+        'red_rules': red_results,
+        'blue_rules': blue_results,
+        'red_passed_count': red_passed_count,
+        'red_total_count': red_total_count,
+        'blue_passed_count': blue_passed_count,
+        'blue_total_count': blue_total_count,
+        'overall_red_passed': red_passed_count == red_total_count if red_total_count > 0 else True,
+        'overall_blue_passed': blue_passed_count == blue_total_count if blue_total_count > 0 else True
+    }

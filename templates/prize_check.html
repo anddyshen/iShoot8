@@ -1566,25 +1566,59 @@
         document.getElementById('dlt_prize_results').innerHTML = '<p class="text-muted">点击"核对中奖"按钮查看结果。</p>';
     });
 
-    // ========== 检查智选号码规则逻辑（与历史数据页面智能筛选规则功能一致） ==========
+    // ========== 检查智选号码规则逻辑 - 对奖页面使用用户选中号码 ==========
     function checkSmartFilterRules(lotteryType) {
-        // 获取当前显示的期号（从开奖号码显示区域获取）
-        const titleSpan = document.getElementById(`${lotteryType}_draw_title`);
-        const titleText = titleSpan.textContent;
-        const issueMatch = titleText.match(/第\s*(\d+)\s*期/);
-        if (!issueMatch) {
-            alert('未能获取当前期号，请先加载开奖号码。');
-            return;
-        }
-        const issue = issueMatch[1];
+        // 获取用户当前选中的号码
+        let selectedRed = new Set();
+        let selectedBlue = new Set();
+        
+        const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+        const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+        
+        // 从号码选择器中获取选中的号码
+        redSelector.querySelectorAll('.ball.selected-red').forEach(ball => {
+            selectedRed.add(parseInt(ball.dataset.ballValue));
+        });
+        blueSelector.querySelectorAll('.ball.selected-blue').forEach(ball => {
+            selectedBlue.add(parseInt(ball.dataset.ballValue));
+        });
         
         const modalBody = document.querySelector('#ruleCheckModal .rule-check-modal-body');
-        modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
         const ruleCheckModal = new bootstrap.Modal(document.getElementById('ruleCheckModal'));
         ruleCheckModal.show();
+        
+        // 如果没有选中号码，提示用户
+        if (selectedRed.size === 0 && selectedBlue.size === 0) {
+            modalBody.innerHTML = '<p class="text-warning">请先在号码选择区选中要检查的号码，再点击"智选规则"。</p>';
+            return;
+        }
+        
+        // 检查是否满足最小号码数量要求
+        const minRed = lotteryType === 'ssq' ? 6 : 5;
+        const minBlue = lotteryType === 'ssq' ? 1 : 2;
+        const lotteryName = lotteryType === 'ssq' ? '双色球' : '大乐透';
+        
+        if (selectedRed.size < minRed) {
+            modalBody.innerHTML = `<p class="text-warning">${lotteryName}红球至少需要 ${minRed} 个，当前只选择了 ${selectedRed.size} 个。</p>`;
+            return;
+        }
+        if (selectedBlue.size < minBlue) {
+            modalBody.innerHTML = `<p class="text-warning">${lotteryName}蓝球至少需要 ${minBlue} 个，当前只选择了 ${selectedBlue.size} 个。</p>`;
+            return;
+        }
+        
+        modalBody.innerHTML = '<p class="text-muted">检查中... <span class="loading-spinner"></span></p>';
 
-        // 调用与历史数据页面相同的 API
-        fetch('/api/history/smart_filter_check?lottery_type=' + lotteryType + '&issue=' + issue)
+        // 调用对奖页面专用的 POST API
+        fetch('/api/prize_check/smart_filter_check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lottery_type: lotteryType,
+                red_balls: Array.from(selectedRed),
+                blue_balls: Array.from(selectedBlue)
+            })
+        })
             .then(function(response) {
                 if (!response.ok) {
                     return response.json().then(function(err) {
@@ -1595,7 +1629,7 @@
             })
             .then(function(data) {
                 var lotteryTypeName = lotteryType === 'dlt' ? '大乐透' : '双色球';
-                var html = '<div class="mb-2 text-muted"><small>智能筛选规则核查 - ' + lotteryTypeName + ' 第 ' + issue + ' 期（前区用排名前2位，后区用排名前5位）</small></div>';
+                var html = '<div class="mb-2 text-muted"><small>智能筛选规则核查 - ' + lotteryTypeName + '（前区用排名前2位，后区用排名前5位）</small></div>';
 
                 // 处理前区红球规则
                 html += '<h6 class="mt-3 mb-2"><strong>【前区红球规则】</strong></h6>';

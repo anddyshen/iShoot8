@@ -18,7 +18,7 @@ from prediction_engine import (
     generate_predicted_balls, check_ssq_rules_for_balls, check_dlt_rules_for_balls, # 导入新的规则检查函数
     get_draw_and_matched_omitted_balls_for_offset # 导入新的函数
 )
-from smart_filter_engine import generate_smart_filtered_numbers, update_smart_filter_stats, check_draw_against_smart_filter_rankings, calculate_smart_filter_stats_for_draw # 导入智能筛选引擎
+from smart_filter_engine import generate_smart_filtered_numbers, update_smart_filter_stats, check_draw_against_smart_filter_rankings, calculate_smart_filter_stats_for_draw, check_user_numbers_against_smart_filter_rankings # 导入智能筛选引擎
 
 bp = Blueprint('routes', __name__)
 
@@ -1243,6 +1243,31 @@ def api_latest_blue_stats():
 
 
 # ==================== 历史页面智能筛选核查 API ====================
+
+@bp.route('/api/prize_check/smart_filter_check', methods=['POST'])
+def api_prize_check_smart_filter_check():
+    """
+    对奖页面的"智选规则"功能 - 检查用户选中的号码是否符合智能筛选规则排名
+    POST请求，接受用户号码和彩票类型，返回规则检查结果
+    """
+    data = request.get_json()
+    lottery_type = data.get('lottery_type', 'ssq')
+    red_balls = data.get('red_balls', [])
+    blue_balls = data.get('blue_balls', [])
+    lookback_period = data.get('lookback_period', 100)
+    
+    if lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': 'Invalid lottery_type'}), 400
+    
+    if not red_balls or not blue_balls:
+        return jsonify({'error': '缺少红球或蓝球号码'}), 400
+    
+    result = check_user_numbers_against_smart_filter_rankings(
+        lottery_type, red_balls, blue_balls, lookback_period=lookback_period
+    )
+    
+    return jsonify(result)
+
 
 @bp.route('/api/history/smart_filter_check', methods=['GET'])
 def api_history_smart_filter_check():
