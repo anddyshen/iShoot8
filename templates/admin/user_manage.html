@@ -79,7 +79,16 @@
                                         {{ '禁用' if user.is_active else '启用' }}
                                     </button>
                                 </form>
-                                {% if not user.is_admin %}
+                                {% if user.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('admin_routes.admin_toggle_user_admin', user_id=user.id) }}" style="display:inline">
+                                    <button type="submit" class="btn btn-sm {% if user.is_admin %}btn-secondary{% else %}btn-info{% endif %}" 
+                                            onclick="return confirm('确定{{ '取消' if user.is_admin else '设为' }}用户 {{ user.username }} 的{{ '管理员权限' if user.is_admin else '管理员身份' }}？')">
+                                        <i class="bi {% if user.is_admin %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
+                                        {{ '取消管理员' if user.is_admin else '设为管理员' }}
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if not user.is_admin or user.id != current_user.id %}
                                 <button class="btn btn-sm btn-outline-secondary" 
                                         onclick="resetPassword({{ user.id }}, '{{ user.username }}')">
                                     <i class="bi bi-key"></i> 重置密码

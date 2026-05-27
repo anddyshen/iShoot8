@@ -93,6 +93,9 @@ def login():
         next_page = request.args.get('next')
         if next_page:
             return redirect(next_page)
+        # 如果是管理员，登录后跳转到后台管理
+        if user.is_admin:
+            return redirect(url_for('admin_routes.admin_dashboard'))
         return redirect(url_for('routes.index'))
     
     return render_template('user/login.html')

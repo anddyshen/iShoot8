@@ -151,7 +151,8 @@ with app.app_context():
     # 使用动态设置启动定时任务
     setup_scheduled_job(app)
     
-    # 创建默认管理员（如果不存在）
+    # 第一次启动时创建默认管理员（如果不存在）
+    # 密码固定为 admin123，之后用户自行修改
     admin_user = User.query.filter_by(username='admin').first()
     if not admin_user:
         admin_user = User(
@@ -160,10 +161,11 @@ with app.app_context():
             is_active=True,
             is_admin=True
         )
-        admin_user.set_password(CURRENT_SETTINGS.get('admin_password', 'admin123'))
+        admin_user.set_password('admin123')
         db.session.add(admin_user)
         db.session.commit()
-        print('默认管理员账号已创建 (username: admin)')
+        print('默认管理员账号已创建 (username: admin / password: admin123)')
+        print('请登录后立即修改密码！')
     
     scheduler.start()
     print("APScheduler started.")

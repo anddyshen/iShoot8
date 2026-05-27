@@ -1,5 +1,6 @@
 # admin_routes.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, current_app
+from flask_login import login_user, logout_user, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 import os
@@ -17,34 +18,58 @@ __version__ = "1.0.1"
 
 bp = Blueprint('admin_routes', __name__)
 
-# 简单的登录装饰器
+# 统一的 admin_required 装饰器：同时支持旧 session 和 Flask-Login
 def admin_required(f):
     def decorated_function(*args, **kwargs):
-        if not session.get('logged_in_admin'):
-            flash('请先登录后台管理。', 'warning')
-            return redirect(url_for('admin_routes.admin_login'))
-        return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__ # 保持函数名
+        # 检查 Flask-Login 方式登录的管理员
+        if current_user.is_authenticated and current_user.is_admin and current_user.is_active:
+            return f(*args, **kwargs)
+        # 检查旧 session 方式（兼容老用户）
+        if session.get('logged_in_admin'):
+            return f(*args, **kwargs)
+        flash('请先登录后台管理。', 'warning')
+        return redirect(url_for('auth_routes.login'))
+    decorated_function.__name__ = f.__name__
     return decorated_function
 
 @bp.route('/login', methods=['GET', 'POST'])
 def admin_login():
+    """后台登录 - 使用 User 表的管理员账号"""
     if request.method == 'POST':
-        password = request.form.get('password')
-        # 从 CURRENT_SETTINGS 获取密码，确保修改后立即生效
-        admin_password = CURRENT_SETTINGS.get('admin_password', ADMIN_PASSWORD)
-        if password == admin_password:
-            session['logged_in_admin'] = True
-            flash('登录成功！', 'success')
-            return redirect(url_for('admin_routes.admin_dashboard'))
-        else:
-            flash('密码错误。', 'danger')
-    return render_template('admin/login.html') # 需要创建这个模板
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if not user or not user.check_password(password):
+            flash('用户名或密码错误。', 'danger')
+            return render_template('admin/login.html')
+        
+        if not user.is_active:
+            flash('账户已被禁用，请联系管理员。', 'danger')
+            return render_template('admin/login.html')
+        
+        if not user.is_admin:
+            flash('你不是管理员，无法登录后台。', 'danger')
+            return render_template('admin/login.html')
+        
+        # 更新最后登录时间
+        user.last_login_at = datetime.utcnow()
+        db.session.commit()
+        
+        login_user(user)
+        flash('登录成功！', 'success')
+        return redirect(url_for('admin_routes.admin_dashboard'))
+    
+    return render_template('admin/login.html')
 
 @bp.route('/logout')
-@admin_required
 def admin_logout():
+    """退出后台"""
+    # 清除旧 session 方式
     session.pop('logged_in_admin', None)
+    # Flask-Login 退出
+    logout_user()
     flash('已退出登录。', 'info')
     return redirect(url_for('routes.index'))
 
@@ -308,43 +333,12 @@ def restore_default_settings():
     return redirect(url_for('admin_routes.admin_settings'))
 
 
-# @bp.route('/data_update', methods=['GET', 'POST'])
-# @admin_required
-# def admin_data_update():
-#     if request.method == 'POST':
-#         action = request.form.get('action')
-#         if action == 'manual_update':
-#             ssq_count, dlt_count = update_latest_draws()
-#             flash(f'手动更新完成！双色球新增 {ssq_count} 条，大乐透新增 {dlt_count} 条。', 'success')
-#         elif action == 'manual_add':
-#             lottery_type = request.form.get('lottery_type')
-#             data_string = request.form.get('data_string').strip()
-#             if lottery_type == 'ssq':
-#                 is_valid, msg = validate_ssq_format(data_string)
-#             elif lottery_type == 'dlt':
-#                 is_valid, msg = validate_dlt_format(data_string)
-#             else:
-#                 is_valid, msg = False, "未知彩票类型"
-
-#             if is_valid:
-#                 new_count = add_manual_draw(lottery_type, data_string)
-#                 if new_count > 0:
-#                     flash(f'手动添加 {lottery_type.upper()} 数据成功！新增 {new_count} 条。', 'success')
-#                 else:
-#                     flash(f'手动添加 {lottery_type.upper()} 数据失败，可能期号已存在或数据格式有误。', 'warning')
-#             else:
-#                 flash(f'手动添加 {lottery_type.upper()} 数据格式校验失败: {msg}', 'danger')
-#         # TODO: 添加定时任务控制逻辑
-#         return redirect(url_for('admin_routes.admin_data_update'))
-#     return render_template('admin/data_update.html')
-
 @bp.route('/data_update', methods=['GET', 'POST'])
 @admin_required
 def admin_data_update():
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'manual_update':
-            # 2. 修改这一行，传入 current_app
             import logging
             logger = logging.getLogger(__name__)
             ssq_count, dlt_count, total_trend, total_smart = update_latest_draws(current_app)
@@ -364,7 +358,6 @@ def admin_data_update():
                 is_valid, msg = False, "未知彩票类型"
 
             if is_valid:
-                # 注意：add_manual_draw 如果也需要 app 上下文，也需要类似修改
                 new_count = add_manual_draw(lottery_type, data_string)
                 if new_count > 0:
                     flash(f'手动添加 {lottery_type.upper()} 数据成功！新增 {new_count} 条。', 'success')
@@ -373,12 +366,10 @@ def admin_data_update():
             else:
                 flash(f'手动添加 {lottery_type.upper()} 数据格式校验失败: {msg}', 'danger')
         elif action == 'update_schedule':
-            # 保存定时更新设置
             enabled = request.form.get('scheduled_update_enabled') == 'true'
             hour = int(request.form.get('scheduled_update_hour', 3))
             minute = int(request.form.get('scheduled_update_minute', 15))
             
-            # 校验小时和分钟
             if hour < 0 or hour > 23:
                 flash('小时值必须在 0-23 之间。', 'danger')
                 return redirect(url_for('admin_routes.admin_data_update'))
@@ -386,13 +377,11 @@ def admin_data_update():
                 flash('分钟值必须在 0-59 之间。', 'danger')
                 return redirect(url_for('admin_routes.admin_data_update'))
             
-            # 保存到设置
             CURRENT_SETTINGS['scheduled_update_enabled'] = enabled
             CURRENT_SETTINGS['scheduled_update_hour'] = hour
             CURRENT_SETTINGS['scheduled_update_minute'] = minute
             save_settings(CURRENT_SETTINGS)
             
-            # 尝试更新定时任务
             try:
                 scheduler = current_app.scheduler
                 setup_fn = current_app.setup_scheduled_job
@@ -414,15 +403,10 @@ def admin_change_password():
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
 
-        # 从 CURRENT_SETTINGS 获取当前密码，确保使用最新值
-        admin_password = CURRENT_SETTINGS.get('admin_password', ADMIN_PASSWORD)
-
-        # 验证当前密码
-        if current_password != admin_password:
+        if not current_user.check_password(current_password):
             flash('当前密码错误。', 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
 
-        # 验证新密码
         if len(new_password) < 6:
             flash('新密码长度至少6位。', 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
@@ -431,9 +415,8 @@ def admin_change_password():
             flash('两次输入的新密码不一致。', 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
 
-        # 更新密码
-        CURRENT_SETTINGS['admin_password'] = new_password
-        save_settings(CURRENT_SETTINGS)
+        current_user.set_password(new_password)
+        db.session.commit()
 
         flash('密码修改成功！', 'success')
         return redirect(url_for('admin_routes.admin_dashboard'))
@@ -476,6 +459,26 @@ def admin_toggle_user_active(user_id):
     db.session.commit()
     status = '启用' if user.is_active else '禁用'
     flash(f'用户 {user.username} 已{status}。', 'success')
+    return redirect(url_for('admin_routes.admin_users'))
+
+@bp.route('/users/<int:user_id>/toggle_admin', methods=['POST'])
+@admin_required
+def admin_toggle_user_admin(user_id):
+    """设为/取消管理员"""
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('用户不存在。', 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    # 不能取消自己的管理员权限
+    if user.id == current_user.id:
+        flash('不能取消自己的管理员权限。', 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    status = '管理员' if user.is_admin else '普通用户'
+    flash(f'用户 {user.username} 已设为{status}。', 'success')
     return redirect(url_for('admin_routes.admin_users'))
 
 @bp.route('/users/<int:user_id>/reset_password', methods=['POST'])
