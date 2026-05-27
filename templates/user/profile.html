@@ -61,6 +61,10 @@
                         <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
                         <div class="form-text">至少6个字符</div>
                     </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">确认新密码</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="6">
+                    </div>
                     <button type="submit" class="btn btn-warning">
                         <i class="bi bi-check-lg"></i> 修改密码
                     </button>
@@ -108,9 +112,18 @@ document.getElementById('profileForm')?.addEventListener('submit', async functio
 
 document.getElementById('passwordForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
+    const newPassword = document.getElementById('new_password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    if (newPassword !== confirmPassword) {
+        alert('两次输入的新密码不一致，请重新输入。');
+        return;
+    }
+    
     const data = {
         old_password: document.getElementById('old_password').value,
-        new_password: document.getElementById('new_password').value,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
     };
     try {
         const resp = await fetch('{{ url_for("auth_routes.api_change_password") }}', {

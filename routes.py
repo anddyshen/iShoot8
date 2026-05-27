@@ -1082,6 +1082,21 @@ def intelligent_analysis():
     return render_template('intelligent_analysis.html')
 
 # New API endpoint to get draw data for clipboard
+@bp.route('/api/prediction/latest_issues', methods=['GET'])
+def api_latest_issues():
+    """获取双色球和大乐透的最新期号，用于前端默认值"""
+    latest_ssq = SSQDraw.query.order_by(SSQDraw.issue.desc()).first()
+    latest_dlt = DLTDraw.query.order_by(DLTDraw.issue.desc()).first()
+    
+    ssq_latest_issue = latest_ssq.issue if latest_ssq else None
+    dlt_latest_issue = latest_dlt.issue if latest_dlt else None
+    
+    return jsonify({
+        'ssq': ssq_latest_issue,
+        'dlt': dlt_latest_issue
+    })
+
+
 @bp.route('/api/get_draw_data_for_clipboard', methods=['GET'])
 def get_draw_data_for_clipboard():
     lottery_type = request.args.get('lottery_type')

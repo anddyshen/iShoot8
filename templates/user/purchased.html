@@ -57,6 +57,13 @@
             </div>
         </div>
 
+        <!-- 彩种筛选标签 -->
+        <div class="btn-group mb-3" role="group" id="filterTabs">
+            <button type="button" class="btn btn-outline-secondary active" data-filter="all" onclick="switchFilter('all')">全部</button>
+            <button type="button" class="btn btn-outline-primary" data-filter="ssq" onclick="switchFilter('ssq')">双色球</button>
+            <button type="button" class="btn btn-outline-success" data-filter="dlt" onclick="switchFilter('dlt')">大乐透</button>
+        </div>
+
         <div id="ticketsList">
             <div class="text-center text-muted py-5">
                 <i class="bi bi-inbox display-1"></i>
@@ -66,6 +73,19 @@
                 </button>
             </div>
         </div>
+
+        <!-- 分页控件 -->
+        <nav id="paginationNav" style="display:none;" class="mt-3">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="prevPageBtn">
+                    <a class="page-link" href="#" onclick="goPage(-1)">上一页</a>
+                </li>
+                <li class="page-item disabled"><a class="page-link" id="pageInfo" href="#">1/1</a></li>
+                <li class="page-item" id="nextPageBtn">
+                    <a class="page-link" href="#" onclick="goPage(1)">下一页</a>
+                </li>
+            </ul>
+        </nav>
     </div>
 </div>
 
@@ -127,13 +147,58 @@
 
 {% block scripts %}
 <script>
+// 当前状态
+let currentFilter = 'all';
+let currentPage = 1;
+const perPage = 20;
+let totalPages = 1;
+
+function switchFilter(filter) {
+    currentFilter = filter;
+    currentPage = 1;
+    // 更新按钮高亮
+    document.querySelectorAll('#filterTabs .btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`#filterTabs .btn[data-filter="${filter}"]`).classList.add('active');
+    loadTickets();
+}
+
+function goPage(delta) {
+    const newPage = currentPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    loadTickets();
+}
+
+async function checkAllTickets() {
+    try {
+        await fetch('/auth/api/purchased/check_all', { method: 'POST' });
+    } catch (err) {
+        console.error('对奖失败:', err);
+    }
+}
+
 async function loadTickets() {
     try {
-        const resp = await fetch('/api/user/purchased');
+        const url = `/auth/api/purchased?page=${currentPage}&per_page=${perPage}&lottery_type=${currentFilter}`;
+        const resp = await fetch(url);
         if (!resp.ok) throw new Error('获取失败');
         const data = await resp.json();
         const container = document.getElementById('ticketsList');
         const badge = document.getElementById('countBadge');
+        
+        // 更新分页状态
+        totalPages = data.total_pages || 1;
+        const paginationNav = document.getElementById('paginationNav');
+        const pageInfo = document.getElementById('pageInfo');
+        
+        if (totalPages > 1) {
+            paginationNav.style.display = '';
+            pageInfo.textContent = `${data.page}/${totalPages}`;
+            document.getElementById('prevPageBtn').className = 'page-item' + (data.page <= 1 ? ' disabled' : '');
+            document.getElementById('nextPageBtn').className = 'page-item' + (data.page >= totalPages ? ' disabled' : '');
+        } else {
+            paginationNav.style.display = 'none';
+        }
         
         // 更新统计
         if (data.stats) {
@@ -167,7 +232,7 @@ async function loadTickets() {
             return;
         }
         
-        badge.textContent = data.tickets.length + ' 条';
+        badge.textContent = data.total + ' 条';
         let html = '<div class="table-responsive"><table class="table table-hover">';
         html += `<thead class="table-light">
             <tr>
@@ -182,6 +247,7 @@ async function loadTickets() {
             </tr>
         </thead><tbody>`;
         
+        const startIdx = (data.page - 1) * data.per_page;
         data.tickets.forEach((item, idx) => {
             let ballsHtml = '';
             if (item.red_balls) {
@@ -191,13 +257,31 @@ async function loadTickets() {
                 ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
             }
             
+            // 中奖信息显示
+            let prizeHtml = '';
+            if (item.prize_amount > 0) {
+                prizeHtml = `<span class="text-success fw-bold">¥${item.prize_amount.toFixed(2)}${item.prize_level ? '<br><small>' + item.prize_level + '</small>' : ''}</span>`;
+            } else {
+                prizeHtml = '<span class="text-muted">未中奖</span>';
+            }
+            
             html += `<tr>
-                <td>${idx + 1}</td>
+                <td>${startIdx + idx + 1}</td>
                 <td><span class="badge bg-${item.lottery_type === 'ssq' ? 'primary' : 'success'}">${item.lottery_type === 'ssq' ? '双色球' : '大乐透'}</span></td>
-                <td>${item.issue || '-'}</td>
+                <td>
+                    <span id="issue_text_${item.id}">${item.issue || '-'}</span>
+                    <span id="issue_edit_group_${item.id}" style="display:none;">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="adjustIssue(${item.id}, -1)" title="减1" style="padding:0 6px;">−</button>
+                        <input type="text" inputmode="numeric" id="issue_input_${item.id}" value="${item.issue || ''}" class="form-control form-control-sm" style="display:inline-block;width:90px;text-align:center;height:30px;" pattern="[0-9]*">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="adjustIssue(${item.id}, 1)" title="加1" style="padding:0 6px;">+</button>
+                    </span>
+                    <button class="btn btn-sm btn-outline-primary ms-1" id="issue_btn_${item.id}" onclick="toggleEditIssue(${item.id})" style="padding:0 8px;font-size:12px;">
+                        <i class="bi bi-pencil"></i> 改
+                    </button>
+                </td>
                 <td>${ballsHtml || '-'}</td>
                 <td>¥${(item.cost || 0).toFixed(2)}</td>
-                <td>${item.prize_amount > 0 ? '<span class="text-success fw-bold">¥' + item.prize_amount.toFixed(2) + '</span>' : '<span class="text-muted">未中奖</span>'}</td>
+                <td>${prizeHtml}</td>
                 <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="removeTicket(${item.id})">
@@ -231,14 +315,13 @@ async function addTicket() {
     }
     
     try {
-        const resp = await fetch('/api/user/purchased', {
+        const resp = await fetch('/auth/api/purchased', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data),
         });
         const result = await resp.json();
         if (resp.ok) {
-            // 关闭弹窗
             const modal = bootstrap.Modal.getInstance(document.getElementById('addTicketModal'));
             modal.hide();
             document.getElementById('addTicketForm').reset();
@@ -254,7 +337,7 @@ async function addTicket() {
 async function removeTicket(id) {
     if (!confirm('确定删除此记录？')) return;
     try {
-        const resp = await fetch('/api/user/purchased/' + id, { method: 'DELETE' });
+        const resp = await fetch('/auth/api/purchased/' + id, { method: 'DELETE' });
         if (resp.ok) {
             loadTickets();
         } else {
@@ -265,6 +348,64 @@ async function removeTicket(id) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', loadTickets);
+function adjustIssue(id, delta) {
+    const input = document.getElementById('issue_input_' + id);
+    let val = parseInt(input.value);
+    if (!isNaN(val)) {
+        input.value = val + delta;
+    }
+}
+
+async function toggleEditIssue(id) {
+    const textSpan = document.getElementById('issue_text_' + id);
+    const editGroup = document.getElementById('issue_edit_group_' + id);
+    const input = document.getElementById('issue_input_' + id);
+    const btn = document.getElementById('issue_btn_' + id);
+    
+    if (editGroup.style.display === 'none') {
+        // 切换到编辑模式
+        textSpan.style.display = 'none';
+        editGroup.style.display = 'inline-block';
+        input.focus();
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> 存';
+    } else {
+        // 保存模式
+        const newIssue = input.value.trim();
+        if (!newIssue) {
+            alert('期号不能为空');
+            input.focus();
+            return;
+        }
+        
+        try {
+            const resp = await fetch('/auth/api/purchased/' + id, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({issue: newIssue}),
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                textSpan.textContent = newIssue;
+                textSpan.style.display = 'inline';
+                editGroup.style.display = 'none';
+                btn.innerHTML = '<i class="bi bi-pencil"></i> 改';
+                // 保存后重新对所有号码对奖，然后刷新列表
+                await checkAllTickets();
+                loadTickets();
+            } else {
+                alert('保存失败：' + (result.error || '未知错误'));
+            }
+        } catch (err) {
+            alert('网络错误，请重试');
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+    // 1. 先对所有号码对奖
+    await checkAllTickets();
+    // 2. 加载显示数据
+    loadTickets();
+});
 </script>
 {% endblock %}

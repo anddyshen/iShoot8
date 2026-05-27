@@ -398,6 +398,8 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-random-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                             <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
                         </div>`;
@@ -515,6 +517,8 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
                             </div>
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
                         </div>`;
@@ -625,12 +629,36 @@ async function checkGeneratedRules(lotteryType, redBallsStr, blueBallsStr) {
     }
 }
 
+// Toast 通知函数（Bootstrap 样式）
+function showToast(title, message, type) {
+    const toastEl = document.getElementById('liveToast');
+    if (!toastEl) {
+        alert(message);
+        return;
+    }
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    // 设置图标和样式
+    let icon = 'bi-bell';
+    if (type === 'success') icon = 'bi-check-circle text-success';
+    else if (type === 'error') icon = 'bi-x-circle text-danger';
+    else if (type === 'warning') icon = 'bi-exclamation-triangle text-warning';
+    else if (type === 'info') icon = 'bi-info-circle text-info';
+    
+    toastTitle.innerHTML = `<i class="bi ${icon} me-2"></i>${title}`;
+    toastMessage.textContent = message;
+    
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+}
+
 // Copy to Clipboard function
 async function copyToClipboard(text) {
     try {
         // 尝试使用现代 Clipboard API
         await navigator.clipboard.writeText(text);
-        alert('号码已复制到剪贴板！');
+        showToast('复制成功', '号码已复制到剪贴板！', 'success');
     } catch (err) {
         console.error('Clipboard API 复制失败，尝试回退方案:', err);
         // 回退方案：使用 textarea 元素进行复制
@@ -644,13 +672,13 @@ async function copyToClipboard(text) {
         try {
             const successful = document.execCommand('copy');
             if (successful) {
-                alert('号码已复制到剪贴板！');
+                showToast('复制成功', '号码已复制到剪贴板！', 'success');
             } else {
-                alert('复制失败，请手动复制。');
+                showToast('复制失败', '复制失败，请手动复制。', 'error');
             }
         } catch (copyErr) {
             console.error('手动复制失败:', copyErr);
-            alert('复制失败，请手动复制。');
+            showToast('复制失败', '复制失败，请手动复制。', 'error');
         } finally {
             document.body.removeChild(textarea);
         }
@@ -831,6 +859,12 @@ document.getElementById('ssq_random_numbers_output').addEventListener('click', f
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
     }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('share-to-social-btn')) {
         // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
     }
@@ -945,6 +979,12 @@ document.getElementById('dlt_random_numbers_output').addEventListener('click', f
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
     }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('share-to-social-btn')) {
         // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
     }
@@ -961,6 +1001,12 @@ document.getElementById('ssq_predicted_numbers_output').addEventListener('click'
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
     }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
     if (e.target.classList.contains('share-to-social-btn')) {
         // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
     }
@@ -975,6 +1021,12 @@ document.getElementById('dlt_predicted_numbers_output').addEventListener('click'
     }
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
+    }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
     if (e.target.classList.contains('share-to-social-btn')) {
         // shareToSocialMedia(e.target.dataset.shareText); // Removed as per user request
@@ -1351,6 +1403,8 @@ async function generateSmartFilterNumbers(lotteryType, indexToRegenerate = null)
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-smart-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                             <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
+                            <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                         </div>`;
             });
@@ -1497,6 +1551,86 @@ async function checkSmartFilterRules(lotteryType, redBallsStr, blueBallsStr) {
     }
 }
 
+// 获取最新期号（用于添加心仪号码/购买号码的默认值）
+let latestIssuesCache = {};
+
+async function getLatestIssues() {
+    if (latestIssuesCache.ssq && latestIssuesCache.dlt) {
+        return latestIssuesCache;
+    }
+    try {
+        const resp = await fetch('/api/prediction/latest_issues');
+        const data = await resp.json();
+        latestIssuesCache = data;
+        return data;
+    } catch (err) {
+        console.error('获取最新期号失败:', err);
+        return { ssq: '', dlt: '' };
+    }
+}
+
+// 添加心仪号码
+async function addFavoriteNumber(lotteryType, redBalls, blueBalls) {
+    try {
+        const resp = await fetch('/auth/api/favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lottery_type: lotteryType,
+                red_balls: redBalls,
+                blue_balls: blueBalls,
+                note: ''
+            })
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            showToast('添加成功', '号码已添加到心仪号码，可在"个人中心 -> 心仪号码"中查看。', 'success');
+        } else {
+            showToast('添加失败', result.error || '未知错误', 'error');
+        }
+    } catch (err) {
+        showToast('网络错误', '请重试。', 'error');
+    }
+}
+
+// 添加购买号码
+async function addPurchasedTicket(lotteryType, issue, redBalls, blueBalls) {
+    try {
+        const resp = await fetch('/auth/api/purchased', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lottery_type: lotteryType,
+                issue: issue,
+                red_balls: redBalls,
+                blue_balls: blueBalls,
+                cost: 2,
+                multiplier: 1,
+                note: ''
+            })
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            showToast('购买成功', '号码已添加到已购号码，可在"个人中心 -> 已购号码"中查看。', 'success');
+        } else {
+            showToast('添加失败', result.error || '未知错误', 'error');
+        }
+    } catch (err) {
+        showToast('网络错误', '请重试。', 'error');
+    }
+}
+
+// 添加购买号码（自动获取最新期号）
+async function addPurchasedTicketAuto(lotteryType, redBalls, blueBalls) {
+    try {
+        const issues = await getLatestIssues();
+        const defaultIssue = issues[lotteryType] || '';
+        addPurchasedTicket(lotteryType, defaultIssue, redBalls, blueBalls);
+    } catch (err) {
+        showToast('网络错误', '请重试。', 'error');
+    }
+}
+
 // 智能筛选输出区域的事件委托（用于重新生成、检查规则和复制按钮）
 document.getElementById('ssq_smart_filter_output').addEventListener('click', function(e) {
     if (e.target.classList.contains('regenerate-smart-btn')) {
@@ -1511,6 +1645,12 @@ document.getElementById('ssq_smart_filter_output').addEventListener('click', fun
     }
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
+    }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
 });
 
@@ -1527,6 +1667,12 @@ document.getElementById('dlt_smart_filter_output').addEventListener('click', fun
     }
     if (e.target.classList.contains('copy-to-clipboard-btn')) {
         copyToClipboard(e.target.dataset.copyText);
+    }
+    if (e.target.classList.contains('add-favorite-btn')) {
+        addFavoriteNumber(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
+    }
+    if (e.target.classList.contains('add-purchased-btn')) {
+        addPurchasedTicketAuto(e.target.dataset.lotteryType, e.target.dataset.redBalls, e.target.dataset.blueBalls);
     }
 });
 

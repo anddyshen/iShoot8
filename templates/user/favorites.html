@@ -28,7 +28,7 @@
 <script>
 async function loadFavorites() {
     try {
-        const resp = await fetch('/api/user/favorites');
+        const resp = await fetch('/auth/api/favorites');
         if (!resp.ok) throw new Error('获取失败');
         const data = await resp.json();
         const container = document.getElementById('favoritesList');
@@ -66,8 +66,8 @@ async function loadFavorites() {
             if (item.red_balls) {
                 const reds = item.red_balls.split(',').map(n => parseInt(n));
                 const blues = item.blue_balls ? item.blue_balls.split(',').map(n => parseInt(n)) : [];
-                ballsHtml = reds.map(n => `<span class="ball ball-red">${String(n).padStart(2, '0')}</span>`).join('');
-                ballsHtml += blues.map(n => `<span class="ball ball-blue">${String(n).padStart(2, '0')}</span>`).join('');
+                ballsHtml = reds.map(n => `<span class="ball ball-red" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#ff6b6b;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
+                ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
             }
             
             html += `<tr>
@@ -94,7 +94,7 @@ async function loadFavorites() {
 async function removeFavorite(id) {
     if (!confirm('确定删除此心仪号码？')) return;
     try {
-        const resp = await fetch('/api/user/favorites/' + id, { method: 'DELETE' });
+        const resp = await fetch('/auth/api/favorites/' + id, { method: 'DELETE' });
         if (resp.ok) {
             loadFavorites();
         } else {

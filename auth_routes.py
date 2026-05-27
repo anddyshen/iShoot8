@@ -161,6 +161,7 @@ def api_change_password():
     data = request.get_json()
     old_password = data.get('old_password', '')
     new_password = data.get('new_password', '')
+    confirm_password = data.get('confirm_password', '')
     
     if not current_user.check_password(old_password):
         return jsonify({'error': '当前密码错误'}), 400
@@ -168,9 +169,76 @@ def api_change_password():
     if len(new_password) < 6:
         return jsonify({'error': '新密码至少6个字符'}), 400
     
+    if new_password != confirm_password:
+        return jsonify({'error': '两次输入的新密码不一致'}), 400
+    
     current_user.set_password(new_password)
     db.session.commit()
     return jsonify({'message': '密码修改成功'})
+
+
+def _check_ticket_prize(ticket):
+    """对单个已购号码进行对奖，更新 prize_amount 和 prize_level"""
+    if ticket.lottery_type == 'ssq':
+        draw = SSQDraw.query.filter_by(issue=ticket.issue).first()
+    elif ticket.lottery_type == 'dlt':
+        draw = DLTDraw.query.filter_by(issue=ticket.issue).first()
+    else:
+        return
+    
+    if not draw:
+        # 未开奖，清空奖金
+        ticket.prize_amount = 0.0
+        ticket.prize_level = None
+        ticket.checked_at = datetime.utcnow()
+        return
+    
+    user_reds = sorted([int(x.strip()) for x in ticket.red_balls.split(',')])
+    user_blues = sorted([int(x.strip()) for x in ticket.blue_balls.split(',')])
+    draw_reds = draw.get_red_balls_list()
+    draw_blues = draw.get_blue_balls_list()
+    
+    red_match = len(set(user_reds) & set(draw_reds))
+    blue_match = len(set(user_blues) & set(draw_blues))
+    
+    prize_amount = 0.0
+    prize_level = None
+    
+    if ticket.lottery_type == 'ssq':
+        if red_match == 6 and blue_match == 1:
+            prize_level, prize_amount = '一等奖', '浮动'
+        elif red_match == 6:
+            prize_level, prize_amount = '二等奖', '浮动'
+        elif red_match == 5 and blue_match == 1:
+            prize_level, prize_amount = '三等奖', 3000
+        elif red_match == 5 or (red_match == 4 and blue_match == 1):
+            prize_level, prize_amount = '四等奖', 200
+        elif red_match == 4 or (red_match == 3 and blue_match == 1):
+            prize_level, prize_amount = '五等奖', 10
+        elif blue_match == 1:
+            prize_level, prize_amount = '六等奖', 5
+    elif ticket.lottery_type == 'dlt':
+        if red_match == 5 and blue_match == 2:
+            prize_level, prize_amount = '一等奖', '浮动'
+        elif red_match == 5 and blue_match == 1:
+            prize_level, prize_amount = '二等奖', '浮动'
+        elif red_match == 5 or (red_match == 4 and blue_match == 2):
+            prize_level, prize_amount = '三等奖', 5000
+        elif (red_match == 4 and blue_match == 1) or (red_match == 3 and blue_match == 2):
+            prize_level, prize_amount = '四等奖', 300
+        elif (red_match == 4) or (red_match == 3 and blue_match == 1) or (red_match == 2 and blue_match == 2):
+            prize_level, prize_amount = '五等奖', 150
+        elif (red_match == 3) or (red_match == 2 and blue_match == 1) or (red_match == 1 and blue_match == 2) or (red_match == 0 and blue_match == 2):
+            prize_level, prize_amount = '六等奖', 15
+        elif blue_match == 1:
+            prize_level, prize_amount = '七等奖', 5
+    
+    if isinstance(prize_amount, str):
+        prize_amount = 0.0  # 浮动奖暂时设为0
+    
+    ticket.prize_amount = prize_amount
+    ticket.prize_level = prize_level
+    ticket.checked_at = datetime.utcnow()
 
 
 # ===== 心仪号码 API =====
@@ -231,19 +299,40 @@ def api_delete_favorite(favorite_id):
 @bp.route('/api/purchased', methods=['GET'])
 @login_required
 def api_get_purchased():
-    """获取用户的已购号码列表"""
-    tickets = UserPurchasedTicket.query.filter_by(user_id=current_user.id).order_by(UserPurchasedTicket.created_at.desc()).all()
+    """获取用户的已购号码列表（支持分页和彩种筛选）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    lottery_type = request.args.get('lottery_type', 'all').lower()
     
-    # 计算统计信息
-    total_cost = sum(t.cost * t.multiplier for t in tickets)
-    total_prize = sum(t.prize_amount for t in tickets)
+    query = UserPurchasedTicket.query.filter_by(user_id=current_user.id)
+    
+    if lottery_type in ['ssq', 'dlt']:
+        query = query.filter_by(lottery_type=lottery_type)
+    
+    # 先获取总数（总记录和总统计不分页）
+    all_tickets = query.order_by(UserPurchasedTicket.created_at.desc()).all()
+    total = len(all_tickets)
+    
+    # 计算统计信息（基于全部数据）
+    total_cost = sum(t.cost * t.multiplier for t in all_tickets)
+    total_prize = sum(t.prize_amount for t in all_tickets)
+    
+    # 分页
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_tickets = all_tickets[start:end]
     
     return jsonify({
-        'tickets': [t.to_dict() for t in tickets],
+        'tickets': [t.to_dict() for t in page_tickets],
         'stats': {
             'total_cost': total_cost,
             'total_prize': total_prize,
-        }
+        },
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': max(1, (total + per_page - 1) // per_page),
+        'current_filter': lottery_type,
     })
 
 @bp.route('/api/purchased', methods=['POST'])
@@ -341,6 +430,45 @@ def api_add_purchased():
     db.session.commit()
     
     return jsonify({'message': '添加成功', 'ticket': ticket.to_dict()})
+
+@bp.route('/api/purchased/<int:ticket_id>', methods=['PUT'])
+@login_required
+def api_update_purchased(ticket_id):
+    """更新已购号码记录（期号）- 更新后重新对奖"""
+    ticket = UserPurchasedTicket.query.filter_by(id=ticket_id, user_id=current_user.id).first()
+    if not ticket:
+        return jsonify({'error': '记录不存在'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    if 'issue' in data:
+        issue = data['issue'].strip()
+        if not issue:
+            return jsonify({'error': '期号不能为空'}), 400
+        ticket.issue = issue
+        
+        # 期号变更后重新对奖
+        _check_ticket_prize(ticket)
+    
+    db.session.commit()
+    return jsonify({'message': '更新成功', 'ticket': ticket.to_dict()})
+
+@bp.route('/api/purchased/check_all', methods=['POST'])
+@login_required
+def api_check_all_purchased():
+    """对所有已购号码进行批量对奖"""
+    tickets = UserPurchasedTicket.query.filter_by(user_id=current_user.id).all()
+    
+    checked_count = 0
+    for ticket in tickets:
+        _check_ticket_prize(ticket)
+        checked_count += 1
+    
+    db.session.commit()
+    
+    return jsonify({'message': f'对奖完成，共处理 {checked_count} 条记录'})
 
 @bp.route('/api/purchased/<int:ticket_id>', methods=['DELETE'])
 @login_required

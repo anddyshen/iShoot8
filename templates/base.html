@@ -67,6 +67,10 @@
                             <li><a class="dropdown-item" href="{{ url_for('auth_routes.profile') }}"><i class="bi bi-person"></i> 个人中心</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth_routes.favorites') }}"><i class="bi bi-heart"></i> 心仪号码</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth_routes.purchased') }}"><i class="bi bi-cart-check"></i> 已购号码</a></li>
+                            {% if current_user.is_admin %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_routes.admin_dashboard') }}"><i class="bi bi-gear"></i> 管理页面</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth_routes.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
                         </ul>
@@ -86,6 +90,21 @@
             </div>
         </div>
     </nav>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+        <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto" id="toastTitle">提示</strong>
+                <small>刚刚</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                消息内容
+            </div>
+        </div>
+    </div>
 
     <div class="container mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -107,7 +126,11 @@
             <span class="text-muted small">
                 &copy; {{ current_datetime.split('-')[0] }} {{ site_name }}. All rights reserved.
                 <br>
+                纯个人爱好，全部代码皆由AI生成。
+                <br>
                 <strong class="text-danger">风险提示：彩票有风险，投注需谨慎。本网站仅供娱乐。</strong>
+                <br>
+                如果你对网站有兴趣，可联系我们 : admin#ishoot.cc
                 <br>
                 版本: {{ app_version }}
             </span>
