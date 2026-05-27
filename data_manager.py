@@ -91,7 +91,7 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
     lines = raw_data.strip().split('\n')
     for line in lines:
         parts = line.split()
-        if len(parts) < 30:
+        if len(parts) < 36:
             app.logger.warning(f"Skipping malformed DLT line: {line}") # <--- 使用 app.logger
             continue
         try:
@@ -124,19 +124,15 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
             sixth_prize_amount = int(parts[29])
             seventh_prize_count = int(parts[30])
             seventh_prize_amount = int(parts[31])
-            eighth_prize_count = int(parts[32])
-            eighth_prize_amount = int(parts[33])
-            ninth_prize_count = int(parts[34])
-            ninth_prize_amount = int(parts[35])
-            additional_first_prize_count = int(parts[36])
-            additional_first_prize_amount = int(parts[37])
-            additional_second_prize_count = int(parts[38])
-            additional_second_prize_amount = int(parts[39])
-            reserve1 = parts[40] if len(parts) > 40 else None
-            reserve2 = parts[41] if len(parts) > 41 else None
-            reserve3 = parts[42] if len(parts) > 42 else None
-            reserve4 = parts[43] if len(parts) > 43 else None
-            reserve5 = parts[44] if len(parts) > 44 else None
+            additional_first_prize_count = int(parts[32])
+            additional_first_prize_amount = int(parts[33])
+            additional_second_prize_count = int(parts[34])
+            additional_second_prize_amount = int(parts[35])
+            reserve1 = parts[36] if len(parts) > 36 else None
+            reserve2 = parts[37] if len(parts) > 37 else None
+            reserve3 = parts[38] if len(parts) > 38 else None
+            reserve4 = parts[39] if len(parts) > 39 else None
+            reserve5 = parts[40] if len(parts) > 40 else None
 
             draws.append(DLTDraw(
                 issue=issue, draw_date=draw_date,
@@ -150,8 +146,6 @@ def parse_dlt_data(raw_data, app): # <--- 添加 app 参数
                 fifth_prize_count=fifth_prize_count, fifth_prize_amount=fifth_prize_amount,
                 sixth_prize_count=sixth_prize_count, sixth_prize_amount=sixth_prize_amount,
                 seventh_prize_count=seventh_prize_count, seventh_prize_amount=seventh_prize_amount,
-                eighth_prize_count=eighth_prize_count, eighth_prize_amount=eighth_prize_amount,
-                ninth_prize_count=ninth_prize_count, ninth_prize_amount=ninth_prize_amount,
                 additional_first_prize_count=additional_first_prize_count, additional_first_prize_amount=additional_first_prize_amount,
                 additional_second_prize_count=additional_second_prize_count, additional_second_prize_amount=additional_second_prize_amount,
                 reserve1=reserve1, reserve2=reserve2, reserve3=reserve3, reserve4=reserve4, reserve5=reserve5
@@ -299,8 +293,8 @@ def validate_ssq_format(data_string):
 
 def validate_dlt_format(data_string):
     parts = data_string.split()
-    if len(parts) < 40: # 至少包含到追加二等奖金额
-        return False, "大乐透数据格式不完整，至少需要40个字段。"
+    if len(parts) < 41: # 至少包含到备用字段5
+        return False, "大乐透数据格式不完整，至少需要41个字段。"
     try:
         datetime.strptime(parts[1], '%Y-%m-%d') # 日期
         [int(p) for p in parts[2:9]] # 红蓝球
