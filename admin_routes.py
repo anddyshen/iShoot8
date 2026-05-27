@@ -9,7 +9,7 @@ import random
 import string
 
 from config import ADMIN_PASSWORD, CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS, __version__, SETTING_LABELS_CHINESE, SSQ_SETTINGS_KEYS, DLT_SETTINGS_KEYS, GENERAL_SETTINGS_KEYS, TREND_SETTINGS_KEYS
-from models import db, SSQDraw, DLTDraw, News, AdminSettings
+from models import db, SSQDraw, DLTDraw, News, AdminSettings, User
 from data_manager import update_latest_draws, add_manual_draw, validate_ssq_format, validate_dlt_format
 
 # 版本号，每次生成文件时更新
@@ -439,6 +439,63 @@ def admin_change_password():
         return redirect(url_for('admin_routes.admin_dashboard'))
 
     return render_template('admin/change_password.html')
+
+
+@bp.route('/users')
+@admin_required
+def admin_users():
+    """用户列表管理"""
+    users = User.query.order_by(User.created_at.desc()).all()
+    allow_registration = CURRENT_SETTINGS.get('allow_registration', False)
+    return render_template('admin/user_manage.html', users=users, allow_registration=allow_registration)
+
+
+@bp.route('/users/toggle_registration', methods=['POST'])
+@admin_required
+def admin_toggle_registration():
+    """切换是否允许用户注册"""
+    data = request.get_json()
+    if data is None:
+        return {'error': '无效的请求数据'}, 400
+    
+    enabled = data.get('enabled', False)
+    CURRENT_SETTINGS['allow_registration'] = bool(enabled)
+    save_settings(CURRENT_SETTINGS)
+    return {'message': '设置已更新', 'allow_registration': bool(enabled)}
+
+@bp.route('/users/<int:user_id>/toggle_active', methods=['POST'])
+@admin_required
+def admin_toggle_user_active(user_id):
+    """启用/禁用用户"""
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('用户不存在。', 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    user.is_active = not user.is_active
+    db.session.commit()
+    status = '启用' if user.is_active else '禁用'
+    flash(f'用户 {user.username} 已{status}。', 'success')
+    return redirect(url_for('admin_routes.admin_users'))
+
+@bp.route('/users/<int:user_id>/reset_password', methods=['POST'])
+@admin_required
+def admin_reset_user_password(user_id):
+    """管理员重置用户密码"""
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('用户不存在。', 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    new_password = request.form.get('new_password', '')
+    if len(new_password) < 6:
+        flash('密码至少6个字符。', 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    user.set_password(new_password)
+    db.session.commit()
+    flash(f'用户 {user.username} 的密码已重置。', 'success')
+    return redirect(url_for('admin_routes.admin_users'))
 
 
 @bp.route('/news_manage', methods=['GET', 'POST'])

@@ -188,6 +188,114 @@ class SmartFilterStatsRanking(db.Model):
         return f"<SmartFilterStatsRanking {self.lottery_type}-{self.lookback_period}-{self.rule_name} #{self.rank}: {self.rule_value}({self.frequency}/{self.percentage:.1f}%)>"
 
 
+class UserFavorite(db.Model):
+    __tablename__ = 'user_favorites'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    lottery_type = db.Column(db.String(10), nullable=False)  # 'ssq' or 'dlt'
+    red_balls = db.Column(db.String(50), nullable=False)
+    blue_balls = db.Column(db.String(20), nullable=False)
+    combination = db.Column(db.String(100))  # 完整组合描述
+    note = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref=db.backref('favorites', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'lottery_type': self.lottery_type,
+            'red_balls': self.red_balls,
+            'blue_balls': self.blue_balls,
+            'combination': self.combination,
+            'note': self.note,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserPurchasedTicket(db.Model):
+    __tablename__ = 'user_purchased_tickets'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    lottery_type = db.Column(db.String(10), nullable=False)  # 'ssq' or 'dlt'
+    issue = db.Column(db.String(10), nullable=False)
+    red_balls = db.Column(db.String(50), nullable=False)
+    blue_balls = db.Column(db.String(20), nullable=False)
+    cost = db.Column(db.Float, nullable=False, default=2.0)  # 投注金额
+    multiplier = db.Column(db.Integer, default=1)  # 倍数
+    prize_amount = db.Column(db.Float, default=0.0)  # 中奖金额
+    prize_level = db.Column(db.String(50))  # 中奖等级
+    note = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    checked_at = db.Column(db.DateTime)  # 最后对奖时间
+    
+    user = db.relationship('User', backref=db.backref('purchased_tickets', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'lottery_type': self.lottery_type,
+            'issue': self.issue,
+            'red_balls': self.red_balls,
+            'blue_balls': self.blue_balls,
+            'cost': self.cost,
+            'multiplier': self.multiplier,
+            'prize_amount': self.prize_amount,
+            'prize_level': self.prize_level,
+            'note': self.note,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
+        }
+
+
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(100), unique=True, nullable=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    nickname = db.Column(db.String(50))
+    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login_at = db.Column(db.DateTime)
+    notification_config = db.Column(db.JSON, default=dict)
+    preferences = db.Column(db.JSON, default=dict)
+    
+    def set_password(self, password):
+        from werkzeug.security import generate_password_hash
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'nickname': self.nickname,
+            'is_active': self.is_active,
+            'is_admin': self.is_admin,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+    # Flask-Login required methods
+    def is_authenticated(self):
+        return True
+    
+    def is_anonymous(self):
+        return False
+    
+    def get_id(self):
+        return str(self.id)
+
+
 # 首次运行生成随机管理路由前缀
 def generate_admin_route_prefix():
     chars = string.ascii_lowercase + string.digits

@@ -1,0 +1,352 @@
+# auth_routes.py
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_login import login_user, logout_user, login_required, current_user
+from datetime import datetime
+from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw
+from config import CURRENT_SETTINGS
+
+bp = Blueprint('auth_routes', __name__, url_prefix='/auth')
+
+@bp.route('/register', methods=['GET', 'POST'])
+def register():
+    """用户注册"""
+    # 检查注册开关
+    if not CURRENT_SETTINGS.get('allow_registration', False):
+        flash('管理员已关闭注册功能。', 'warning')
+        return redirect(url_for('auth_routes.login'))
+    
+    if current_user.is_authenticated:
+        return redirect(url_for('routes.index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        email = request.form.get('email', '').strip()
+        nickname = request.form.get('nickname', '').strip()
+        
+        # 验证
+        if not username or len(username) < 3:
+            flash('用户名至少3个字符。', 'danger')
+            return render_template('user/register.html')
+        
+        if not password or len(password) < 6:
+            flash('密码至少6个字符。', 'danger')
+            return render_template('user/register.html')
+        
+        if password != confirm_password:
+            flash('两次输入的密码不一致。', 'danger')
+            return render_template('user/register.html')
+        
+        if User.query.filter_by(username=username).first():
+            flash('用户名已被占用。', 'danger')
+            return render_template('user/register.html')
+        
+        if email and User.query.filter_by(email=email).first():
+            flash('邮箱已被占用。', 'danger')
+            return render_template('user/register.html')
+        
+        # 创建用户
+        user = User(
+            username=username,
+            email=email if email else None,
+            nickname=nickname if nickname else username,
+        )
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('注册成功，请登录。', 'success')
+        return redirect(url_for('auth_routes.login'))
+    
+    return render_template('user/register.html')
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    """用户登录"""
+    if current_user.is_authenticated:
+        return redirect(url_for('routes.index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        remember = request.form.get('remember') == 'on'
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if not user or not user.check_password(password):
+            flash('用户名或密码错误。', 'danger')
+            return render_template('user/login.html')
+        
+        if not user.is_active:
+            flash('账户已被禁用，请联系管理员。', 'danger')
+            return render_template('user/login.html')
+        
+        # 更新最后登录时间
+        user.last_login_at = datetime.utcnow()
+        db.session.commit()
+        
+        login_user(user, remember=remember)
+        
+        # 重定向到登录前页面
+        next_page = request.args.get('next')
+        if next_page:
+            return redirect(next_page)
+        return redirect(url_for('routes.index'))
+    
+    return render_template('user/login.html')
+
+@bp.route('/logout')
+def logout():
+    """退出登录"""
+    logout_user()
+    flash('已退出登录。', 'info')
+    return redirect(url_for('routes.index'))
+
+# ===== API 接口 =====
+
+@bp.route('/api/me')
+@login_required
+def api_me():
+    """获取当前用户信息"""
+    return jsonify(current_user.to_dict())
+
+@bp.route('/api/update_profile', methods=['POST'])
+@login_required
+def api_update_profile():
+    """更新个人资料"""
+    data = request.get_json()
+    
+    if 'nickname' in data:
+        current_user.nickname = data['nickname']
+    if 'email' in data:
+        # 检查邮箱是否已被其他用户使用
+        existing = User.query.filter(User.email == data['email'], User.id != current_user.id).first()
+        if existing:
+            return jsonify({'error': '邮箱已被占用'}), 400
+        current_user.email = data['email']
+    
+    db.session.commit()
+    return jsonify({'message': '更新成功', 'user': current_user.to_dict()})
+
+# ===== 页面路由 =====
+
+@bp.route('/profile')
+@login_required
+def profile():
+    """个人中心页面"""
+    return render_template('user/profile.html')
+
+@bp.route('/favorites')
+@login_required
+def favorites():
+    """心仪号码页面"""
+    return render_template('user/favorites.html')
+
+@bp.route('/purchased')
+@login_required
+def purchased():
+    """已购号码页面"""
+    return render_template('user/purchased.html')
+
+
+@bp.route('/api/change_password', methods=['POST'])
+@login_required
+def api_change_password():
+    """修改密码"""
+    data = request.get_json()
+    old_password = data.get('old_password', '')
+    new_password = data.get('new_password', '')
+    
+    if not current_user.check_password(old_password):
+        return jsonify({'error': '当前密码错误'}), 400
+    
+    if len(new_password) < 6:
+        return jsonify({'error': '新密码至少6个字符'}), 400
+    
+    current_user.set_password(new_password)
+    db.session.commit()
+    return jsonify({'message': '密码修改成功'})
+
+
+# ===== 心仪号码 API =====
+
+@bp.route('/api/favorites', methods=['GET'])
+@login_required
+def api_get_favorites():
+    """获取用户的心仪号码列表"""
+    favorites = UserFavorite.query.filter_by(user_id=current_user.id).order_by(UserFavorite.created_at.desc()).all()
+    return jsonify({'favorites': [f.to_dict() for f in favorites]})
+
+@bp.route('/api/favorites', methods=['POST'])
+@login_required
+def api_add_favorite():
+    """添加心仪号码"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    lottery_type = data.get('lottery_type', '').lower()
+    red_balls = data.get('red_balls', '').strip()
+    blue_balls = data.get('blue_balls', '').strip()
+    note = data.get('note', '').strip()
+    
+    if lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': '无效的彩种'}), 400
+    if not red_balls or not blue_balls:
+        return jsonify({'error': '红球和蓝球号码不能为空'}), 400
+    
+    favorite = UserFavorite(
+        user_id=current_user.id,
+        lottery_type=lottery_type,
+        red_balls=red_balls,
+        blue_balls=blue_balls,
+        combination=red_balls + '|' + blue_balls,
+        note=note,
+    )
+    db.session.add(favorite)
+    db.session.commit()
+    
+    return jsonify({'message': '添加成功', 'favorite': favorite.to_dict()})
+
+@bp.route('/api/favorites/<int:favorite_id>', methods=['DELETE'])
+@login_required
+def api_delete_favorite(favorite_id):
+    """删除心仪号码"""
+    favorite = UserFavorite.query.filter_by(id=favorite_id, user_id=current_user.id).first()
+    if not favorite:
+        return jsonify({'error': '记录不存在'}), 404
+    
+    db.session.delete(favorite)
+    db.session.commit()
+    return jsonify({'message': '删除成功'})
+
+
+# ===== 已购号码 API =====
+
+@bp.route('/api/purchased', methods=['GET'])
+@login_required
+def api_get_purchased():
+    """获取用户的已购号码列表"""
+    tickets = UserPurchasedTicket.query.filter_by(user_id=current_user.id).order_by(UserPurchasedTicket.created_at.desc()).all()
+    
+    # 计算统计信息
+    total_cost = sum(t.cost * t.multiplier for t in tickets)
+    total_prize = sum(t.prize_amount for t in tickets)
+    
+    return jsonify({
+        'tickets': [t.to_dict() for t in tickets],
+        'stats': {
+            'total_cost': total_cost,
+            'total_prize': total_prize,
+        }
+    })
+
+@bp.route('/api/purchased', methods=['POST'])
+@login_required
+def api_add_purchased():
+    """添加已购号码"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    lottery_type = data.get('lottery_type', '').lower()
+    issue = data.get('issue', '').strip()
+    red_balls = data.get('red_balls', '').strip()
+    blue_balls = data.get('blue_balls', '').strip()
+    cost = float(data.get('cost', 2))
+    multiplier = int(data.get('multiplier', 1))
+    note = data.get('note', '').strip()
+    
+    if lottery_type not in ['ssq', 'dlt']:
+        return jsonify({'error': '无效的彩种'}), 400
+    if not issue or not red_balls or not blue_balls:
+        return jsonify({'error': '期号、红球和蓝球号码不能为空'}), 400
+    if cost < 2:
+        return jsonify({'error': '投注金额至少2元'}), 400
+    if multiplier < 1:
+        return jsonify({'error': '倍数至少为1'}), 400
+    
+    # 自动对奖（如果存在开奖数据）
+    prize_amount = 0.0
+    prize_level = None
+    draw = None
+    
+    if lottery_type == 'ssq':
+        draw = SSQDraw.query.filter_by(issue=issue).first()
+    elif lottery_type == 'dlt':
+        draw = DLTDraw.query.filter_by(issue=issue).first()
+    
+    if draw:
+        from prediction_engine import check_lottery_rules
+        user_reds = sorted([int(x.strip()) for x in red_balls.split(',')])
+        user_blues = sorted([int(x.strip()) for x in blue_balls.split(',')])
+        draw_reds = draw.get_red_balls_list()
+        draw_blues = draw.get_blue_balls_list()
+        
+        red_match = len(set(user_reds) & set(draw_reds))
+        blue_match = len(set(user_blues) & set(draw_blues))
+        
+        # 简单对奖逻辑
+        if lottery_type == 'ssq':
+            if red_match == 6 and blue_match == 1:
+                prize_level, prize_amount = '一等奖', '浮动'
+            elif red_match == 6:
+                prize_level, prize_amount = '二等奖', '浮动'
+            elif red_match == 5 and blue_match == 1:
+                prize_level, prize_amount = '三等奖', 3000
+            elif red_match == 5 or (red_match == 4 and blue_match == 1):
+                prize_level, prize_amount = '四等奖', 200
+            elif red_match == 4 or (red_match == 3 and blue_match == 1):
+                prize_level, prize_amount = '五等奖', 10
+            elif blue_match == 1:
+                prize_level, prize_amount = '六等奖', 5
+        elif lottery_type == 'dlt':
+            if red_match == 5 and blue_match == 2:
+                prize_level, prize_amount = '一等奖', '浮动'
+            elif red_match == 5 and blue_match == 1:
+                prize_level, prize_amount = '二等奖', '浮动'
+            elif red_match == 5 or (red_match == 4 and blue_match == 2):
+                prize_level, prize_amount = '三等奖', 5000
+            elif (red_match == 4 and blue_match == 1) or (red_match == 3 and blue_match == 2):
+                prize_level, prize_amount = '四等奖', 300
+            elif (red_match == 4) or (red_match == 3 and blue_match == 1) or (red_match == 2 and blue_match == 2):
+                prize_level, prize_amount = '五等奖', 150
+            elif (red_match == 3) or (red_match == 2 and blue_match == 1) or (red_match == 1 and blue_match == 2) or (red_match == 0 and blue_match == 2):
+                prize_level, prize_amount = '六等奖', 15
+            elif blue_match == 1:
+                prize_level, prize_amount = '七等奖', 5
+        
+        if isinstance(prize_amount, str):
+            prize_amount = 0.0  # 浮动奖暂时设为0
+    
+    ticket = UserPurchasedTicket(
+        user_id=current_user.id,
+        lottery_type=lottery_type,
+        issue=issue,
+        red_balls=red_balls,
+        blue_balls=blue_balls,
+        cost=cost,
+        multiplier=multiplier,
+        prize_amount=prize_amount,
+        prize_level=prize_level,
+        note=note,
+        checked_at=datetime.utcnow() if draw else None,
+    )
+    db.session.add(ticket)
+    db.session.commit()
+    
+    return jsonify({'message': '添加成功', 'ticket': ticket.to_dict()})
+
+@bp.route('/api/purchased/<int:ticket_id>', methods=['DELETE'])
+@login_required
+def api_delete_purchased(ticket_id):
+    """删除已购号码记录"""
+    ticket = UserPurchasedTicket.query.filter_by(id=ticket_id, user_id=current_user.id).first()
+    if not ticket:
+        return jsonify({'error': '记录不存在'}), 404
+    
+    db.session.delete(ticket)
+    db.session.commit()
+    return jsonify({'message': '删除成功'})

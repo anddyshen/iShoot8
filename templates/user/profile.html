@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}个人中心{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person-circle"></i> 个人信息</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="display-1 text-primary mb-3">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+                <h4>{{ current_user.nickname or current_user.username }}</h4>
+                <p class="text-muted">@{{ current_user.username }}</p>
+                <hr>
+                <div class="text-start">
+                    <p><strong><i class="bi bi-envelope"></i> 邮箱：</strong>{{ current_user.email or '未设置' }}</p>
+                    <p><strong><i class="bi bi-calendar"></i> 注册时间：</strong>{{ current_user.created_at.strftime('%Y-%m-%d %H:%M') if current_user.created_at else '未知' }}</p>
+                    <p><strong><i class="bi bi-clock-history"></i> 最后登录：</strong>{{ current_user.last_login_at.strftime('%Y-%m-%d %H:%M') if current_user.last_login_at else '首次登录' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-pencil-square"></i> 编辑资料</h5>
+            </div>
+            <div class="card-body">
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label for="nickname" class="form-label">昵称</label>
+                        <input type="text" class="form-control" id="nickname" name="nickname" 
+                               value="{{ current_user.nickname or '' }}" placeholder="输入显示名称">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               value="{{ current_user.email or '' }}" placeholder="输入邮箱地址">
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> 保存修改
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="bi bi-key"></i> 修改密码</h5>
+            </div>
+            <div class="card-body">
+                <form id="passwordForm">
+                    <div class="mb-3">
+                        <label for="old_password" class="form-label">当前密码</label>
+                        <input type="password" class="form-control" id="old_password" name="old_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">新密码</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
+                        <div class="form-text">至少6个字符</div>
+                    </div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check-lg"></i> 修改密码
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-bell"></i> 通知设置</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">通知功能将在后续版本开放，敬请期待。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('profileForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = {
+        nickname: document.getElementById('nickname').value,
+        email: document.getElementById('email').value,
+    };
+    try {
+        const resp = await fetch('{{ url_for("auth_routes.api_update_profile") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            alert('资料更新成功！');
+            location.reload();
+        } else {
+            alert('错误：' + result.error);
+        }
+    } catch (err) {
+        alert('网络错误，请重试。');
+    }
+});
+
+document.getElementById('passwordForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = {
+        old_password: document.getElementById('old_password').value,
+        new_password: document.getElementById('new_password').value,
+    };
+    try {
+        const resp = await fetch('{{ url_for("auth_routes.api_change_password") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            alert('密码修改成功！请重新登录。');
+            window.location.href = '{{ url_for("auth_routes.logout") }}';
+        } else {
+            alert('错误：' + result.error);
+        }
+    } catch (err) {
+        alert('网络错误，请重试。');
+    }
+});
+</script>
+{% endblock %}

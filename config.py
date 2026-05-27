@@ -149,6 +149,9 @@ DEFAULT_SETTINGS = {
 
     "lookback_periods": "50,100,200,500", # 趋势计算回溯期数选项
 
+    # 用户系统设置
+    "allow_registration": False,  # 是否允许用户注册，默认关闭
+
     # 定时更新设置
     "scheduled_update_enabled": True,
     "scheduled_update_hour": 3,
@@ -309,6 +312,9 @@ SETTING_LABELS_CHINESE = {
     # 趣味游戏消息中文标签
     'fun_game_no_prize_message': "趣味游戏：未中奖消息",
     'fun_game_prize_message': "趣味游戏：中奖消息",
+
+    # 用户设置
+    'allow_registration': '允许用户注册',
 
     # 趋势设置
     'lookback_periods': "趋势计算回溯期数",

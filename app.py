@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_login import LoginManager, current_user
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import pytz # 用于处理时区
@@ -26,7 +27,7 @@ from config import (
     CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS,
     __version__
 )
-from models import db, SSQDraw, DLTDraw, News, AdminSettings, initialize_admin_route_prefix
+from models import db, SSQDraw, DLTDraw, News, AdminSettings, initialize_admin_route_prefix, User
 
 # 初始化 Flask 应用
 app = Flask(__name__, instance_relative_config=True)
@@ -39,6 +40,17 @@ db.init_app(app)
 
 # 初始化 Flask-Migrate
 migrate = Migrate(app, db)
+
+# 初始化 Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth_routes.login'
+login_manager.login_message = '请先登录。'
+login_manager.login_message_category = 'warning'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
 
 # 初始化 APScheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Shanghai'))
@@ -79,10 +91,12 @@ from data_manager import save_draw_data, get_latest_draws, update_latest_draws
 # 导入路由
 import routes
 import admin_routes
+import auth_routes
 
 # 注册蓝图或直接注册路由
 app.register_blueprint(routes.bp)
 app.register_blueprint(admin_routes.bp, url_prefix=f'/{ADMIN_ROUTE_PREFIX}')
+app.register_blueprint(auth_routes.bp)
 
 # 上下文处理器：在所有模板中可用
 @app.context_processor
@@ -136,6 +150,21 @@ with app.app_context():
     
     # 使用动态设置启动定时任务
     setup_scheduled_job(app)
+    
+    # 创建默认管理员（如果不存在）
+    admin_user = User.query.filter_by(username='admin').first()
+    if not admin_user:
+        admin_user = User(
+            username='admin',
+            nickname='管理员',
+            is_active=True,
+            is_admin=True
+        )
+        admin_user.set_password(CURRENT_SETTINGS.get('admin_password', 'admin123'))
+        db.session.add(admin_user)
+        db.session.commit()
+        print('默认管理员账号已创建 (username: admin)')
+    
     scheduler.start()
     print("APScheduler started.")
 

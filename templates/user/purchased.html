@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}已购号码{% endblock %}
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
+        <span class="badge bg-light text-dark" id="countBadge">0 条</span>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <p class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    记录您购买过的号码，系统将自动计算中奖情况和 ROI。
+                </p>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
+                    <i class="bi bi-plus-circle"></i> 添加已购号码
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计概览 -->
+        <div class="row mb-4" id="statsOverview">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>总投入</h6>
+                        <h4 class="text-danger" id="totalCost">¥0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>总回报</h6>
+                        <h4 class="text-success" id="totalPrize">¥0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>净收益</h6>
+                        <h4 id="netProfit">¥0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>ROI</h6>
+                        <h4 id="roiRate">0%</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ticketsList">
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox display-1"></i>
+                <p class="mt-3">暂无已购号码记录</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
+                    <i class="bi bi-plus-circle"></i> 添加第一条记录
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加已购号码弹窗 -->
+<div class="modal fade" id="addTicketModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 添加已购号码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTicketForm">
+                    <div class="mb-3">
+                        <label class="form-label">彩种</label>
+                        <select class="form-select" id="ticketLotteryType" required>
+                            <option value="ssq">双色球</option>
+                            <option value="dlt">大乐透</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">期号</label>
+                        <input type="text" class="form-control" id="ticketIssue" placeholder="如 2026050" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">红球号码</label>
+                        <input type="text" class="form-control" id="ticketRedBalls" placeholder="如 01,02,03,04,05,06" required>
+                        <div class="form-text">逗号分隔</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">蓝球号码</label>
+                        <input type="text" class="form-control" id="ticketBlueBalls" placeholder="如 07" required>
+                        <div class="form-text">逗号分隔</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">投注金额 (元)</label>
+                        <input type="number" class="form-control" id="ticketCost" placeholder="如 2" min="2" step="2" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">倍数</label>
+                        <input type="number" class="form-control" id="ticketMultiplier" value="1" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注（选填）</label>
+                        <input type="text" class="form-control" id="ticketNote" placeholder="如：机选、自选等">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addTicket()">
+                    <i class="bi bi-check-lg"></i> 添加
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadTickets() {
+    try {
+        const resp = await fetch('/api/user/purchased');
+        if (!resp.ok) throw new Error('获取失败');
+        const data = await resp.json();
+        const container = document.getElementById('ticketsList');
+        const badge = document.getElementById('countBadge');
+        
+        // 更新统计
+        if (data.stats) {
+            document.getElementById('totalCost').textContent = '¥' + data.stats.total_cost.toFixed(2);
+            document.getElementById('totalPrize').textContent = '¥' + data.stats.total_prize.toFixed(2);
+            const profit = data.stats.total_prize - data.stats.total_cost;
+            const profitEl = document.getElementById('netProfit');
+            profitEl.textContent = '¥' + profit.toFixed(2);
+            profitEl.className = profit >= 0 ? 'text-success' : 'text-danger';
+            
+            const roiEl = document.getElementById('roiRate');
+            if (data.stats.total_cost > 0) {
+                const roi = (data.stats.total_prize / data.stats.total_cost * 100);
+                roiEl.textContent = roi.toFixed(2) + '%';
+                roiEl.className = roi >= 100 ? 'text-success' : 'text-danger';
+            } else {
+                roiEl.textContent = '0%';
+            }
+        }
+        
+        if (!data.tickets || data.tickets.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-inbox display-1"></i>
+                    <p class="mt-3">暂无已购号码记录</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
+                        <i class="bi bi-plus-circle"></i> 添加第一条记录
+                    </button>
+                </div>`;
+            badge.textContent = '0 条';
+            return;
+        }
+        
+        badge.textContent = data.tickets.length + ' 条';
+        let html = '<div class="table-responsive"><table class="table table-hover">';
+        html += `<thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>彩种</th>
+                <th>期号</th>
+                <th>号码</th>
+                <th>金额</th>
+                <th>中奖</th>
+                <th>添加时间</th>
+                <th>操作</th>
+            </tr>
+        </thead><tbody>`;
+        
+        data.tickets.forEach((item, idx) => {
+            let ballsHtml = '';
+            if (item.red_balls) {
+                const reds = item.red_balls.split(',').map(n => parseInt(n));
+                const blues = item.blue_balls ? item.blue_balls.split(',').map(n => parseInt(n)) : [];
+                ballsHtml = reds.map(n => `<span class="ball ball-red" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#ff6b6b;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
+                ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
+            }
+            
+            html += `<tr>
+                <td>${idx + 1}</td>
+                <td><span class="badge bg-${item.lottery_type === 'ssq' ? 'primary' : 'success'}">${item.lottery_type === 'ssq' ? '双色球' : '大乐透'}</span></td>
+                <td>${item.issue || '-'}</td>
+                <td>${ballsHtml || '-'}</td>
+                <td>¥${(item.cost || 0).toFixed(2)}</td>
+                <td>${item.prize_amount > 0 ? '<span class="text-success fw-bold">¥' + item.prize_amount.toFixed(2) + '</span>' : '<span class="text-muted">未中奖</span>'}</td>
+                <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeTicket(${item.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function addTicket() {
+    const data = {
+        lottery_type: document.getElementById('ticketLotteryType').value,
+        issue: document.getElementById('ticketIssue').value.trim(),
+        red_balls: document.getElementById('ticketRedBalls').value.trim(),
+        blue_balls: document.getElementById('ticketBlueBalls').value.trim(),
+        cost: parseFloat(document.getElementById('ticketCost').value),
+        multiplier: parseInt(document.getElementById('ticketMultiplier').value) || 1,
+        note: document.getElementById('ticketNote').value.trim(),
+    };
+    
+    if (!data.issue || !data.red_balls || !data.blue_balls || !data.cost) {
+        alert('请填写完整信息');
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/api/user/purchased', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            // 关闭弹窗
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addTicketModal'));
+            modal.hide();
+            document.getElementById('addTicketForm').reset();
+            loadTickets();
+        } else {
+            alert('错误：' + result.error);
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
+async function removeTicket(id) {
+    if (!confirm('确定删除此记录？')) return;
+    try {
+        const resp = await fetch('/api/user/purchased/' + id, { method: 'DELETE' });
+        if (resp.ok) {
+            loadTickets();
+        } else {
+            alert('删除失败');
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadTickets);
+</script>
+{% endblock %}

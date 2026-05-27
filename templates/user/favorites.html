@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}心仪号码{% endblock %}
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="bi bi-heart"></i> 心仪号码</h4>
+        <span class="badge bg-light text-dark" id="countBadge">0 个</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            <i class="bi bi-info-circle"></i> 
+            在号码筛选页面可以将心仪的号码保存到此，方便随时查看和使用。
+        </p>
+        <div id="favoritesList">
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-heartbreak display-1"></i>
+                <p class="mt-3">暂无心仪号码</p>
+                <a href="{{ url_for('routes.prediction') }}" class="btn btn-primary">
+                    <i class="bi bi-search"></i> 去筛选号码
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadFavorites() {
+    try {
+        const resp = await fetch('/api/user/favorites');
+        if (!resp.ok) throw new Error('获取失败');
+        const data = await resp.json();
+        const container = document.getElementById('favoritesList');
+        const badge = document.getElementById('countBadge');
+        
+        if (!data.favorites || data.favorites.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-heartbreak display-1"></i>
+                    <p class="mt-3">暂无心仪号码</p>
+                    <a href="{{ url_for('routes.prediction') }}" class="btn btn-primary">
+                        <i class="bi bi-search"></i> 去筛选号码
+                    </a>
+                </div>`;
+            badge.textContent = '0 个';
+            return;
+        }
+        
+        badge.textContent = data.favorites.length + ' 个';
+        let html = '<div class="table-responsive"><table class="table table-hover">';
+        html += `<thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>彩种</th>
+                <th>号码</th>
+                <th>添加时间</th>
+                <th>备注</th>
+                <th>操作</th>
+            </tr>
+        </thead><tbody>`;
+        
+        data.favorites.forEach((item, idx) => {
+            // Format balls display
+            let ballsHtml = '';
+            if (item.red_balls) {
+                const reds = item.red_balls.split(',').map(n => parseInt(n));
+                const blues = item.blue_balls ? item.blue_balls.split(',').map(n => parseInt(n)) : [];
+                ballsHtml = reds.map(n => `<span class="ball ball-red">${String(n).padStart(2, '0')}</span>`).join('');
+                ballsHtml += blues.map(n => `<span class="ball ball-blue">${String(n).padStart(2, '0')}</span>`).join('');
+            }
+            
+            html += `<tr>
+                <td>${idx + 1}</td>
+                <td><span class="badge bg-${item.lottery_type === 'ssq' ? 'primary' : 'success'}">${item.lottery_type === 'ssq' ? '双色球' : '大乐透'}</span></td>
+                <td>${ballsHtml || item.combination || '-'}</td>
+                <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
+                <td>${item.note || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeFavorite(${item.id})">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function removeFavorite(id) {
+    if (!confirm('确定删除此心仪号码？')) return;
+    try {
+        const resp = await fetch('/api/user/favorites/' + id, { method: 'DELETE' });
+        if (resp.ok) {
+            loadFavorites();
+        } else {
+            alert('删除失败');
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadFavorites);
+</script>
+{% endblock %}

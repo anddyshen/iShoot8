@@ -57,6 +57,29 @@
                     </li>
                     {% endif %}
                 </ul>
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> {{ current_user.nickname or current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.profile') }}"><i class="bi bi-person"></i> 个人中心</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.favorites') }}"><i class="bi bi-heart"></i> 心仪号码</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.purchased') }}"><i class="bi bi-cart-check"></i> 已购号码</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth_routes.login') }}"><i class="bi bi-box-arrow-in-right"></i> 登录</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth_routes.register') }}"><i class="bi bi-person-plus"></i> 注册</a>
+                    </li>
+                    {% endif %}
+                </ul>
                 <span class="navbar-text small text-light me-3">
                     当前时间: <span id="live-clock">{{ current_datetime }}</span>
                 </span>
