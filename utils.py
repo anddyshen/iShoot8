@@ -51,13 +51,21 @@ def get_consecutive_groups(numbers):
             current_group = [sorted_numbers[i]]
     groups.append(current_group)
     
-    # 创建一个字典，将每个连续的球映射到其组索引
+    # 创建一个字典，将每个连续的球映射到其连号长度和组序号
     consecutive_map = {}
+    # 统计每种长度的连号组出现的次数，用于区分多个同长度组
+    length_counters = {}
     for idx, group in enumerate(groups):
-        if len(group) > 1: # 只对长度大于1的连续组进行标记
+        group_len = len(group)
+        if group_len > 1: # 只对长度大于1的连续组进行标记
+            if group_len not in length_counters:
+                length_counters[group_len] = 0
+            else:
+                length_counters[group_len] += 1
+            # 格式: "长度_序号"，如 "2_0" 表示第1个2连号组，"2_1" 表示第2个2连号组
+            group_key = f"{group_len}_{length_counters[group_len]}"
             for ball in group:
-                consecutive_map[ball] = idx % 3 # 使用模3来循环分配三种颜色
-
+                consecutive_map[ball] = group_key
     return groups, consecutive_map
 
 def calculate_omissions(all_draws, ball_range, ball_type='red'):

@@ -14,6 +14,8 @@
     font-size: 0.8rem;
     padding: 0.3rem 0.4rem;
     line-height: 1.2;
+    text-align: center;
+    vertical-align: middle;
 }
 .history-page .lottery-ball {
     width: 24px !important;
@@ -150,12 +152,14 @@
                 <td>{{ draw.second_prize_count }} 注 / {{ "{:,.0f}".format(draw.second_prize_amount) }} 元</td>
                 <td>{{ draw.third_prize_count }} 注 / {{ "{:,.0f}".format(draw.third_prize_amount) }} 元</td>
                 <td>
-                    <button class="btn btn-sm btn-info check-rule-btn" data-lottery-type="{{ lottery_type }}" data-issue="{{ draw.issue }}">
-                        检查规则
-                    </button>
-                    <button class="btn btn-sm btn-success smart-filter-check-btn mt-1" data-lottery-type="{{ lottery_type }}" data-issue="{{ draw.issue }}">
-                        智能筛选规则
-                    </button>
+                    <div class="d-flex justify-content-center gap-1">
+                        <button class="btn btn-sm btn-info check-rule-btn" data-lottery-type="{{ lottery_type }}" data-issue="{{ draw.issue }}">
+                            人工规则
+                        </button>
+                        <button class="btn btn-sm btn-success smart-filter-check-btn" data-lottery-type="{{ lottery_type }}" data-issue="{{ draw.issue }}">
+                            智选规则
+                        </button>
+                    </div>
                 </td>
             </tr>
             {% endfor %}

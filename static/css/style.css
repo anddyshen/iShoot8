@@ -22,15 +22,64 @@
     background-color: #084bb1; /* Bootstrap blue */
 }
 
-/* Styles for consecutive balls (example, adjust as per actual implementation) */
-.ball-consecutive-0 {
-    background-color: #168163; /* Deeper Teal/Green */
+/* Styles for consecutive balls - 区分红球和蓝球（大乐透后区） */
+/* ===== 红球（前区）连号 ===== */
+/* 2连号：深绿色系（更深） */
+.ball-consecutive-red-2_0,
+.ball-consecutive-red-2 {
+    background-color: #1e8449; /* 深绿色 - 第1组2连号 */
 }
-.ball-consecutive-1 {
-    background-color: #bdac16e8; /* Deeper Orange */
+.ball-consecutive-red-2_1 {
+    background-color: #145a32; /* 更深的绿色 - 第2组2连号 */
 }
-.ball-consecutive-2 {
-    background-color: #4e2b91; /* Deeper Purple */
+.ball-consecutive-red-2_2 {
+    background-color: #0e4225; /* 最深绿色 - 第3组2连号 */
+}
+
+/* 3连号：紫色系 */
+.ball-consecutive-red-3_0,
+.ball-consecutive-red-3 {
+    background-color: #9b59b6; /* 紫色 - 第1组3连号 */
+}
+.ball-consecutive-red-3_1 {
+    background-color: #8e44ad; /* 深紫色 - 第2组3连号 */
+}
+
+/* 4连号：金色系 */
+.ball-consecutive-red-4_0,
+.ball-consecutive-red-4 {
+    background-color: #f1c40f; /* 金色 - 第1组4连号 */
+}
+.ball-consecutive-red-4_1 {
+    background-color: #d4ac0d; /* 深金色 - 第2组4连号 */
+}
+
+/* 5连号：淡绿色系 */
+.ball-consecutive-red-5_0,
+.ball-consecutive-red-5 {
+    background-color: #58d68d; /* 淡绿色 - 第1组5连号 */
+}
+.ball-consecutive-red-5_1 {
+    background-color: #2ecc71; /* 绿色 - 第2组5连号 */
+}
+
+/* 6连号：淡蓝色系 */
+.ball-consecutive-red-6_0,
+.ball-consecutive-red-6 {
+    background-color: #85c1e9; /* 淡蓝色 - 第1组6连号 */
+}
+.ball-consecutive-red-6_1 {
+    background-color: #5dade2; /* 偏深淡蓝 - 第2组6连号 */
+}
+
+/* ===== 蓝球（后区）连号 - 仅大乐透后区有2个球可能组成连号 ===== */
+/* 大乐透后区2连号：橙色系 */
+.ball-consecutive-blue-2_0,
+.ball-consecutive-blue-2 {
+    background-color: #e67e22; /* 橙色 - 第1组2连号 */
+}
+.ball-consecutive-blue-2_1 {
+    background-color: #d35400; /* 深橙色 - 第2组2连号 */
 }
 
 /* Styles for the prediction tab buttons */
