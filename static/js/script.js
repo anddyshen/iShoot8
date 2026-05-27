@@ -436,6 +436,17 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
                 card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                 card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                 card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+                // Update add-purchased-btn and add-favorite-btn data attributes
+                const purchasedBtn = card.querySelector('.add-purchased-btn');
+                if (purchasedBtn) {
+                    purchasedBtn.dataset.redBalls = redBallsStr;
+                    purchasedBtn.dataset.blueBalls = blueBallsStr;
+                }
+                const favoriteBtn = card.querySelector('.add-favorite-btn');
+                if (favoriteBtn) {
+                    favoriteBtn.dataset.redBalls = redBallsStr;
+                    favoriteBtn.dataset.blueBalls = blueBallsStr;
+                }
                 // card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr; // Removed as per user request
                 // Clear previous rule check results if any
                 card.querySelector('.rule-check-results').innerHTML = '';
@@ -555,6 +566,17 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
                 card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                 card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                 card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+                // Update add-purchased-btn and add-favorite-btn data attributes
+                const purchasedBtn = card.querySelector('.add-purchased-btn');
+                if (purchasedBtn) {
+                    purchasedBtn.dataset.redBalls = redBallsStr;
+                    purchasedBtn.dataset.blueBalls = blueBallsStr;
+                }
+                const favoriteBtn = card.querySelector('.add-favorite-btn');
+                if (favoriteBtn) {
+                    favoriteBtn.dataset.redBalls = redBallsStr;
+                    favoriteBtn.dataset.blueBalls = blueBallsStr;
+                }
                 // card.querySelector('.share-to-social-btn').dataset.shareText = fullNumberStr; // Removed as per user request
                 // Clear previous rule check results if any
                 card.querySelector('.rule-check-results').innerHTML = '';
@@ -1442,6 +1464,17 @@ async function generateSmartFilterNumbers(lotteryType, indexToRegenerate = null)
                 card.querySelector('.check-generated-rules-btn').dataset.redBalls = redBallsStr;
                 card.querySelector('.check-generated-rules-btn').dataset.blueBalls = blueBallsStr;
                 card.querySelector('.copy-to-clipboard-btn').dataset.copyText = fullNumberStr;
+                // Update add-purchased-btn and add-favorite-btn data attributes
+                const purchasedBtn = card.querySelector('.add-purchased-btn');
+                if (purchasedBtn) {
+                    purchasedBtn.dataset.redBalls = redBallsStr;
+                    purchasedBtn.dataset.blueBalls = blueBallsStr;
+                }
+                const favoriteBtn = card.querySelector('.add-favorite-btn');
+                if (favoriteBtn) {
+                    favoriteBtn.dataset.redBalls = redBallsStr;
+                    favoriteBtn.dataset.blueBalls = blueBallsStr;
+                }
             }
         }
         console.log(`Frontend: Successfully rendered smart filter numbers for ${lotteryType}.`);

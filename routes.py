@@ -1084,12 +1084,13 @@ def intelligent_analysis():
 # New API endpoint to get draw data for clipboard
 @bp.route('/api/prediction/latest_issues', methods=['GET'])
 def api_latest_issues():
-    """获取双色球和大乐透的最新期号，用于前端默认值"""
+    """获取双色球和大乐透的最新期号+1（即即将开奖的期号），用于前端默认值"""
     latest_ssq = SSQDraw.query.order_by(SSQDraw.issue.desc()).first()
     latest_dlt = DLTDraw.query.order_by(DLTDraw.issue.desc()).first()
     
-    ssq_latest_issue = latest_ssq.issue if latest_ssq else None
-    dlt_latest_issue = latest_dlt.issue if latest_dlt else None
+    # 返回最新期号+1，因为用户通常会购买下一期（即将开奖的期号）
+    ssq_latest_issue = str(int(latest_ssq.issue) + 1) if latest_ssq else None
+    dlt_latest_issue = str(int(latest_dlt.issue) + 1) if latest_dlt else None
     
     return jsonify({
         'ssq': ssq_latest_issue,

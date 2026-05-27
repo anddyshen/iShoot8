@@ -4,7 +4,12 @@
 <div class="card shadow">
     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
         <h4 class="mb-0"><i class="bi bi-heart"></i> 心仪号码</h4>
-        <span class="badge bg-light text-dark" id="countBadge">0 个</span>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-light text-dark me-2" id="countBadge">0 个</span>
+            <button class="btn btn-sm btn-light" onclick="refreshFavorites()" title="刷新数据">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <p class="text-muted">
@@ -103,6 +108,10 @@ async function removeFavorite(id) {
     } catch (err) {
         alert('网络错误');
     }
+}
+
+async function refreshFavorites() {
+    await loadFavorites();
 }
 
 document.addEventListener('DOMContentLoaded', loadFavorites);

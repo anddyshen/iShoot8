@@ -3,8 +3,11 @@
 {% block content %}
 <div class="card shadow">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-        <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
-        <span class="badge bg-light text-dark" id="countBadge">0 条</span>
+                    <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
+                    <span class="badge bg-light text-dark" id="countBadge">0 条</span>
+                    <button class="btn btn-sm btn-light ms-2" onclick="refreshData()" title="刷新数据">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
     </div>
     <div class="card-body">
         <div class="row mb-3">
@@ -400,6 +403,42 @@ async function toggleEditIssue(id) {
         }
     }
 }
+
+async function refreshData() {
+    // 刷新数据：先对奖，再重新加载列表
+    await checkAllTickets();
+    loadTickets();
+}
+
+async function fetchLatestIssue(lotteryType) {
+    try {
+        const resp = await fetch('/api/prediction/latest_issues');
+        if (!resp.ok) throw new Error('获取最新期号失败');
+        const data = await resp.json();
+        return data[lotteryType] || '';
+    } catch (err) {
+        console.error('获取最新期号失败:', err);
+        return '';
+    }
+}
+
+// 弹窗显示时自动填充期号
+document.getElementById('addTicketModal').addEventListener('shown.bs.modal', async function() {
+    const lotteryType = document.getElementById('ticketLotteryType').value;
+    const issue = await fetchLatestIssue(lotteryType);
+    if (issue) {
+        document.getElementById('ticketIssue').value = issue;
+    }
+});
+
+// 切换彩种时自动更新期号
+document.getElementById('ticketLotteryType').addEventListener('change', async function() {
+    const lotteryType = this.value;
+    const issue = await fetchLatestIssue(lotteryType);
+    if (issue) {
+        document.getElementById('ticketIssue').value = issue;
+    }
+});
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 先对所有号码对奖
