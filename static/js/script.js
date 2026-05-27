@@ -1602,9 +1602,21 @@ async function getLatestIssues() {
     }
 }
 
-// 添加心仪号码
+// 添加心仪号码（自动填入最新期号+1作为备注）
 async function addFavoriteNumber(lotteryType, redBalls, blueBalls) {
     try {
+        // 获取最新开奖期号，然后+1作为即将开奖的期号
+        const issues = await getLatestIssues();
+        let defaultIssue = issues[lotteryType] || '';
+        let noteIssue = '';
+        if (defaultIssue) {
+            // 期号格式如 "2026050"，加1得到 "2026051"
+            const num = parseInt(defaultIssue);
+            if (!isNaN(num)) {
+                noteIssue = String(num + 1);
+            }
+        }
+        
         const resp = await fetch('/auth/api/favorites', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1612,7 +1624,7 @@ async function addFavoriteNumber(lotteryType, redBalls, blueBalls) {
                 lottery_type: lotteryType,
                 red_balls: redBalls,
                 blue_balls: blueBalls,
-                note: ''
+                note: noteIssue
             })
         });
         const result = await resp.json();

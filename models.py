@@ -1,8 +1,14 @@
 # models.py
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import random
 import string
+
+# 北京时间（UTC+8）
+BEIJING_TZ = timezone(timedelta(hours=8))
+def beijing_now():
+    """返回当前北京时间（naive datetime，不带时区信息，值就是北京时间）"""
+    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
 
 db = SQLAlchemy()
 
@@ -89,8 +95,8 @@ class News(db.Model):
     image_url = db.Column(db.String(500))
     summary = db.Column(db.String(500))
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=beijing_now)
+    updated_at = db.Column(db.DateTime, default=beijing_now, onupdate=beijing_now)
     is_homepage_display = db.Column(db.Boolean, default=False) # 是否在首页展示
     is_public = db.Column(db.Boolean, default=True) # 是否在公共区域展示 (后备)
 
@@ -127,7 +133,7 @@ class TrendProbabilities(db.Model):
     metric_value = db.Column(db.String(100), nullable=False) # 具体指标值，例如 "3:3", "2_consecutive"
     probability = db.Column(db.Float, nullable=False) # 概率值，例如 0.25
     distribution_data = db.Column(db.JSON) # 分布区间或详细数据，JSON格式
-    last_calculated_at = db.Column(db.DateTime, default=datetime.utcnow) # 最后计算时间戳
+    last_calculated_at = db.Column(db.DateTime, default=beijing_now) # 最后计算时间戳
 
     __table_args__ = (db.UniqueConstraint('lottery_type', 'lookback_period', 'trend_metric', 'metric_value', name='_lottery_trend_uc'),)
 
@@ -148,7 +154,7 @@ class SmartFilterStats(db.Model):
     draw_date = db.Column(db.Date, nullable=False)  # 开奖日期
     rule_name = db.Column(db.String(50), nullable=False)  # 规则名称，如 'zone_ratio', 'odd_even', 'sum' 等
     rule_value = db.Column(db.String(100), nullable=False)  # 该期该规则的实际值，如 '2:2:2', '3:3', '102' 等
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 记录创建时间
+    created_at = db.Column(db.DateTime, default=beijing_now)  # 记录创建时间
 
     __table_args__ = (
         db.Index('idx_smart_filter_stats_lottery_issue', 'lottery_type', 'issue'),
@@ -178,7 +184,7 @@ class SmartFilterStatsRanking(db.Model):
     rank = db.Column(db.Integer, nullable=False)  # 排名 (1, 2, 3)
     total_draws = db.Column(db.Integer, nullable=False)  # 统计的总期数
     last_updated_issue = db.Column(db.String(10), nullable=False)  # 最后更新时的期号
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
+    updated_at = db.Column(db.DateTime, default=beijing_now, onupdate=beijing_now)  # 更新时间
 
     __table_args__ = (
         db.UniqueConstraint('lottery_type', 'lookback_period', 'rule_name', 'rank', name='_smart_filter_ranking_uc'),
@@ -197,7 +203,7 @@ class UserFavorite(db.Model):
     blue_balls = db.Column(db.String(20), nullable=False)
     combination = db.Column(db.String(100))  # 完整组合描述
     note = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=beijing_now)
     
     user = db.relationship('User', backref=db.backref('favorites', lazy='dynamic'))
     
@@ -209,8 +215,15 @@ class UserFavorite(db.Model):
             'blue_balls': self.blue_balls,
             'combination': self.combination,
             'note': self.note,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _format_bj_time(self.created_at),
         }
+
+
+def _format_bj_time(dt):
+    """将时间格式化为ISO字符串（值本身就是北京时间，不加时区标识）"""
+    if not dt:
+        return None
+    return dt.isoformat()
 
 
 class UserPurchasedTicket(db.Model):
@@ -226,7 +239,7 @@ class UserPurchasedTicket(db.Model):
     prize_amount = db.Column(db.Float, default=0.0)  # 中奖金额
     prize_level = db.Column(db.String(50))  # 中奖等级
     note = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=beijing_now)
     checked_at = db.Column(db.DateTime)  # 最后对奖时间
     
     user = db.relationship('User', backref=db.backref('purchased_tickets', lazy='dynamic'))
@@ -243,8 +256,8 @@ class UserPurchasedTicket(db.Model):
             'prize_amount': self.prize_amount,
             'prize_level': self.prize_level,
             'note': self.note,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
+            'created_at': _format_bj_time(self.created_at),
+            'checked_at': _format_bj_time(self.checked_at),
         }
 
 
@@ -257,7 +270,7 @@ class User(db.Model):
     nickname = db.Column(db.String(50))
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=beijing_now)
     last_login_at = db.Column(db.DateTime)
     notification_config = db.Column(db.JSON, default=dict)
     preferences = db.Column(db.JSON, default=dict)
@@ -278,8 +291,8 @@ class User(db.Model):
             'nickname': self.nickname,
             'is_active': self.is_active,
             'is_admin': self.is_admin,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
+            'created_at': _format_bj_time(self.created_at),
+            'last_login_at': _format_bj_time(self.last_login_at),
         }
     
     def __repr__(self):

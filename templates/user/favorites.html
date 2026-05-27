@@ -4,8 +4,11 @@
 <div class="card shadow">
     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
         <h4 class="mb-0"><i class="bi bi-heart"></i> 心仪号码</h4>
-        <div class="d-flex align-items-center">
-            <span class="badge bg-light text-dark me-2" id="countBadge">0 个</span>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-light d-none" id="batchDeleteBtn" onclick="batchDeleteFavorites()">
+                <i class="bi bi-trash"></i> 批量删除
+            </button>
+            <span class="badge bg-light text-dark" id="countBadge">0 个</span>
             <button class="btn btn-sm btn-light" onclick="refreshFavorites()" title="刷新数据">
                 <i class="bi bi-arrow-clockwise"></i>
             </button>
@@ -16,6 +19,14 @@
             <i class="bi bi-info-circle"></i> 
             在号码筛选页面可以将心仪的号码保存到此，方便随时查看和使用。
         </p>
+
+        <!-- 彩种筛选标签 -->
+        <div class="btn-group mb-3" role="group" id="filterTabs">
+            <button type="button" class="btn btn-outline-secondary active" data-filter="all" onclick="switchFilter('all')">全部</button>
+            <button type="button" class="btn btn-outline-primary" data-filter="ssq" onclick="switchFilter('ssq')">双色球</button>
+            <button type="button" class="btn btn-outline-success" data-filter="dlt" onclick="switchFilter('dlt')">大乐透</button>
+        </div>
+
         <div id="favoritesList">
             <div class="text-center text-muted py-5">
                 <i class="bi bi-heartbreak display-1"></i>
@@ -25,19 +36,145 @@
                 </a>
             </div>
         </div>
+
+        <!-- 分页控件 -->
+        <nav id="paginationNav" style="display:none;" class="mt-3">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="prevPageBtn">
+                    <a class="page-link" href="#" onclick="goPage(-1)">上一页</a>
+                </li>
+                <li class="page-item disabled"><a class="page-link" id="pageInfo" href="#">1/1</a></li>
+                <li class="page-item" id="nextPageBtn">
+                    <a class="page-link" href="#" onclick="goPage(1)">下一页</a>
+                </li>
+            </ul>
+        </nav>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+/** 北京时间格式化：手动解析 ISO 字符串 "2026-05-28T00:55:00" 强制显示北京时间 */
+function formatBeijingTime(dateStr) {
+    if (!dateStr) return '-';
+    // 去除末尾的 Z 或 +08:00 时区标识（如果有）
+    let clean = dateStr.replace(/[Zz]$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+    // 格式: "2026-05-28T00:55:00" 或 "2026-05-28T00:55:00.123456"
+    const parts = clean.split('T');
+    if (parts.length !== 2) return dateStr;
+    return parts[0] + ' ' + parts[1].split('.')[0];
+}
+
+// 当前状态
+let currentFilter = 'all';
+let currentPage = 1;
+const perPage = 20;
+let totalPages = 1;
+let selectedIds = new Set();
+
+function switchFilter(filter) {
+    currentFilter = filter;
+    currentPage = 1;
+    selectedIds.clear();
+    updateBatchDeleteBtn();
+    // 更新按钮高亮
+    document.querySelectorAll('#filterTabs .btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`#filterTabs .btn[data-filter="${filter}"]`).classList.add('active');
+    loadFavorites();
+}
+
+function goPage(delta) {
+    const newPage = currentPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    selectedIds.clear();
+    updateBatchDeleteBtn();
+    loadFavorites();
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const isChecked = selectAllCheckbox.checked;
+    document.querySelectorAll('.fav-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+        const id = parseInt(cb.dataset.id);
+        if (isChecked) {
+            selectedIds.add(id);
+        } else {
+            selectedIds.delete(id);
+        }
+    });
+    updateBatchDeleteBtn();
+}
+
+function toggleSelect(id) {
+    const cb = document.querySelector(`.fav-checkbox[data-id="${id}"]`);
+    if (cb.checked) {
+        selectedIds.add(id);
+    } else {
+        selectedIds.delete(id);
+        // 如果取消了某个勾选，取消全选
+        document.getElementById('selectAll').checked = false;
+    }
+    updateBatchDeleteBtn();
+}
+
+function updateBatchDeleteBtn() {
+    const btn = document.getElementById('batchDeleteBtn');
+    if (selectedIds.size > 0) {
+        btn.classList.remove('d-none');
+        btn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (${selectedIds.size})`;
+    } else {
+        btn.classList.add('d-none');
+    }
+}
+
+async function batchDeleteFavorites() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`确定删除选中的 ${selectedIds.size} 条心仪号码？`)) return;
+    
+    try {
+        const resp = await fetch('/auth/api/favorites/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ids: Array.from(selectedIds)}),
+        });
+        if (resp.ok) {
+            selectedIds.clear();
+            updateBatchDeleteBtn();
+            loadFavorites();
+        } else {
+            const result = await resp.json();
+            alert('删除失败：' + (result.error || '未知错误'));
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
 async function loadFavorites() {
     try {
-        const resp = await fetch('/auth/api/favorites');
+        const url = `/auth/api/favorites?page=${currentPage}&per_page=${perPage}&lottery_type=${currentFilter}`;
+        const resp = await fetch(url);
         if (!resp.ok) throw new Error('获取失败');
         const data = await resp.json();
         const container = document.getElementById('favoritesList');
         const badge = document.getElementById('countBadge');
+        
+        // 更新分页状态
+        totalPages = data.total_pages || 1;
+        const paginationNav = document.getElementById('paginationNav');
+        const pageInfo = document.getElementById('pageInfo');
+        
+        if (totalPages > 1) {
+            paginationNav.style.display = '';
+            pageInfo.textContent = `${data.page}/${totalPages}`;
+            document.getElementById('prevPageBtn').className = 'page-item' + (data.page <= 1 ? ' disabled' : '');
+            document.getElementById('nextPageBtn').className = 'page-item' + (data.page >= totalPages ? ' disabled' : '');
+        } else {
+            paginationNav.style.display = 'none';
+        }
         
         if (!data.favorites || data.favorites.length === 0) {
             container.innerHTML = `
@@ -52,10 +189,13 @@ async function loadFavorites() {
             return;
         }
         
-        badge.textContent = data.favorites.length + ' 个';
+        badge.textContent = data.total + ' 个';
         let html = '<div class="table-responsive"><table class="table table-hover">';
         html += `<thead class="table-light">
             <tr>
+                <th style="width:40px;">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="form-check-input">
+                </th>
                 <th>#</th>
                 <th>彩种</th>
                 <th>号码</th>
@@ -65,6 +205,7 @@ async function loadFavorites() {
             </tr>
         </thead><tbody>`;
         
+        const startIdx = (data.page - 1) * data.per_page;
         data.favorites.forEach((item, idx) => {
             // Format balls display
             let ballsHtml = '';
@@ -75,15 +216,31 @@ async function loadFavorites() {
                 ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
             }
             
+            // 备注显示与编辑
+            const noteText = item.note || '';
+            
             html += `<tr>
-                <td>${idx + 1}</td>
+                <td>
+                    <input type="checkbox" class="form-check-input fav-checkbox" data-id="${item.id}" onchange="toggleSelect(${item.id})">
+                </td>
+                <td>${startIdx + idx + 1}</td>
                 <td><span class="badge bg-${item.lottery_type === 'ssq' ? 'primary' : 'success'}">${item.lottery_type === 'ssq' ? '双色球' : '大乐透'}</span></td>
                 <td>${ballsHtml || item.combination || '-'}</td>
-                <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
-                <td>${item.note || '-'}</td>
+                <td>${formatBeijingTime(item.created_at)}</td>
+                <td>
+                    <span id="note_text_${item.id}">${noteText || '-'}</span>
+                    <span id="note_edit_group_${item.id}" style="display:none;">
+                        <input type="text" id="note_input_${item.id}" value="${noteText}" class="form-control form-control-sm" style="display:inline-block;width:120px;">
+                        <button class="btn btn-sm btn-outline-success" onclick="saveNote(${item.id})" style="padding:0 6px;"><i class="bi bi-check-lg"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="cancelEditNote(${item.id})" style="padding:0 6px;"><i class="bi bi-x-lg"></i></button>
+                    </span>
+                    <button class="btn btn-sm btn-outline-info ms-1" id="note_btn_${item.id}" onclick="toggleEditNote(${item.id})" style="padding:0 8px;font-size:12px;">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="removeFavorite(${item.id})">
-                        <i class="bi bi-trash"></i> 删除
+                        <i class="bi bi-trash"></i>
                     </button>
                 </td>
             </tr>`;
@@ -101,12 +258,66 @@ async function removeFavorite(id) {
     try {
         const resp = await fetch('/auth/api/favorites/' + id, { method: 'DELETE' });
         if (resp.ok) {
+            selectedIds.delete(id);
+            updateBatchDeleteBtn();
             loadFavorites();
         } else {
             alert('删除失败');
         }
     } catch (err) {
         alert('网络错误');
+    }
+}
+
+function toggleEditNote(id) {
+    const textSpan = document.getElementById('note_text_' + id);
+    const editGroup = document.getElementById('note_edit_group_' + id);
+    const btn = document.getElementById('note_btn_' + id);
+    
+    if (editGroup.style.display === 'none') {
+        // 切换到编辑模式
+        textSpan.style.display = 'none';
+        editGroup.style.display = 'inline-block';
+        document.getElementById('note_input_' + id).focus();
+        btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        btn.className = 'btn btn-sm btn-outline-secondary ms-1';
+    } else {
+        // 取消编辑
+        cancelEditNote(id);
+    }
+}
+
+function cancelEditNote(id) {
+    const textSpan = document.getElementById('note_text_' + id);
+    const editGroup = document.getElementById('note_edit_group_' + id);
+    const btn = document.getElementById('note_btn_' + id);
+    
+    textSpan.style.display = 'inline';
+    editGroup.style.display = 'none';
+    btn.innerHTML = '<i class="bi bi-pencil"></i>';
+    btn.className = 'btn btn-sm btn-outline-info ms-1';
+}
+
+async function saveNote(id) {
+    const input = document.getElementById('note_input_' + id);
+    const newNote = input.value.trim();
+    
+    try {
+        const resp = await fetch('/auth/api/favorites/' + id, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({note: newNote}),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            const textSpan = document.getElementById('note_text_' + id);
+            textSpan.textContent = newNote || '-';
+            cancelEditNote(id);
+        } else {
+            alert('保存失败：' + (result.error || '未知错误'));
+        }
+    } catch (err) {
+        alert('网络错误，请重试');
     }
 }
 

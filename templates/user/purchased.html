@@ -3,11 +3,16 @@
 {% block content %}
 <div class="card shadow">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
-                    <span class="badge bg-light text-dark" id="countBadge">0 条</span>
-                    <button class="btn btn-sm btn-light ms-2" onclick="refreshData()" title="刷新数据">
-                        <i class="bi bi-arrow-clockwise"></i>
-                    </button>
+        <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-light d-none" id="batchDeleteBtn" onclick="batchDeleteTickets()">
+                <i class="bi bi-trash"></i> 批量删除
+            </button>
+            <span class="badge bg-light text-dark" id="countBadge">0 条</span>
+            <button class="btn btn-sm btn-light ms-2" onclick="refreshData()" title="刷新数据">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <div class="row mb-3">
@@ -155,10 +160,13 @@ let currentFilter = 'all';
 let currentPage = 1;
 const perPage = 20;
 let totalPages = 1;
+let selectedIds = new Set();
 
 function switchFilter(filter) {
     currentFilter = filter;
     currentPage = 1;
+    selectedIds.clear();
+    updateBatchDeleteBtn();
     // 更新按钮高亮
     document.querySelectorAll('#filterTabs .btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`#filterTabs .btn[data-filter="${filter}"]`).classList.add('active');
@@ -169,7 +177,69 @@ function goPage(delta) {
     const newPage = currentPage + delta;
     if (newPage < 1 || newPage > totalPages) return;
     currentPage = newPage;
+    selectedIds.clear();
+    updateBatchDeleteBtn();
     loadTickets();
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const isChecked = selectAllCheckbox.checked;
+    document.querySelectorAll('.ticket-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+        const id = parseInt(cb.dataset.id);
+        if (isChecked) {
+            selectedIds.add(id);
+        } else {
+            selectedIds.delete(id);
+        }
+    });
+    updateBatchDeleteBtn();
+}
+
+function toggleSelect(id) {
+    const cb = document.querySelector(`.ticket-checkbox[data-id="${id}"]`);
+    if (cb.checked) {
+        selectedIds.add(id);
+    } else {
+        selectedIds.delete(id);
+        document.getElementById('selectAll').checked = false;
+    }
+    updateBatchDeleteBtn();
+}
+
+function updateBatchDeleteBtn() {
+    const btn = document.getElementById('batchDeleteBtn');
+    if (selectedIds.size > 0) {
+        btn.classList.remove('d-none');
+        btn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (${selectedIds.size})`;
+    } else {
+        btn.classList.add('d-none');
+    }
+}
+
+async function batchDeleteTickets() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`确定删除选中的 ${selectedIds.size} 条已购号码？`)) return;
+    
+    try {
+        const resp = await fetch('/auth/api/purchased/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ids: Array.from(selectedIds)}),
+        });
+        if (resp.ok) {
+            selectedIds.clear();
+            updateBatchDeleteBtn();
+            checkAllTickets();
+            loadTickets();
+        } else {
+            const result = await resp.json();
+            alert('删除失败：' + (result.error || '未知错误'));
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
 }
 
 async function checkAllTickets() {
@@ -178,6 +248,15 @@ async function checkAllTickets() {
     } catch (err) {
         console.error('对奖失败:', err);
     }
+}
+
+/** 北京时间格式化：手动解析 ISO 字符串，强制显示北京时间 */
+function formatBeijingTime(dateStr) {
+    if (!dateStr) return '-';
+    let clean = dateStr.replace(/[Zz]$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+    const parts = clean.split('T');
+    if (parts.length !== 2) return dateStr;
+    return parts[0] + ' ' + parts[1].split('.')[0];
 }
 
 async function loadTickets() {
@@ -239,6 +318,9 @@ async function loadTickets() {
         let html = '<div class="table-responsive"><table class="table table-hover">';
         html += `<thead class="table-light">
             <tr>
+                <th style="width:40px;">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="form-check-input">
+                </th>
                 <th>#</th>
                 <th>彩种</th>
                 <th>期号</th>
@@ -269,6 +351,9 @@ async function loadTickets() {
             }
             
             html += `<tr>
+                <td>
+                    <input type="checkbox" class="form-check-input ticket-checkbox" data-id="${item.id}" onchange="toggleSelect(${item.id})">
+                </td>
                 <td>${startIdx + idx + 1}</td>
                 <td><span class="badge bg-${item.lottery_type === 'ssq' ? 'primary' : 'success'}">${item.lottery_type === 'ssq' ? '双色球' : '大乐透'}</span></td>
                 <td>
@@ -285,7 +370,7 @@ async function loadTickets() {
                 <td>${ballsHtml || '-'}</td>
                 <td>¥${(item.cost || 0).toFixed(2)}</td>
                 <td>${prizeHtml}</td>
-                <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
+                <td>${formatBeijingTime(item.created_at)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="removeTicket(${item.id})">
                         <i class="bi bi-trash"></i>
@@ -342,6 +427,8 @@ async function removeTicket(id) {
     try {
         const resp = await fetch('/auth/api/purchased/' + id, { method: 'DELETE' });
         if (resp.ok) {
+            selectedIds.delete(id);
+            updateBatchDeleteBtn();
             loadTickets();
         } else {
             alert('删除失败');

@@ -1,9 +1,14 @@
 # auth_routes.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw
 from config import CURRENT_SETTINGS
+
+# 北京时间（UTC+8）— 返回 naive datetime，与 models.py 保持一致
+BEIJING_TZ = timezone(timedelta(hours=8))
+def beijing_now():
+    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
 
 bp = Blueprint('auth_routes', __name__, url_prefix='/auth')
 
@@ -84,7 +89,7 @@ def login():
             return render_template('user/login.html')
         
         # 更新最后登录时间
-        user.last_login_at = datetime.utcnow()
+        user.last_login_at = beijing_now()
         db.session.commit()
         
         login_user(user, remember=remember)
@@ -190,7 +195,7 @@ def _check_ticket_prize(ticket):
         # 未开奖，清空奖金
         ticket.prize_amount = 0.0
         ticket.prize_level = None
-        ticket.checked_at = datetime.utcnow()
+        ticket.checked_at = beijing_now()
         return
     
     user_reds = sorted([int(x.strip()) for x in ticket.red_balls.split(',')])
@@ -238,7 +243,7 @@ def _check_ticket_prize(ticket):
     
     ticket.prize_amount = prize_amount
     ticket.prize_level = prize_level
-    ticket.checked_at = datetime.utcnow()
+    ticket.checked_at = beijing_now()
 
 
 # ===== 心仪号码 API =====
@@ -246,9 +251,33 @@ def _check_ticket_prize(ticket):
 @bp.route('/api/favorites', methods=['GET'])
 @login_required
 def api_get_favorites():
-    """获取用户的心仪号码列表"""
-    favorites = UserFavorite.query.filter_by(user_id=current_user.id).order_by(UserFavorite.created_at.desc()).all()
-    return jsonify({'favorites': [f.to_dict() for f in favorites]})
+    """获取用户的心仪号码列表（支持分页和彩种筛选）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    lottery_type = request.args.get('lottery_type', 'all').lower()
+    
+    query = UserFavorite.query.filter_by(user_id=current_user.id)
+    
+    if lottery_type in ['ssq', 'dlt']:
+        query = query.filter_by(lottery_type=lottery_type)
+    
+    # 先获取全部数据以便计算统计
+    all_favorites = query.order_by(UserFavorite.created_at.desc()).all()
+    total = len(all_favorites)
+    
+    # 分页
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_favorites = all_favorites[start:end]
+    
+    return jsonify({
+        'favorites': [f.to_dict() for f in page_favorites],
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': max(1, (total + per_page - 1) // per_page),
+        'current_filter': lottery_type,
+    })
 
 @bp.route('/api/favorites', methods=['POST'])
 @login_required
@@ -280,6 +309,46 @@ def api_add_favorite():
     db.session.commit()
     
     return jsonify({'message': '添加成功', 'favorite': favorite.to_dict()})
+
+@bp.route('/api/favorites/<int:favorite_id>', methods=['PUT'])
+@login_required
+def api_update_favorite(favorite_id):
+    """更新心仪号码备注"""
+    favorite = UserFavorite.query.filter_by(id=favorite_id, user_id=current_user.id).first()
+    if not favorite:
+        return jsonify({'error': '记录不存在'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    if 'note' in data:
+        favorite.note = data['note'].strip()
+    
+    db.session.commit()
+    return jsonify({'message': '更新成功', 'favorite': favorite.to_dict()})
+
+@bp.route('/api/favorites/batch_delete', methods=['POST'])
+@login_required
+def api_batch_delete_favorites():
+    """批量删除心仪号码"""
+    data = request.get_json()
+    if not data or 'ids' not in data or not isinstance(data['ids'], list):
+        return jsonify({'error': '请提供要删除的ID列表'}), 400
+    
+    ids = data['ids']
+    if not ids:
+        return jsonify({'error': 'ID列表不能为空'}), 400
+    
+    deleted_count = 0
+    for fav_id in ids:
+        favorite = UserFavorite.query.filter_by(id=fav_id, user_id=current_user.id).first()
+        if favorite:
+            db.session.delete(favorite)
+            deleted_count += 1
+    
+    db.session.commit()
+    return jsonify({'message': f'成功删除 {deleted_count} 条记录'})
 
 @bp.route('/api/favorites/<int:favorite_id>', methods=['DELETE'])
 @login_required
@@ -424,7 +493,7 @@ def api_add_purchased():
         prize_amount=prize_amount,
         prize_level=prize_level,
         note=note,
-        checked_at=datetime.utcnow() if draw else None,
+        checked_at=beijing_now() if draw else None,
     )
     db.session.add(ticket)
     db.session.commit()
@@ -469,6 +538,28 @@ def api_check_all_purchased():
     db.session.commit()
     
     return jsonify({'message': f'对奖完成，共处理 {checked_count} 条记录'})
+
+@bp.route('/api/purchased/batch_delete', methods=['POST'])
+@login_required
+def api_batch_delete_purchased():
+    """批量删除已购号码"""
+    data = request.get_json()
+    if not data or 'ids' not in data or not isinstance(data['ids'], list):
+        return jsonify({'error': '请提供要删除的ID列表'}), 400
+    
+    ids = data['ids']
+    if not ids:
+        return jsonify({'error': 'ID列表不能为空'}), 400
+    
+    deleted_count = 0
+    for tid in ids:
+        ticket = UserPurchasedTicket.query.filter_by(id=tid, user_id=current_user.id).first()
+        if ticket:
+            db.session.delete(ticket)
+            deleted_count += 1
+    
+    db.session.commit()
+    return jsonify({'message': f'成功删除 {deleted_count} 条记录'})
 
 @bp.route('/api/purchased/<int:ticket_id>', methods=['DELETE'])
 @login_required
