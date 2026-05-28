@@ -849,6 +849,12 @@ def purchased():
     """已购号码页面"""
     return render_template('user/purchased.html')
 
+@bp.route('/manual-entry')
+@login_required
+def manual_entry():
+    """手工添加号码页面"""
+    return render_template('user/manual_entry.html')
+
 
 @bp.route('/api/change_password', methods=['POST'])
 @login_required

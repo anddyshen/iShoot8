@@ -1,0 +1,774 @@
+{% extends "base.html" %}
+{% block title %}手工添加号码{% endblock %}
+{% block content %}
+<style>
+.ball-selector {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+}
+.ball-grid {
+    display: grid;
+    gap: 6px;
+}
+/* 双色球: 7列; 大乐透前区: 7列; 后区/蓝球: 7列 */
+.ball-grid.red-grid {
+    grid-template-columns: repeat(7, 1fr);
+}
+.ball-grid.blue-grid {
+    grid-template-columns: repeat(7, 1fr);
+}
+/* 大乐透后区12个用6列 */
+.ball-grid.blue-grid-12 {
+    grid-template-columns: repeat(6, 1fr);
+}
+.selector-ball {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.selector-ball.red {
+    background: #fff;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+.selector-ball.red:hover {
+    background: #fce4e4;
+}
+.selector-ball.red.selected {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+}
+.selector-ball.blue {
+    background: #fff;
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+.selector-ball.blue:hover {
+    background: #e4edfc;
+}
+.selector-ball.blue.selected {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.4);
+}
+.selector-ball:active {
+    transform: scale(0.9);
+}
+.selected-display {
+    font-size: 0.9rem;
+}
+
+/* 彩种按钮样式 */
+.lottery-type-btn {
+    min-width: 140px;
+    padding: 10px 20px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 2px solid;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.lottery-type-btn.ssq {
+    background: #fff;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+.lottery-type-btn.ssq:hover {
+    background: #fce4e4;
+}
+.lottery-type-btn.ssq.active {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+.lottery-type-btn.dlt {
+    background: #fff;
+    color: #198754;
+    border-color: #198754;
+}
+.lottery-type-btn.dlt:hover {
+    background: #e4f5ec;
+}
+.lottery-type-btn.dlt.active {
+    background: #198754;
+    color: #fff;
+    border-color: #198754;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+}
+
+/* 号码提示标签 */
+.ball-count-hint {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* 已添加号码卡片 */
+.ticket-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+}
+.ticket-card .ticket-balls {
+    font-size: 0.95rem;
+}
+.ticket-card .remove-btn {
+    cursor: pointer;
+    color: #dc3545;
+}
+</style>
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="bi bi-pencil"></i> 手工添加号码</h4>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <p class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    选择彩票类型，点击号码球选择号码，支持复式投注。设置好倍数和期号后，点击"加入列表"添加到下方的待提交列表，最后统一提交保存。
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('auth_routes.purchased') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回已购号码
+                </a>
+            </div>
+        </div>
+
+        <!-- ===== 彩种选择（按钮形式） ===== -->
+        <div class="mb-4 text-center">
+            <label class="form-label fw-bold mb-3" style="font-size:1.1rem;">选择彩种</label>
+            <div class="d-flex justify-content-center gap-3">
+                <button type="button" class="lottery-type-btn ssq active" id="btnLotterySSQ" onclick="switchLotteryType('ssq')">
+                    <i class="bi bi-circle-fill me-1" style="font-size:0.8rem;"></i> 双色球
+                </button>
+                <button type="button" class="lottery-type-btn dlt" id="btnLotteryDLT" onclick="switchLotteryType('dlt')">
+                    <i class="bi bi-circle-fill me-1" style="font-size:0.8rem;"></i> 大乐透
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 左栏：号码选择器 -->
+            <div class="col-md-7">
+                <!-- 期号和倍数输入 -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">期号</label>
+                        <div class="input-group" style="width:200px;">
+                            <button class="btn btn-outline-secondary" onclick="adjustIssue(-1)" type="button">−</button>
+                            <input type="text" class="form-control text-center" id="ticketIssue" placeholder="如 2026050" inputmode="numeric" pattern="[0-9]*" required>
+                            <button class="btn btn-outline-secondary" onclick="adjustIssue(1)" type="button">+</button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">倍数</label>
+                        <input type="number" class="form-control" id="ticketMultiplier" value="1" min="1" onchange="updateCost()">
+                    </div>
+                    <div class="col-md-3" id="additionalSection" style="display:none;">
+                        <label class="form-label">追加投注</label>
+                        <div class="form-check form-switch mt-2">
+                            <input type="checkbox" class="form-check-input" id="ticketAdditional" onchange="updateCost()" style="width:2.5em;height:1.25em;cursor:pointer;">
+                            <label class="form-check-label text-warning fw-bold" for="ticketAdditional">追加</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 红球/前区号码选择器 -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold" id="redLabel">红球号码（点击选择，支持复式）</label>
+                    <div class="ball-selector">
+                        <div class="ball-grid red-grid" id="redBallGrid">
+                            <!-- 由JS动态生成 -->
+                        </div>
+                        <div class="mt-2 ball-count-hint">
+                            <span id="redCountHint">已选 0 个</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 蓝球/后区号码选择器 -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold" id="blueLabel">蓝球号码（点击选择，支持复式）</label>
+                    <div class="ball-selector">
+                        <div class="ball-grid blue-grid" id="blueBallGrid">
+                            <!-- 由JS动态生成 -->
+                        </div>
+                        <div class="mt-2 ball-count-hint">
+                            <span id="blueCountHint">已选 0 个</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 已选号码显示 -->
+                <div class="mb-3">
+                    <div class="selected-display p-3 bg-light rounded">
+                        <div class="mb-2">
+                            <span class="text-muted">已选号码：</span>
+                        </div>
+                        <div id="selectedRedDisplay" class="mb-1">
+                            <span class="text-danger fw-bold">红球(前区)：</span><span class="text-muted">未选择</span>
+                        </div>
+                        <div id="selectedBlueDisplay">
+                            <span class="text-primary fw-bold">蓝球(后区)：</span><span class="text-muted">未选择</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右栏：注数/金额/操作 -->
+            <div class="col-md-5">
+                <!-- 注数与金额 -->
+                <div class="card bg-light mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3">投注信息</h6>
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <small class="text-muted d-block">注数</small>
+                                <h4 class="mb-0" id="ticketUnits">0</h4>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">单价</small>
+                                <h4 class="mb-0" id="unitPrice">2 元</h4>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">倍数</small>
+                                <h4 class="mb-0" id="displayMultiplier">1</h4>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="text-center">
+                            <small class="text-muted d-block">投注金额</small>
+                            <h3 class="text-danger fw-bold mb-0" id="ticketCostDisplay">¥0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="d-grid gap-2 mb-3">
+                    <button class="btn btn-primary btn-lg" onclick="addTolist()">
+                        <i class="bi bi-plus-circle"></i> 加入列表
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="clearSelection()">
+                        <i class="bi bi-x-circle"></i> 清空选择
+                    </button>
+                </div>
+
+                <!-- 快捷期号 -->
+                <div class="card bg-light">
+                    <div class="card-body py-2">
+                        <small class="text-muted">快捷期号：</small>
+                        <div class="d-flex gap-2 mt-1 flex-wrap">
+                            <button class="btn btn-sm btn-outline-primary" onclick="quickIssue('latest')">最新</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="quickIssue('prev')">上期</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 待提交列表 ===== -->
+        <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-check"></i> 待提交列表 
+                    <span class="badge bg-secondary" id="pendingCount">0</span>
+                </h5>
+                <div>
+                    <button class="btn btn-success me-2" onclick="submitAll()" id="submitAllBtn" disabled>
+                        <i class="bi bi-check-lg"></i> 提交全部保存
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="clearAll()" id="clearAllBtn" disabled>
+                        <i class="bi bi-trash"></i> 清空列表
+                    </button>
+                </div>
+            </div>
+            <div id="pendingList">
+                <div class="text-center text-muted py-4" id="emptyHint">
+                    <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                    <p class="mt-2">列表为空，请在上方选择号码后点击"加入列表"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ===== 组合数计算 =====
+function combination(n, k) {
+    if (k > n || k < 0) return 0;
+    if (k === 0 || k === n) return 1;
+    k = Math.min(k, n - k);
+    let result = 1;
+    for (let i = 1; i <= k; i++) {
+        result = result * (n - k + i) / i;
+    }
+    return result;
+}
+
+// ===== 状态 =====
+let currentLotteryType = 'ssq';      // 'ssq' or 'dlt'
+let selectedRedBalls = new Set();
+let selectedBlueBalls = new Set();
+let pendingTickets = [];            // 待提交列表
+
+// ===== 彩种切换（按钮形式） =====
+function switchLotteryType(type) {
+    currentLotteryType = type;
+    // 更新按钮状态
+    document.querySelectorAll('.lottery-type-btn').forEach(btn => btn.classList.remove('active'));
+    if (type === 'ssq') {
+        document.getElementById('btnLotterySSQ').classList.add('active');
+    } else {
+        document.getElementById('btnLotteryDLT').classList.add('active');
+    }
+    // 控制追加投注显示（仅大乐透）
+    const additionalSection = document.getElementById('ticketAdditional').closest('.col-md-3');
+    if (type === 'dlt') {
+        additionalSection.style.display = '';
+    } else {
+        additionalSection.style.display = 'none';
+        document.getElementById('ticketAdditional').checked = false;
+    }
+    // 重新初始化号码选择器
+    initBallSelectors(type);
+    // 自动获取最新期号
+    fetchLatestIssue(type, 'latest');
+    updateCost();
+}
+
+// ===== 初始化号码选择器 =====
+function initBallSelectors(lotteryType) {
+    if (lotteryType === 'ssq') {
+        document.getElementById('redLabel').textContent = '红球号码（点击选择，支持复式，1-33选6个）';
+        document.getElementById('blueLabel').textContent = '蓝球号码（点击选择，支持复式，1-16选1个）';
+        buildBallSelector('redBallGrid', 33, 'red', 'red-grid');
+        buildBallSelector('blueBallGrid', 16, 'blue', 'blue-grid');
+    } else {
+        document.getElementById('redLabel').textContent = '前区号码（点击选择，支持复式，1-35选5个）';
+        document.getElementById('blueLabel').textContent = '后区号码（点击选择，支持复式，1-12选2个）';
+        buildBallSelector('redBallGrid', 35, 'red', 'red-grid');
+        buildBallSelector('blueBallGrid', 12, 'blue', 'blue-grid-12');
+    }
+    clearSelection();
+}
+
+function buildBallSelector(containerId, count, type, gridClass) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.className = 'ball-grid ' + gridClass;
+    for (let i = 1; i <= count; i++) {
+        const ball = document.createElement('div');
+        ball.className = 'selector-ball ' + type;
+        ball.textContent = String(i).padStart(2, '0');
+        ball.dataset.num = i;
+        ball.onclick = function() { toggleBall(this, type); };
+        container.appendChild(ball);
+    }
+}
+
+function toggleBall(el, type) {
+    const num = parseInt(el.dataset.num);
+    if (type === 'red') {
+        if (selectedRedBalls.has(num)) {
+            selectedRedBalls.delete(num);
+            el.classList.remove('selected');
+        } else {
+            selectedRedBalls.add(num);
+            el.classList.add('selected');
+        }
+    } else if (type === 'blue') {
+        if (selectedBlueBalls.has(num)) {
+            selectedBlueBalls.delete(num);
+            el.classList.remove('selected');
+        } else {
+            selectedBlueBalls.add(num);
+            el.classList.add('selected');
+        }
+    }
+    updateSelectedDisplay();
+    updateCost();
+}
+
+function updateSelectedDisplay() {
+    const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+    
+    const redDisplay = document.getElementById('selectedRedDisplay');
+    const blueDisplay = document.getElementById('selectedBlueDisplay');
+    
+    if (redArr.length > 0) {
+        redDisplay.innerHTML = '<span class="text-danger fw-bold">红球(前区)：</span>' + 
+            redArr.map(n => `<span class="badge bg-danger me-1">${String(n).padStart(2, '0')}</span>`).join('');
+    } else {
+        redDisplay.innerHTML = '<span class="text-danger fw-bold">红球(前区)：</span><span class="text-muted">未选择</span>';
+    }
+    
+    if (blueArr.length > 0) {
+        blueDisplay.innerHTML = '<span class="text-primary fw-bold">蓝球(后区)：</span>' + 
+            blueArr.map(n => `<span class="badge bg-primary me-1">${String(n).padStart(2, '0')}</span>`).join('');
+    } else {
+        blueDisplay.innerHTML = '<span class="text-primary fw-bold">蓝球(后区)：</span><span class="text-muted">未选择</span>';
+    }
+    
+    // 更新数量提示
+    document.getElementById('redCountHint').textContent = '已选 ' + redArr.length + ' 个';
+    document.getElementById('blueCountHint').textContent = '已选 ' + blueArr.length + ' 个';
+}
+
+function clearSelection() {
+    selectedRedBalls.clear();
+    selectedBlueBalls.clear();
+    document.querySelectorAll('#redBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('#blueBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    updateSelectedDisplay();
+    updateCost();
+}
+
+// ===== 注数和金额计算 =====
+function calculateUnits(redCount, blueCount, lotteryType) {
+    if (lotteryType === 'ssq') {
+        return combination(redCount, 6) * combination(blueCount, 1);
+    } else {
+        return combination(redCount, 5) * combination(blueCount, 2);
+    }
+}
+
+function getUnitPrice() {
+    const isAdditional = document.getElementById('ticketAdditional').checked;
+    if (currentLotteryType === 'dlt' && isAdditional) {
+        return 3;
+    }
+    return 2;
+}
+
+function updateCost() {
+    const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
+    const redCount = selectedRedBalls.size;
+    const blueCount = selectedBlueBalls.size;
+    const unitPrice = getUnitPrice();
+    
+    document.getElementById('unitPrice').textContent = unitPrice + ' 元';
+    document.getElementById('displayMultiplier').textContent = multiplier;
+    
+    let units = 0;
+    if (redCount > 0 && blueCount > 0) {
+        units = calculateUnits(redCount, blueCount, currentLotteryType);
+    }
+    
+    document.getElementById('ticketUnits').textContent = units;
+    const totalCost = units * unitPrice * multiplier;
+    document.getElementById('ticketCostDisplay').textContent = '¥' + totalCost;
+}
+
+// ===== 期号操作 =====
+function adjustIssue(delta) {
+    const input = document.getElementById('ticketIssue');
+    let val = parseInt(input.value);
+    if (isNaN(val)) {
+        return;
+    }
+    input.value = val + delta;
+}
+
+function quickIssue(type) {
+    const offset = (type === 'latest') ? 0 : 1;
+    fetchDrawNumbers(currentLotteryType, offset);
+}
+
+async function fetchDrawNumbers(lotteryType, offset) {
+    try {
+        const resp = await fetch(`/api/prize_check/latest_draws?lottery_type=${lotteryType}&offset=${offset}`);
+        if (!resp.ok) throw new Error('获取开奖号码失败');
+        const data = await resp.json();
+        
+        // 填入期号
+        document.getElementById('ticketIssue').value = data.issue;
+        
+        // 清空当前选择
+        clearSelection();
+        
+        // 选择红球
+        data.red_balls.forEach(num => {
+            selectedRedBalls.add(num);
+            const ballEl = document.querySelector(`#redBallGrid .selector-ball[data-num="${num}"]`);
+            if (ballEl) ballEl.classList.add('selected');
+        });
+        
+        // 选择蓝球
+        data.blue_balls.forEach(num => {
+            selectedBlueBalls.add(num);
+            const ballEl = document.querySelector(`#blueBallGrid .selector-ball[data-num="${num}"]`);
+            if (ballEl) ballEl.classList.add('selected');
+        });
+        
+        updateSelectedDisplay();
+        updateCost();
+    } catch (err) {
+        console.error('获取开奖号码失败:', err);
+        alert('获取开奖号码失败，请检查网络连接或刷新页面重试');
+    }
+}
+
+async function fetchLatestIssue(lotteryType, mode) {
+    try {
+        const resp = await fetch('/api/prediction/latest_issues');
+        if (!resp.ok) throw new Error('获取期号失败');
+        const data = await resp.json();
+        // API 返回的是最新期号+1（即将开奖的期号）
+        const apiValue = data[lotteryType];
+        if (!apiValue) {
+            alert('未获取到期号数据，请确认数据库中已有开奖记录');
+            return;
+        }
+        const apiNum = parseInt(apiValue);
+        let targetNum;
+        if (mode === 'prev') {
+            // 上期 = 最新开奖期号 - 1
+            targetNum = apiNum - 2;
+        } else {
+            // 最新 = 最新开奖期号（API值-1）
+            targetNum = apiNum - 1;
+        }
+        document.getElementById('ticketIssue').value = String(targetNum);
+    } catch (err) {
+        console.error('获取期号失败:', err);
+        if (mode === undefined) {
+            // 静默失败（自动加载时）
+        } else {
+            alert('获取期号失败，请检查网络连接或刷新页面重试');
+        }
+    }
+}
+
+// ===== 加入待提交列表 =====
+function addTolist() {
+    const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+    const issue = document.getElementById('ticketIssue').value.trim();
+    const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
+    const isAdditional = document.getElementById('ticketAdditional').checked;
+    
+    if (!issue) {
+        alert('请输入期号');
+        return;
+    }
+    if (redArr.length === 0) {
+        alert('请选择红球/前区号码');
+        return;
+    }
+    if (blueArr.length === 0) {
+        alert('请选择蓝球/后区号码');
+        return;
+    }
+    
+    // 计算注数和金额
+    const units = calculateUnits(redArr.length, blueArr.length, currentLotteryType);
+    if (units === 0) {
+        alert('号码组合无效，请检查选择');
+        return;
+    }
+    const unitPrice = getUnitPrice();
+    const cost = units * unitPrice * multiplier;
+    
+    const ticket = {
+        lottery_type: currentLotteryType,
+        issue: issue,
+        red_balls: redArr.join(','),
+        blue_balls: blueArr.join(','),
+        red_count: redArr.length,
+        blue_count: blueArr.length,
+        is_additional: isAdditional,
+        multiplier: multiplier,
+        units: units,
+        cost: cost,
+        unit_price: unitPrice,
+    };
+    
+    pendingTickets.push(ticket);
+    updatePendingList();
+    clearSelection();
+}
+
+// ===== 更新待提交列表 =====
+function updatePendingList() {
+    const container = document.getElementById('pendingList');
+    const countBadge = document.getElementById('pendingCount');
+    const emptyHint = document.getElementById('emptyHint');
+    const submitBtn = document.getElementById('submitAllBtn');
+    const clearBtn = document.getElementById('clearAllBtn');
+    
+    countBadge.textContent = pendingTickets.length;
+    
+    if (pendingTickets.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4" id="emptyHint">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-2">列表为空，请在上方选择号码后点击"加入列表"</p>
+            </div>`;
+        submitBtn.disabled = true;
+        clearBtn.disabled = true;
+        return;
+    }
+    
+    submitBtn.disabled = false;
+    clearBtn.disabled = false;
+    
+    let totalCost = 0;
+    let totalUnits = 0;
+    let html = '';
+    
+    pendingTickets.forEach((ticket, idx) => {
+        const typeLabel = ticket.lottery_type === 'ssq' ? '双色球' : '大乐透';
+        const typeClass = ticket.lottery_type === 'ssq' ? 'danger' : 'success';
+        const reds = ticket.red_balls.split(',').map(Number);
+        const blues = ticket.blue_balls.split(',').map(Number);
+        const additionalLabel = ticket.is_additional ? 
+            '<span class="badge bg-warning text-dark ms-1">追加</span>' : '';
+        
+        const redHtml = reds.map(n => 
+            `<span class="badge" style="background:#dc3545;color:#fff;margin:1px;">${String(n).padStart(2, '0')}</span>`
+        ).join('');
+        const blueHtml = blues.map(n => 
+            `<span class="badge" style="background:#0d6efd;color:#fff;margin:1px;">${String(n).padStart(2, '0')}</span>`
+        ).join('');
+        
+        html += `
+        <div class="ticket-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="mb-1">
+                        <span class="badge bg-${typeClass} me-2">${typeLabel}</span>
+                        <span class="fw-bold">第 ${ticket.issue} 期</span>
+                        <span class="text-muted ms-2">${ticket.multiplier} 倍</span>
+                        ${additionalLabel}
+                    </div>
+                    <div class="ticket-balls">
+                        <span class="text-danger fw-bold">前区：</span>${redHtml}
+                        <span class="ms-2 text-primary fw-bold">后区：</span>${blueHtml}
+                    </div>
+                    <div class="mt-1">
+                        <small class="text-muted">${ticket.units} 注 × ${ticket.unit_price} 元 × ${ticket.multiplier} 倍 = </small>
+                        <span class="text-danger fw-bold">¥${ticket.cost}</span>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-danger remove-btn ms-2" onclick="removeTicket(${idx})">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>`;
+        
+        totalCost += ticket.cost;
+        totalUnits += ticket.units;
+    });
+    
+    html += `
+    <div class="alert alert-info d-flex justify-content-between align-items-center">
+        <span>
+            <strong>合计：</strong>${pendingTickets.length} 条记录，${totalUnits} 注
+        </span>
+        <span class="text-danger fw-bold" style="font-size:1.2rem;">总金额：¥${totalCost}</span>
+    </div>`;
+    
+    container.innerHTML = html;
+}
+
+function removeTicket(idx) {
+    pendingTickets.splice(idx, 1);
+    updatePendingList();
+}
+
+function clearAll() {
+    if (pendingTickets.length === 0) return;
+    if (!confirm('确定清空待提交列表中的所有号码？')) return;
+    pendingTickets = [];
+    updatePendingList();
+}
+
+// ===== 提交保存 =====
+async function submitAll() {
+    if (pendingTickets.length === 0) return;
+    
+    const submitBtn = document.getElementById('submitAllBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 提交中...';
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const ticket of pendingTickets) {
+        const data = {
+            lottery_type: ticket.lottery_type,
+            issue: ticket.issue,
+            red_balls: ticket.red_balls,
+            blue_balls: ticket.blue_balls,
+            is_additional: ticket.is_additional,
+            cost: ticket.cost,
+            multiplier: ticket.multiplier,
+            note: '手工添加',
+        };
+        
+        try {
+            const resp = await fetch('/auth/api/purchased', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+            if (resp.ok) {
+                successCount++;
+            } else {
+                const result = await resp.json();
+                console.error('添加失败:', result.error);
+                failCount++;
+            }
+        } catch (err) {
+            console.error('网络错误:', err);
+            failCount++;
+        }
+    }
+    
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> 提交全部保存';
+    
+    if (failCount === 0) {
+        alert(`全部保存成功！共添加 ${successCount} 条记录。`);
+    } else {
+        alert(`保存完成：成功 ${successCount} 条，失败 ${failCount} 条。失败记录请重试。`);
+    }
+    
+    pendingTickets = [];
+    updatePendingList();
+}
+
+// ===== 初始化 =====
+document.addEventListener('DOMContentLoaded', async function() {
+    // 初始化号码选择器
+    initBallSelectors('ssq');
+    // 获取最新期号
+    await fetchLatestIssue('ssq', 'latest');
+    updateCost();
+});
+</script>
+{% endblock %}
