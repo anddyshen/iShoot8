@@ -399,7 +399,7 @@ async function generateRandomNumbers(lotteryType, indexToRegenerate = null) {
                             <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                             <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
-                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 欲购号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_random_rule_check_${index}"></div>
                         </div>`;
@@ -529,7 +529,7 @@ async function generatePredictedNumbers(lotteryType, indexToRegenerate = null) {
                             <button class="btn btn-sm btn-outline-info me-2 regenerate-predicted-btn" data-lottery-type="${lotteryType}" data-index="${index}">重新生成</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                             <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
-                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 欲购号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                             <div class="rule-check-results mt-2" id="${lotteryType}_predicted_rule_check_${index}"></div>
                         </div>`;
@@ -1426,7 +1426,7 @@ async function generateSmartFilterNumbers(lotteryType, indexToRegenerate = null)
                             <button class="btn btn-sm btn-outline-warning me-2 check-smart-filter-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查智能筛选规则</button>
                             <button class="btn btn-sm btn-outline-primary me-2 check-generated-rules-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}">检查规则</button>
                             <button class="btn btn-sm btn-outline-danger me-2 add-favorite-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-heart"></i> 心仪号码</button>
-                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 购买号码</button>
+                            <button class="btn btn-sm btn-outline-success me-2 add-purchased-btn" data-lottery-type="${lotteryType}" data-red-balls="${redBallsStr}" data-blue-balls="${blueBallsStr}"><i class="bi bi-cart"></i> 欲购号码</button>
                             <button class="btn btn-sm btn-outline-secondary me-2 copy-to-clipboard-btn" data-copy-text="${fullNumberStr}">复制结果</button>
                         </div>`;
             });
