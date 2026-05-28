@@ -152,6 +152,14 @@ DEFAULT_SETTINGS = {
     # 用户系统设置
     "allow_registration": False,  # 是否允许用户注册，默认关闭
 
+    # 邮件服务设置
+    "smtp_server": "",
+    "smtp_port": 587,
+    "smtp_username": "",
+    "smtp_password": "",
+    "smtp_use_tls": True,
+    "smtp_from_name": "iShoot 彩票助手",
+
     # 定时更新设置
     "scheduled_update_enabled": True,
     "scheduled_update_hour": 3,
@@ -237,6 +245,14 @@ GENERAL_SETTINGS_KEYS = [
     'admin_password',
     'news_data_source_url',
     'prediction_generation_mode', # 新增预测生成模式
+
+    # 邮件服务设置（SMTP）
+    'smtp_server',
+    'smtp_port',
+    'smtp_username',
+    'smtp_password',
+    'smtp_use_tls',
+    'smtp_from_name',
 ]
 
 # 趋势设置参数键
@@ -312,6 +328,14 @@ SETTING_LABELS_CHINESE = {
     # 趣味游戏消息中文标签
     'fun_game_no_prize_message': "趣味游戏：未中奖消息",
     'fun_game_prize_message': "趣味游戏：中奖消息",
+
+    # 邮件服务设置
+    'smtp_server': 'SMTP 服务器',
+    'smtp_port': 'SMTP 端口',
+    'smtp_username': 'SMTP 用户名',
+    'smtp_password': 'SMTP 密码',
+    'smtp_use_tls': 'SMTP 使用 TLS',
+    'smtp_from_name': '邮件发件人名称',
 
     # 用户设置
     'allow_registration': '允许用户注册',

@@ -55,6 +55,18 @@ def load_user(user_id):
 # 初始化 APScheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Shanghai'))
 
+# ==================== 邮件配置 ====================
+app.config['MAIL_SERVER'] = CURRENT_SETTINGS.get('smtp_server', '')
+app.config['MAIL_PORT'] = int(CURRENT_SETTINGS.get('smtp_port', 587))
+app.config['MAIL_USERNAME'] = CURRENT_SETTINGS.get('smtp_username', '')
+app.config['MAIL_PASSWORD'] = CURRENT_SETTINGS.get('smtp_password', '')
+app.config['MAIL_USE_TLS'] = CURRENT_SETTINGS.get('smtp_use_tls', True)
+app.config['MAIL_DEFAULT_SENDER'] = (
+    CURRENT_SETTINGS.get('smtp_from_name', 'iShoot 彩票助手'),
+    CURRENT_SETTINGS.get('smtp_username', '')
+)
+# ================================================
+
 def setup_scheduled_job(app_instance):
     """根据 CURRENT_SETTINGS 设置或更新定时任务"""
     global scheduler
@@ -85,8 +97,40 @@ def setup_scheduled_job(app_instance):
     else:
         print("定时更新已禁用")
 
+# 导入 Flask-Mail
+from flask_mail import Mail
+
+# 全局初始化 Flask-Mail（先不传 app）
+mail = Mail()
+
+# 在 app 配置之后初始化 Mail
+mail.init_app(app)
+app.mail = mail  # 附加到 app 便于其他模块访问
+
 # 导入数据管理模块
 from data_manager import save_draw_data, get_latest_draws, update_latest_draws
+
+# ==================== 通知系统初始化 ====================
+from notification import manager as notification_manager
+from notification.in_app_notifier import InAppNotifier
+from notification.email_notifier import EmailNotifier
+from notification.synology_notifier import SynologyChatNotifier
+
+def init_notification_system():
+    """初始化并注册所有通知渠道"""
+    notification_manager.register(InAppNotifier())
+    notification_manager.register(EmailNotifier())
+    notification_manager.register(SynologyChatNotifier())
+    print("通知系统初始化完成，已注册渠道:")
+    for n in notification_manager.get_all_notifiers():
+        # 移除 emoji 避免 Windows 控制台编码问题
+        import re
+        label = re.sub(r'[^\u4e00-\u9fff\w\s\-]', '', n.channel_label).strip()
+        print(f"  - {label}")
+
+# 将通知管理器附加到 app 便于访问（初始化在下方 app_context 中执行）
+app.notification_manager = notification_manager
+# =======================================================
 
 # 导入路由
 import routes
@@ -143,6 +187,9 @@ def inject_global_data():
 with app.app_context():
     db.create_all()
     AdminSettings.initialize_default_settings() # Initialize default settings, including lookback periods
+
+    # 初始化通知系统
+    init_notification_system()
 
     # 将调度器附加到 app 上，便于 admin_routes 访问
     app.scheduler = scheduler

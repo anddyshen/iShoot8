@@ -1906,3 +1906,115 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// ==================== 通知系统前端功能 ====================
+
+// 更新未读通知数量徽标
+async function updateNotificationBadge() {
+    try {
+        const res = await fetch('/auth/api/notification/unread_count');
+        const data = await res.json();
+        const badge = document.getElementById('notifBadge');
+        if (badge) {
+            const count = data.unread_count || 0;
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (e) {
+        // 静默失败
+    }
+}
+
+// 加载通知预览（下拉菜单中显示最近5条通知）
+async function loadNotificationPreview() {
+    const previewContainer = document.getElementById('notificationPreview');
+    const countLabel = document.getElementById('notifPreviewCount');
+    
+    if (!previewContainer) return;
+    
+    // 如果已经有内容，不重复加载（因为dropdown可能会反复打开）
+    if (previewContainer.dataset.loaded === 'true') return;
+    
+    previewContainer.innerHTML = '<li style="text-align:center;padding:20px;color:#999;"><small>加载中...</small></li>';
+    
+    try {
+        const res = await fetch('/auth/api/notification/history?page=1&per_page=5');
+        const data = await res.json();
+        
+        // 标记为已加载
+        previewContainer.dataset.loaded = 'true';
+        
+        if (countLabel) {
+            const unread = data.logs.filter(l => l.status === 'sent').length;
+            countLabel.textContent = `(${unread} 条未读)`;
+        }
+        
+        if (!data.logs || data.logs.length === 0) {
+            previewContainer.innerHTML = '<li style="text-align:center;padding:20px;color:#999;"><small>暂无通知</small></li>';
+            return;
+        }
+        
+        let html = '';
+        data.logs.forEach(log => {
+            const statusIcon = log.status === 'sent' ? '🔔' : '❌';
+            const truncContent = log.content ? log.content.replace(/<[^>]*>/g, '').substring(0, 50) + (log.content.length > 50 ? '...' : '') : '';
+            html += `
+                <li>
+                    <a class="dropdown-item notification-preview-item" href="${log.status === 'sent' ? '#' : '#'}" onclick="markRead(${log.id})">
+                        <div style="display:flex;align-items:flex-start;gap:8px;">
+                            <span>${statusIcon}</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13px;font-weight:500;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${log.title}</div>
+                                <div style="font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${truncContent}</div>
+                                <div style="font-size:10px;color:#bbb;margin-top:2px;">${log.sent_at || ''}</div>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+            `;
+        });
+        
+        previewContainer.innerHTML = html;
+        
+    } catch (e) {
+        previewContainer.innerHTML = '<li style="text-align:center;padding:20px;color:#999;"><small>加载失败</small></li>';
+    }
+}
+
+// 标记单条通知为已读
+async function markRead(id) {
+    try {
+        await fetch('/auth/api/notification/mark_read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [id] }),
+        });
+        updateNotificationBadge();
+    } catch (e) {
+        // 静默失败
+    }
+}
+
+// 重置预览加载状态（当下拉菜单关闭时）
+document.addEventListener('DOMContentLoaded', function() {
+    const notifDropdown = document.getElementById('notificationDropdown');
+    if (notifDropdown) {
+        // 当dropdown关闭时，重置加载状态，以便下次打开时重新加载
+        notifDropdown.addEventListener('hidden.bs.dropdown', function() {
+            const preview = document.getElementById('notificationPreview');
+            if (preview) {
+                preview.dataset.loaded = '';
+            }
+        });
+    }
+    
+    // 定期更新通知徽标（每30秒）
+    if (document.getElementById('notifBadge')) {
+        updateNotificationBadge();
+        setInterval(updateNotificationBadge, 30000);
+    }
+});

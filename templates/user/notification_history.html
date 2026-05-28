@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}通知历史 - {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+.notification-history { max-width: 900px; margin: 0 auto; }
+.history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.history-header h1 { font-size: 24px; color: #333; margin: 0; }
+.history-actions { display: flex; gap: 8px; }
+.history-actions select, .history-actions button { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer; }
+.history-actions select { background: #fff; }
+.history-actions button { background: #fff; transition: all 0.2s; }
+.history-actions button:hover { border-color: #667eea; color: #667eea; }
+.history-actions .btn-danger:hover { border-color: #ff4d4f; color: #ff4d4f; }
+.notification-item { display: flex; align-items: flex-start; padding: 16px; background: #fff; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: all 0.2s; cursor: pointer; }
+.notification-item:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+.notification-item.unread { border-left: 4px solid #667eea; }
+.notification-item.read { opacity: 0.75; }
+.notification-icon { font-size: 24px; margin-right: 14px; line-height: 1.4; }
+.notification-content { flex: 1; min-width: 0; }
+.notification-title { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.notification-title .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 400; }
+.badge-success { background: #e6f7e6; color: #52c41a; }
+.badge-failed { background: #fff2f0; color: #ff4d4f; }
+.badge-in_app { background: #e6f7ff; color: #1890ff; }
+.badge-email { background: #fff7e6; color: #fa8c16; }
+.badge-synology_chat { background: #f6f0ff; color: #722ed1; }
+.notification-text { font-size: 14px; color: #666; line-height: 1.5; margin-bottom: 6px; }
+.notification-meta { font-size: 12px; color: #bbb; display: flex; gap: 12px; }
+.notification-meta .channel-tag { padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.mark-read-btn { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); padding: 4px 12px; font-size: 12px; color: #667eea; background: transparent; border: 1px solid #667eea; border-radius: 6px; cursor: pointer; opacity: 0; transition: all 0.2s; }
+.notification-item:hover .mark-read-btn { opacity: 1; }
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state .empty-text { font-size: 16px; }
+.pagination { display: flex; justify-content: center; gap: 6px; margin-top: 24px; }
+.pagination button { padding: 8px 14px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.pagination button:hover { border-color: #667eea; color: #667eea; }
+.pagination button.active { background: #667eea; color: #fff; border-color: #667eea; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.toast { position: fixed; top: 80px; right: 20px; padding: 12px 24px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 10000; opacity: 0; transform: translateX(100px); transition: all 0.3s; }
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast.success { background: #52c41a; }
+.toast.error { background: #ff4d4f; }
+@media (max-width: 768px) {
+  .history-header { flex-direction: column; align-items: stretch; }
+  .history-actions { flex-wrap: wrap; }
+  .notification-item { position: relative; }
+  .mark-read-btn { opacity: 1; position: static; transform: none; margin-top: 8px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notification-history">
+  <div class="history-header">
+    <h1>📋 通知历史</h1>
+    <div class="history-actions">
+      <select id="channelFilter" onchange="loadHistory(1)">
+        <option value="all">📡 全部渠道</option>
+        <option value="in_app">🔔 站内通知</option>
+        <option value="email">📧 邮件通知</option>
+        <option value="synology_chat">💬 Synology Chat</option>
+      </select>
+      <button onclick="markAllRead()" title="全部标记为已读">✅ 全部已读</button>
+      <button class="btn-danger" onclick="clearAll()" title="清空历史">🗑️ 清空</button>
+    </div>
+  </div>
+
+  <div id="notificationList">
+    <div class="loading" style="text-align: center; padding: 60px; color: #999;">加载中...</div>
+  </div>
+
+  <div id="pagination" class="pagination"></div>
+  <div id="toast" class="toast"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let totalPages = 1;
+
+async function loadHistory(page = 1) {
+  currentPage = page;
+  const channel = document.getElementById('channelFilter').value;
+  
+  try {
+    const res = await fetch(`/auth/api/notification/history?page=${page}&per_page=20&channel=${channel}`);
+    const data = await res.json();
+    totalPages = data.total_pages || 1;
+    renderNotifications(data.logs || []);
+    renderPagination();
+  } catch (e) {
+    showToast('加载失败', 'error');
+  }
+}
+
+function getChannelBadge(channel) {
+  const map = {
+    'in_app': '🔔 站内',
+    'email': '📧 邮件',
+    'synology_chat': '💬 Chat',
+  };
+  return map[channel] || channel;
+}
+
+function renderNotifications(logs) {
+  const container = document.getElementById('notificationList');
+  
+  if (!logs.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">暂无通知记录</div>
+        <p style="color:#bbb; margin-top:8px;">当有通知发送时，将在这里显示</p>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = '';
+  logs.forEach(log => {
+    const isUnread = log.status === 'sent' && !document.querySelector(`[data-id="${log.id}"].read`);
+    // 简化：基于时间判断是否已读（前端无法持久化，通过标记状态）
+    html += `
+      <div class="notification-item ${log.status === 'sent' ? 'unread' : 'read'}" data-id="${log.id}" onclick="markRead(${log.id})">
+        <div class="notification-icon">${log.status === 'sent' ? '🔔' : '✅'}</div>
+        <div class="notification-content">
+          <div class="notification-title">
+            ${log.title}
+            <span class="badge badge-${log.status === 'sent' ? 'success' : 'failed'}">${log.status === 'sent' ? '已发送' : '发送失败'}</span>
+            <span class="badge badge-${log.channel}">${getChannelBadge(log.channel)}</span>
+          </div>
+          <div class="notification-text">${log.content}</div>
+          <div class="notification-meta">
+            <span>🕐 ${log.sent_at || '未知时间'}</span>
+            ${log.error_message ? `<span style="color:#ff4d4f;">⚠️ ${log.error_message}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderPagination() {
+  const container = document.getElementById('pagination');
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  let html = '';
+  html += `<button onclick="loadHistory(1)" ${currentPage === 1 ? 'disabled' : ''}>«</button>`;
+  
+  let start = Math.max(1, currentPage - 2);
+  let end = Math.min(totalPages, currentPage + 2);
+  
+  if (start > 1) {
+    html += `<button disabled>...</button>`;
+  }
+  
+  for (let i = start; i <= end; i++) {
+    html += `<button class="${i === currentPage ? 'active' : ''}" onclick="loadHistory(${i})">${i}</button>`;
+  }
+  
+  if (end < totalPages) {
+    html += `<button disabled>...</button>`;
+  }
+  
+  html += `<button onclick="loadHistory(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+  
+  container.innerHTML = html;
+}
+
+async function markRead(id) {
+  try {
+    await fetch('/auth/api/notification/mark_read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    const item = document.querySelector(`.notification-item[data-id="${id}"]`);
+    if (item) {
+      item.classList.remove('unread');
+      item.classList.add('read');
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function markAllRead() {
+  try {
+    const res = await fetch('/auth/api/notification/mark_read', { method: 'POST' });
+    if (res.ok) {
+      document.querySelectorAll('.notification-item.unread').forEach(el => {
+        el.classList.remove('unread');
+        el.classList.add('read');
+      });
+      showToast('已全部标记为已读', 'success');
+    }
+  } catch (e) {
+    showToast('操作失败', 'error');
+  }
+}
+
+async function clearAll() {
+  if (!confirm('确定要清空所有通知历史吗？此操作不可恢复。')) return;
+  
+  try {
+    const res = await fetch('/auth/api/notification/clear', { method: 'POST' });
+    if (res.ok) {
+      loadHistory(1);
+      showToast('通知历史已清空', 'success');
+    }
+  } catch (e) {
+    showToast('操作失败', 'error');
+  }
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', () => loadHistory(1));
+</script>
+{% endblock %}

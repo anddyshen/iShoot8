@@ -312,6 +312,37 @@ class User(db.Model):
         return str(self.id)
 
 
+class NotificationLog(db.Model):
+    """通知记录表"""
+    __tablename__ = 'notification_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    channel = db.Column(db.String(20), nullable=False)  # email, synology_chat, in_app
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text)
+    status = db.Column(db.String(20), default='pending')  # pending, sent, failed
+    error_message = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False)       # 站内通知是否已读
+    sent_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=beijing_now)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'channel': self.channel,
+            'title': self.title,
+            'content': self.content,
+            'status': self.status,
+            'is_read': self.is_read,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<NotificationLog {self.id} - {self.channel} - {self.status}>'
+
+
 # 首次运行生成随机管理路由前缀
 def generate_admin_route_prefix():
     chars = string.ascii_lowercase + string.digits

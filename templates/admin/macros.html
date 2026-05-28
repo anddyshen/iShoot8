@@ -27,7 +27,12 @@
         {# 渲染普通设置字段 #}
         <div class="mb-3">
             <label for="{{ key }}" class="form-label">{{ label }}</label>
-            {% if key == 'admin_password' %}
+            {% if key == 'smtp_use_tls' %} {# SMTP TLS 使用开关 - 必须在类型判断之前 #}
+                <select class="form-select" id="{{ key }}" name="{{ key }}">
+                    <option value="true" {% if value == True or value == 'true' %}selected{% endif %}>启用 TLS（端口 587）</option>
+                    <option value="false" {% if value == False or value == 'false' %}selected{% endif %}>禁用 TLS（端口 25）</option>
+                </select>
+            {% elif key == 'admin_password' %}
                 <input type="password" class="form-control" id="{{ key }}" name="{{ key }}" placeholder="留空则不修改密码">
             {% elif default_value is number and default_value is not float %} {# 整数类型 #}
                 <input type="number" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">

@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timezone, timedelta
-from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw
+from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw, NotificationLog
 from config import CURRENT_SETTINGS
 
 # 北京时间（UTC+8）— 返回 naive datetime，与 models.py 保持一致
@@ -1305,3 +1305,164 @@ def api_delete_purchased(ticket_id):
     db.session.delete(ticket)
     db.session.commit()
     return jsonify({'message': '删除成功'})
+
+
+# ==================== 通知系统 API ====================
+
+@bp.route('/notification')
+@login_required
+def notification_settings():
+    """通知设置页面"""
+    return render_template('user/notification_settings.html')
+
+@bp.route('/notification/history')
+@login_required
+def notification_history():
+    """通知历史页面"""
+    return render_template('user/notification_history.html')
+
+@bp.route('/api/notification/settings', methods=['GET'])
+@login_required
+def api_get_notification_settings():
+    """获取通知设置"""
+    config_data = current_user.notification_config or {
+        'enabled_channels': ['in_app'],
+        'channel_configs': {},
+        'notify_on_prize': True,
+        'notify_on_smart_filter': True,
+        'notify_on_draw_results': False,
+    }
+    
+    # 获取可用渠道列表
+    from flask import current_app as flask_app
+    available_channels = []
+    if hasattr(flask_app, 'notification_manager'):
+        available_channels = flask_app.notification_manager.get_available_channels()
+    
+    return jsonify({
+        'config': config_data,
+        'available_channels': available_channels,
+    })
+
+@bp.route('/api/notification/settings', methods=['POST'])
+@login_required
+def api_save_notification_settings():
+    """保存通知设置"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    current_user.notification_config = data
+    db.session.commit()
+    return jsonify({'message': '通知设置保存成功'})
+
+@bp.route('/api/notification/test/<channel>', methods=['POST'])
+@login_required
+def api_test_notification(channel):
+    """测试指定通知渠道"""
+    from flask import current_app as flask_app
+    
+    if not hasattr(flask_app, 'notification_manager'):
+        return jsonify({'error': '通知系统未初始化'}), 500
+    
+    notifier = flask_app.notification_manager.get_notifier(channel)
+    if not notifier:
+        return jsonify({'error': f'未知的渠道: {channel}'}), 400
+    
+    title = '🔔 iShoot 通知测试'
+    content = '这是一条测试通知消息，如果您收到此消息，说明通知配置正确。'
+    
+    success, message = notifier.send(current_user, title, content)
+    
+    # 记录日志
+    from notification import manager as nm
+    nm._log_notification(current_user.id, channel, title, content, success, message)
+    
+    if success:
+        return jsonify({'message': f'测试消息已发送: {message}'})
+    else:
+        return jsonify({'error': f'发送失败: {message}'}), 500
+
+@bp.route('/api/notification/history', methods=['GET'])
+@login_required
+def api_get_notification_history():
+    """获取通知历史"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    channel = request.args.get('channel', 'all')
+    
+    query = NotificationLog.query.filter_by(user_id=current_user.id)
+    
+    if channel and channel != 'all':
+        query = query.filter_by(channel=channel)
+    
+    # 先获取总数
+    total = query.count()
+    
+    # 分页
+    logs = query.order_by(NotificationLog.sent_at.desc()).offset(
+        (page - 1) * per_page
+    ).limit(per_page).all()
+    
+    return jsonify({
+        'logs': [{
+            'id': log.id,
+            'channel': log.channel,
+            'title': log.title,
+            'content': log.content,
+            'status': log.status,
+            'error_message': log.error_message,
+            'sent_at': log.sent_at.strftime('%Y-%m-%d %H:%M:%S') if log.sent_at else None,
+        } for log in logs],
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': max(1, (total + per_page - 1) // per_page),
+    })
+
+@bp.route('/api/notification/unread_count', methods=['GET'])
+@login_required
+def api_get_unread_notification_count():
+    """获取未读通知数量"""
+    count = NotificationLog.query.filter_by(
+        user_id=current_user.id,
+        status='sent'
+    ).filter(
+        NotificationLog.read_at.is_(None)
+    ).count()
+    
+    return jsonify({'unread_count': count})
+
+@bp.route('/api/notification/mark_read', methods=['POST'])
+@login_required
+def api_mark_notification_read():
+    """标记通知为已读"""
+    data = request.get_json()
+    
+    if data and 'ids' in data:
+        # 标记指定通知为已读
+        for log_id in data['ids']:
+            log = NotificationLog.query.filter_by(
+                id=log_id, user_id=current_user.id
+            ).first()
+            if log:
+                log.read_at = beijing_now()
+    else:
+        # 标记所有通知为已读
+        NotificationLog.query.filter_by(
+            user_id=current_user.id,
+            status='sent'
+        ).filter(
+            NotificationLog.read_at.is_(None)
+        ).update({'read_at': beijing_now()})
+    
+    db.session.commit()
+    return jsonify({'message': '已标记为已读'})
+
+@bp.route('/api/notification/clear', methods=['POST'])
+@login_required
+def api_clear_notifications():
+    """清空通知历史"""
+    NotificationLog.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    return jsonify({'message': '通知历史已清空'})
