@@ -1230,6 +1230,24 @@ def api_update_purchased(ticket_id):
             return jsonify({'error': '金额至少2元'}), 400
         ticket.cost = cost
     
+    if 'is_additional' in data:
+        is_additional = bool(data['is_additional'])
+        # 双色球不能追加
+        if ticket.lottery_type == 'ssq' and is_additional:
+            return jsonify({'error': '双色球不支持追加投注'}), 400
+        ticket.is_additional = is_additional
+        # 当 is_additional 变更时，自动重新计算金额
+        red_count = len(ticket.red_balls.split(',')) if ticket.red_balls else 0
+        blue_count = len(ticket.blue_balls.split(',')) if ticket.blue_balls else 0
+        # 计算复式注数
+        from math import comb
+        if ticket.lottery_type == 'ssq':
+            units = comb(red_count, 6) * comb(blue_count, 1)
+        else:
+            units = comb(red_count, 5) * comb(blue_count, 2)
+        unit_price = 3 if (ticket.lottery_type == 'dlt' and is_additional) else 2
+        ticket.cost = units * unit_price * ticket.multiplier
+    
     db.session.commit()
     return jsonify({'message': '更新成功', 'ticket': ticket.to_dict()})
 

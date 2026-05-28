@@ -85,6 +85,47 @@
     background: #339af0;
     color: #fff;
 }
+/* 追加投注 toggle switch 样式 */
+.form-switch.additional-switch {
+    padding-left: 2.5em;
+    margin-bottom: 0;
+    min-height: 1.5em;
+}
+.form-switch.additional-switch .form-check-input {
+    width: 2em;
+    height: 1.25em;
+    margin-left: -2.5em;
+    cursor: pointer;
+}
+.form-switch.additional-switch .form-check-input:checked {
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+.form-switch.additional-switch .form-check-input:focus {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ffc107'/%3e%3c/svg%3e");
+}
+.form-switch.additional-switch .form-check-label {
+    font-size: 0.8rem;
+    cursor: pointer;
+    user-select: none;
+}
+/* 识别结果中的追加 checkbox 样式 */
+.recog-additional-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.recog-additional-wrapper .form-check-input {
+    cursor: pointer;
+    width: 1.2em;
+    height: 1.2em;
+    margin-top: 0;
+}
+.recog-additional-wrapper .form-check-input:checked {
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
 </style>
 <div class="card shadow">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
@@ -663,12 +704,20 @@ async function loadTickets() {
                 ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
             }
             
-            // 追加显示
+            // 追加显示 - 使用 toggle switch，可直接修改
+            const isDlt = item.lottery_type === 'dlt';
             let additionalHtml = '';
-            if (item.is_additional) {
-                additionalHtml = '<span class="badge bg-warning text-dark">追加</span>';
+            if (isDlt) {
+                additionalHtml = `<div class="form-check form-switch additional-switch d-inline-flex align-items-center">
+                    <input class="form-check-input" type="checkbox" role="switch" id="additional_switch_${item.id}" 
+                        ${item.is_additional ? 'checked' : ''} 
+                        onchange="toggleAdditional(${item.id}, this.checked)" ${isDlt ? '' : 'disabled'}>
+                    <label class="form-check-label text-nowrap" for="additional_switch_${item.id}">
+                        ${item.is_additional ? '<span class="text-warning fw-bold small">追加</span>' : '<span class="text-muted small">普通</span>'}
+                    </label>
+                </div>`;
             } else {
-                additionalHtml = '<span class="text-muted">—</span>';
+                additionalHtml = '<span class="text-muted small">—</span>';
             }
             
             // 中奖信息显示
@@ -808,6 +857,30 @@ function initBallSelectors(lotteryType) {
         buildBallSelector('blueBallGrid', 12, 'blue');
     }
     resetBallSelectors();
+}
+
+// ========== 追加 toggle switch 逻辑 ==========
+
+async function toggleAdditional(id, checked) {
+    try {
+        const resp = await fetch('/auth/api/purchased/' + id, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({is_additional: checked}),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            loadTickets();
+        } else {
+            alert('保存失败：' + (result.error || '未知错误'));
+            // 恢复开关状态
+            document.getElementById('additional_switch_' + id).checked = !checked;
+        }
+    } catch (err) {
+        alert('网络错误，请重试');
+        // 恢复开关状态
+        document.getElementById('additional_switch_' + id).checked = !checked;
+    }
 }
 
 // ========== 倍数编辑逻辑 ==========
@@ -1107,6 +1180,7 @@ function toggleAllRecog() {
     document.querySelectorAll('.recog-checkbox').forEach(cb => {
         cb.checked = checked;
     });
+    updateRecogTotalCost();
 }
 
 // 处理图片上传
@@ -1162,6 +1236,45 @@ async function uploadAndRecognizePhoto(file) {
     }
 }
 
+// 更新照片识别结果的总费用
+function updateRecogTotalCost() {
+    let totalCost = 0;
+    document.querySelectorAll('#recogTicketsBody tr').forEach(tr => {
+        const cb = tr.querySelector('.recog-checkbox');
+        if (cb && cb.checked) {
+            const costCell = tr.querySelector('.recog-cost');
+            if (costCell) {
+                totalCost += parseFloat(costCell.textContent.replace('¥', '')) || 0;
+            }
+        }
+    });
+    document.getElementById('recogTotalCost').textContent = '¥' + totalCost.toFixed(2);
+}
+
+// 照片识别结果中切换追加状态（更新金额）
+function toggleRecogAdditional(idx, checked) {
+    const tr = document.querySelector(`#recogTicketsBody tr:nth-child(${idx + 1})`);
+    if (!tr) return;
+    
+    const multiSpan = tr.querySelector('.recog-multi');
+    const multi = parseInt(multiSpan ? multiSpan.textContent : '1') || 1;
+    
+    const costCell = tr.querySelector('.recog-cost');
+    const newUnitPrice = checked ? 3 : 2;
+    const newCost = multi * newUnitPrice;
+    costCell.textContent = '¥' + newCost.toFixed(2);
+    
+    // 更新标签文字
+    const labelSpan = tr.querySelector('.recog-additional-label');
+    if (labelSpan) {
+        labelSpan.textContent = checked ? '追加' : '普通';
+        labelSpan.className = checked ? 'text-warning fw-bold small recog-additional-label' : 'text-muted small recog-additional-label';
+    }
+    
+    // 更新总费用
+    updateRecogTotalCost();
+}
+
 // 显示识别结果
 function displayRecognitionResult(data) {
     const tickets = data.tickets || [];
@@ -1195,17 +1308,32 @@ function displayRecognitionResult(data) {
         
         const redHtml = reds.map(n => `<span class="recog-ball red">${String(n).padStart(2, '0')}</span>`).join('');
         const blueHtml = blues.map(n => `<span class="recog-ball blue">${String(n).padStart(2, '0')}</span>`).join('');
-        const additionalHtml = isAdditional ? '<span class="badge bg-warning text-dark">追加</span>' : '<span class="text-muted">—</span>';
+        
+        // 追加投注：使用 checkbox，用户可以手动修正 AI 识别错误
+        const isDlt = lotteryType === 'dlt';
+        let additionalHtml = '';
+        if (isDlt) {
+            additionalHtml = `<div class="recog-additional-wrapper">
+                <input type="checkbox" class="form-check-input" id="recog_additional_${idx}" 
+                    ${isAdditional ? 'checked' : ''} 
+                    onchange="toggleRecogAdditional(${idx}, this.checked)">
+                <label for="recog_additional_${idx}" class="recog-additional-label ${isAdditional ? 'text-warning fw-bold' : 'text-muted'} small" style="cursor:pointer;">
+                    ${isAdditional ? '追加' : '普通'}
+                </label>
+            </div>`;
+        } else {
+            additionalHtml = '<span class="text-muted small">—</span>';
+        }
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="checkbox" class="form-check-input recog-checkbox" data-idx="${idx}" checked></td>
+            <td><input type="checkbox" class="form-check-input recog-checkbox" data-idx="${idx}" checked onchange="updateRecogTotalCost()"></td>
             <td>${idx + 1}</td>
             <td>${redHtml}</td>
             <td>${blueHtml}</td>
-            <td>${multi} 倍</td>
+            <td><span class="recog-multi">${multi}</span> 倍</td>
             <td>${additionalHtml}</td>
-            <td>¥${cost.toFixed(2)}</td>
+            <td><span class="recog-cost">¥${cost.toFixed(2)}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -1255,7 +1383,10 @@ async function batchAddFromPhoto() {
         const reds = ticket.red_balls || [];
         const blues = ticket.blue_balls || [];
         const multi = ticket.multiplier || 1;
-        const isAdditional = ticket.is_additional || false;
+        
+        // 读取用户修改后的追加状态（从DOM checkbox读取）
+        const additionalCheckbox = document.getElementById('recog_additional_' + idx);
+        const isAdditional = additionalCheckbox ? additionalCheckbox.checked : (ticket.is_additional || false);
         
         // 计算注数和金额
         const units = calculateUnits(reds.length, blues.length, lotteryType);
