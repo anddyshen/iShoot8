@@ -80,6 +80,66 @@
                 <p class="text-muted">通知功能将在后续版本开放，敬请期待。</p>
             </div>
         </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-robot"></i> AI 接口配置</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    配置 AI 接口后，可在"已购号码"页面使用"导入图片"功能，自动识别彩票图片中的号码。
+                </p>
+                <form id="aiConfigForm">
+                    <div class="mb-3">
+                        <label for="aiProvider" class="form-label">接口提供商</label>
+                        <select class="form-select" id="aiProvider" onchange="toggleAiUrlField()">
+                            <option value="openai">OpenAI 兼容接口</option>
+                            <option value="gemini">Gemini (Google)</option>
+                            <option value="baidu">百度 OCR</option>
+                            <option value="custom">自定义接口</option>
+                        </select>
+                        <div class="form-text" id="aiProviderHint">
+                            OpenAI 兼容接口：支持 GPT-4o 等视觉模型识别图片中的号码
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="aiApiKey" class="form-label">API Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="aiApiKey" placeholder="输入 API Key">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleApiKeyVisibility()">
+                                <i class="bi bi-eye" id="apiKeyToggleIcon"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            OpenAI 格式: sk-xxx... <br>
+                            百度 OCR 请填写 API Key（API URL 字段填写 Secret Key）
+                        </div>
+                    </div>
+                    <div class="mb-3" id="aiUrlGroup">
+                        <label for="aiApiUrl" class="form-label">API URL <span class="text-muted">（可选）</span></label>
+                        <input type="text" class="form-control" id="aiApiUrl" placeholder="留空使用默认地址">
+                        <div class="form-text">
+                            OpenAI 默认: https://api.openai.com/v1/chat/completions<br>
+                            百度 OCR 默认: https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic<br>
+                            自定义接口需提供完整的 API 地址
+                        </div>
+                    </div>
+                    <div class="mb-3" id="aiModelGroup">
+                        <label for="aiModel" class="form-label">模型名称 <span class="text-muted">（可选）</span></label>
+                        <input type="text" class="form-control" id="aiModel" placeholder="留空使用默认模型 gpt-4o">
+                        <div class="form-text">仅 OpenAI 兼容接口需要，如 gpt-4o、gpt-4o-mini</div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="bi bi-check-lg"></i> 保存配置
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="testAiConnection()">
+                        <i class="bi bi-shield-check"></i> 测试连接
+                    </button>
+                    <span id="aiTestResult" class="ms-2"></span>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -142,5 +202,152 @@ document.getElementById('passwordForm')?.addEventListener('submit', async functi
         alert('网络错误，请重试。');
     }
 });
+
+// ===== AI 配置功能 =====
+
+// 加载 AI 配置
+async function loadAiConfig() {
+    try {
+        const resp = await fetch('/auth/api/ai_config');
+        if (!resp.ok) return;
+        const config = await resp.json();
+        
+        if (config.provider) {
+            document.getElementById('aiProvider').value = config.provider;
+            toggleAiUrlField();
+        }
+        if (config.api_key) {
+            document.getElementById('aiApiKey').value = config.api_key;
+        }
+        if (config.api_url) {
+            document.getElementById('aiApiUrl').value = config.api_url;
+        }
+        if (config.model) {
+            document.getElementById('aiModel').value = config.model;
+        }
+    } catch (err) {
+        console.error('加载 AI 配置失败:', err);
+    }
+}
+
+// 切换 API URL 字段显示
+function toggleAiUrlField() {
+    const provider = document.getElementById('aiProvider').value;
+    const aiUrlGroup = document.getElementById('aiUrlGroup');
+    const aiModelGroup = document.getElementById('aiModelGroup');
+    const hint = document.getElementById('aiProviderHint');
+    
+    if (provider === 'gemini') {
+        aiUrlGroup.style.display = '';
+        aiModelGroup.style.display = '';
+        hint.innerHTML = 'Gemini (Google)：使用 Gemini 视觉模型识别图片中的号码，支持 gemini-2.0-flash-exp 等模型';
+    } else if (provider === 'baidu') {
+        aiUrlGroup.style.display = '';
+        aiModelGroup.style.display = 'none';
+        hint.innerHTML = '百度 OCR：使用文字识别技术提取图片中的号码，需要申请百度 AI 开放平台的 OCR 服务';
+    } else if (provider === 'custom') {
+        aiUrlGroup.style.display = '';
+        aiModelGroup.style.display = '';
+        hint.innerHTML = '自定义接口：需兼容 OpenAI 的 /v1/chat/completions 格式，支持图片识别';
+    } else {
+        aiUrlGroup.style.display = '';
+        aiModelGroup.style.display = '';
+        hint.innerHTML = 'OpenAI 兼容接口：支持 GPT-4o 等视觉模型识别图片中的号码，也可使用兼容的第三方 API';
+    }
+}
+
+// 切换 API Key 显示/隐藏
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('aiApiKey');
+    const icon = document.getElementById('apiKeyToggleIcon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+// 保存 AI 配置
+document.getElementById('aiConfigForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = {
+        provider: document.getElementById('aiProvider').value,
+        api_key: document.getElementById('aiApiKey').value,
+        api_url: document.getElementById('aiApiUrl').value,
+        model: document.getElementById('aiModel').value,
+    };
+    try {
+        const resp = await fetch('/auth/api/ai_config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            alert('AI 接口配置保存成功！');
+            loadAiConfig();  // 重新加载以显示脱敏后的 Key
+        } else {
+            alert('保存失败：' + (result.error || '未知错误'));
+        }
+    } catch (err) {
+        alert('网络错误，请重试。');
+    }
+});
+
+// 测试 AI 连接
+async function testAiConnection() {
+    const testBtn = event.target;
+    const resultSpan = document.getElementById('aiTestResult');
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 测试中...';
+    resultSpan.innerHTML = '';
+    resultSpan.className = 'ms-2';
+    
+    // 先保存当前配置
+    const data = {
+        provider: document.getElementById('aiProvider').value,
+        api_key: document.getElementById('aiApiKey').value,
+        api_url: document.getElementById('aiApiUrl').value,
+        model: document.getElementById('aiModel').value,
+    };
+    
+    try {
+        const saveResp = await fetch('/auth/api/ai_config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        if (!saveResp.ok) {
+            resultSpan.innerHTML = '<span class="text-danger">保存配置失败，请检查输入</span>';
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="bi bi-shield-check"></i> 测试连接';
+            return;
+        }
+        
+        // 使用 test_mode=1 参数进行纯文本测试（无需上传图片）
+        const resp = await fetch('/auth/api/ai_recognize_ticket?test_mode=1', {
+            method: 'POST',
+        });
+        const result = await resp.json();
+        
+        if (resp.ok) {
+            resultSpan.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> 连接成功！API 配置有效</span>';
+            // 重新加载配置（Key 脱敏显示）
+            loadAiConfig();
+        } else {
+            resultSpan.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${result.error}</span>`;
+        }
+    } catch (err) {
+        resultSpan.innerHTML = '<span class="text-danger">网络错误，请重试</span>';
+    }
+    
+    testBtn.disabled = false;
+    testBtn.innerHTML = '<i class="bi bi-shield-check"></i> 测试连接';
+}
+
+// 页面加载时读取配置
+document.addEventListener('DOMContentLoaded', loadAiConfig);
 </script>
 {% endblock %}

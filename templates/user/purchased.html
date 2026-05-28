@@ -61,6 +61,30 @@
 .selected-display {
     font-size: 0.9rem;
 }
+/* 识别结果表格样式 */
+.recog-table th, .recog-table td {
+    text-align: center;
+    vertical-align: middle;
+}
+.recog-ball {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 1px;
+}
+.recog-ball.red {
+    background: #ff6b6b;
+    color: #fff;
+}
+.recog-ball.blue {
+    background: #339af0;
+    color: #fff;
+}
 </style>
 <div class="card shadow">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
@@ -85,7 +109,10 @@
             </div>
             <div class="col-md-6 text-end">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                    <i class="bi bi-plus-circle"></i> 添加欲购号码
+                    <i class="bi bi-pencil"></i> 手工添加
+                </button>
+                <button class="btn btn-info text-white ms-2" data-bs-toggle="modal" data-bs-target="#photoImportModal">
+                    <i class="bi bi-camera"></i> 照片智能添加
                 </button>
             </div>
         </div>
@@ -138,7 +165,7 @@
                 <i class="bi bi-inbox display-1"></i>
                 <p class="mt-3">暂无已购号码记录</p>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                    <i class="bi bi-plus-circle"></i> 添加欲购号码
+                    <i class="bi bi-pencil"></i> 手工添加
                 </button>
             </div>
         </div>
@@ -158,12 +185,12 @@
     </div>
 </div>
 
-<!-- 添加欲购号码弹窗 -->
+<!-- 手工添加弹窗 -->
 <div class="modal fade" id="addTicketModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 添加欲购号码</h5>
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 手工添加号码</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -262,6 +289,109 @@
         </div>
     </div>
 </div>
+
+<!-- 照片智能添加弹窗 -->
+<div class="modal fade" id="photoImportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-camera"></i> 照片智能添加</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 步骤1：上传/拍照 -->
+                <div id="photoStep1">
+                    <div class="text-center py-4">
+                        <div class="display-4 text-muted mb-3">
+                            <i class="bi bi-image"></i>
+                        </div>
+                        <p class="text-muted">上传彩票照片，AI 将自动识别彩票品种、号码、倍数和金额</p>
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <button type="button" class="btn btn-outline-primary btn-lg" onclick="document.getElementById('photoInput').click()">
+                                <i class="bi bi-image"></i> 选择图片
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" id="cameraBtn" onclick="openPhotoCamera()">
+                                <i class="bi bi-camera"></i> 拍照
+                            </button>
+                        </div>
+                        <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
+                        <div id="photoUploadStatus" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <!-- 步骤2：图片预览和识别结果 -->
+                <div id="photoStep2" style="display:none;">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="position-relative">
+                                <img id="photoPreview" src="" alt="预览" style="width:100%;border-radius:8px;border:1px solid #dee2e6;">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="resetPhotoImport()">
+                                    <i class="bi bi-arrow-left"></i> 重新选择
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <!-- 识别结果 -->
+                            <div id="photoRecogResult" style="display:none;">
+                                <h6 class="text-success mb-3">
+                                    <i class="bi bi-check-circle"></i> 识别成功
+                                </h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-primary" id="recogLotteryType">双色球</span>
+                                </div>
+                                <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                                    <table class="table table-sm table-bordered recog-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>#</th>
+                                                <th>红球/前区</th>
+                                                <th>蓝球/后区</th>
+                                                <th>倍数</th>
+                                                <th>金额</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recogTicketsBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3 p-2 bg-light rounded">
+                                    <div>
+                                        <small class="text-muted">期号</small>
+                                        <input type="text" class="form-control form-control-sm" id="photoIssue" style="width:120px;display:inline-block;" placeholder="如 2026050">
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">合计：</small>
+                                        <strong id="recogTotalCost">¥0</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="photoRecogLoading" style="display:none;">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-info mb-3" role="status"></div>
+                                    <p class="text-muted">AI 正在识别中，请稍候...</p>
+                                </div>
+                            </div>
+                            <div id="photoRecogError" style="display:none;">
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-x-circle"></i> <span id="photoRecogErrorMsg"></span>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetPhotoImport()">
+                                    <i class="bi bi-arrow-left"></i> 重新选择
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="photoModalFooter" style="display:none;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="batchAddFromPhoto()">
+                    <i class="bi bi-check-lg"></i> 确认添加全部号码
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -320,6 +450,9 @@ let selectedIds = new Set();
 // 号码选择器状态
 let selectedRedBalls = new Set();
 let selectedBlueBalls = new Set();
+
+// 照片智能添加状态
+let photoRecogData = null;
 
 function switchFilter(filter) {
     currentFilter = filter;
@@ -466,7 +599,7 @@ async function loadTickets() {
                     <i class="bi bi-inbox display-1"></i>
                     <p class="mt-3">暂无已购号码记录</p>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                        <i class="bi bi-plus-circle"></i> 添加欲购号码
+                        <i class="bi bi-pencil"></i> 手工添加
                     </button>
                 </div>`;
             badge.textContent = '0 条';
@@ -720,7 +853,6 @@ function adjustAddIssue(delta) {
     const input = document.getElementById('ticketIssue');
     let val = parseInt(input.value);
     if (isNaN(val)) {
-        // 如果输入为空或不是数字，设为空并返回
         return;
     }
     input.value = val + delta;
@@ -781,7 +913,7 @@ async function toggleEditIssue(id) {
     }
 }
 
-// ========== 添加/删除逻辑 ==========
+// ========== 手工添加逻辑 ==========
 
 async function addTicket() {
     const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
@@ -898,6 +1030,198 @@ document.getElementById('ticketLotteryType').addEventListener('change', async fu
         document.getElementById('ticketIssue').value = issue;
     }
 });
+
+// ========== 照片智能添加逻辑 ==========
+
+// 弹出照片弹窗时重置状态
+document.getElementById('photoImportModal').addEventListener('shown.bs.modal', function() {
+    resetPhotoImport();
+    // 自动填充最新期号
+    fetchLatestIssue('ssq').then(issue => {
+        if (issue) document.getElementById('photoIssue').value = issue;
+    });
+});
+
+// 打开摄像头拍照
+function openPhotoCamera() {
+    const input = document.getElementById('photoInput');
+    input.capture = 'environment';
+    input.accept = 'image/*';
+    input.click();
+    setTimeout(() => { input.removeAttribute('capture'); }, 100);
+}
+
+// 重置照片导入状态
+function resetPhotoImport() {
+    document.getElementById('photoStep1').style.display = '';
+    document.getElementById('photoStep2').style.display = 'none';
+    document.getElementById('photoModalFooter').style.display = 'none';
+    document.getElementById('photoInput').value = '';
+    document.getElementById('photoUploadStatus').textContent = '';
+    document.getElementById('photoRecogResult').style.display = 'none';
+    document.getElementById('photoRecogLoading').style.display = 'none';
+    document.getElementById('photoRecogError').style.display = 'none';
+    photoRecogData = null;
+}
+
+// 处理图片上传
+function handlePhotoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 显示预览
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('photoPreview').src = e.target.result;
+        document.getElementById('photoStep1').style.display = 'none';
+        document.getElementById('photoStep2').style.display = '';
+        
+        // 显示加载中
+        document.getElementById('photoRecogLoading').style.display = '';
+        document.getElementById('photoRecogResult').style.display = 'none';
+        document.getElementById('photoRecogError').style.display = 'none';
+        document.getElementById('photoModalFooter').style.display = 'none';
+        
+        // 上传识别
+        uploadAndRecognizePhoto(file);
+    };
+    reader.readAsDataURL(file);
+}
+
+// 上传图片并调用AI识别
+async function uploadAndRecognizePhoto(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+        const resp = await fetch('/auth/api/ai_recognize_ticket', {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await resp.json();
+        
+        // 隐藏加载中
+        document.getElementById('photoRecogLoading').style.display = 'none';
+        
+        if (resp.ok && result.success) {
+            photoRecogData = result;
+            displayRecognitionResult(result);
+        } else {
+            document.getElementById('photoRecogError').style.display = '';
+            document.getElementById('photoRecogErrorMsg').textContent = result.error || '识别失败，请重试';
+        }
+    } catch (err) {
+        document.getElementById('photoRecogLoading').style.display = 'none';
+        document.getElementById('photoRecogError').style.display = '';
+        document.getElementById('photoRecogErrorMsg').textContent = '网络错误，请重试';
+    }
+}
+
+// 显示识别结果
+function displayRecognitionResult(data) {
+    const tickets = data.tickets || [];
+    const lotteryType = data.lottery_type || 'ssq';
+    
+    // 显示彩票类型
+    document.getElementById('recogLotteryType').textContent = lotteryType === 'ssq' ? '双色球' : '大乐透';
+    document.getElementById('recogLotteryType').className = 'badge bg-' + (lotteryType === 'ssq' ? 'primary' : 'success');
+    
+    // 生成号码表格
+    const tbody = document.getElementById('recogTicketsBody');
+    tbody.innerHTML = '';
+    
+    tickets.forEach((ticket, idx) => {
+        const reds = ticket.red_balls || [];
+        const blues = ticket.blue_balls || [];
+        const multi = ticket.multiplier || 1;
+        const cost = multi * 2;
+        
+        const redHtml = reds.map(n => `<span class="recog-ball red">${String(n).padStart(2, '0')}</span>`).join('');
+        const blueHtml = blues.map(n => `<span class="recog-ball blue">${String(n).padStart(2, '0')}</span>`).join('');
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${redHtml}</td>
+            <td>${blueHtml}</td>
+            <td>${multi} 倍</td>
+            <td>¥${cost.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    // 显示总费用
+    document.getElementById('recogTotalCost').textContent = '¥' + (data.total_cost || 0).toFixed(2);
+    
+    // 显示结果区域和底部按钮
+    document.getElementById('photoRecogResult').style.display = '';
+    document.getElementById('photoModalFooter').style.display = '';
+}
+
+// 批量添加识别结果中的所有号码
+async function batchAddFromPhoto() {
+    if (!photoRecogData) return;
+    
+    const tickets = photoRecogData.tickets || [];
+    const lotteryType = photoRecogData.lottery_type || 'ssq';
+    const issue = document.getElementById('photoIssue').value.trim();
+    
+    if (!issue) {
+        alert('请输入期号');
+        return;
+    }
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const ticket of tickets) {
+        const reds = ticket.red_balls || [];
+        const blues = ticket.blue_balls || [];
+        const multi = ticket.multiplier || 1;
+        
+        // 计算注数和金额
+        const units = calculateUnits(reds.length, blues.length, lotteryType);
+        const cost = units * 2 * multi;
+        
+        const data = {
+            lottery_type: lotteryType,
+            issue: issue,
+            red_balls: reds.join(','),
+            blue_balls: blues.join(','),
+            cost: cost,
+            multiplier: multi,
+            note: '照片导入',
+        };
+        
+        try {
+            const resp = await fetch('/auth/api/purchased', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+            if (resp.ok) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (err) {
+            failCount++;
+        }
+    }
+    
+    // 关闭弹窗
+    const modal = bootstrap.Modal.getInstance(document.getElementById('photoImportModal'));
+    modal.hide();
+    
+    // 刷新列表
+    loadTickets();
+    
+    if (failCount === 0) {
+        alert(`成功添加 ${successCount} 注号码！`);
+    } else {
+        alert(`添加完成：成功 ${successCount} 注，失败 ${failCount} 注`);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 先对所有号码对奖

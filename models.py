@@ -274,6 +274,7 @@ class User(db.Model):
     last_login_at = db.Column(db.DateTime)
     notification_config = db.Column(db.JSON, default=dict)
     preferences = db.Column(db.JSON, default=dict)
+    ai_api_config = db.Column(db.JSON, default=dict)
     
     def set_password(self, password):
         from werkzeug.security import generate_password_hash

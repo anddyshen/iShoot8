@@ -138,6 +138,589 @@ def api_update_profile():
     db.session.commit()
     return jsonify({'message': '更新成功', 'user': current_user.to_dict()})
 
+# ===== AI 配置 API =====
+
+@bp.route('/api/ai_config', methods=['GET'])
+@login_required
+def api_get_ai_config():
+    """获取当前用户的 AI 接口配置（屏蔽 API Key 敏感信息）"""
+    config = current_user.ai_api_config or {}
+    # 返回配置时屏蔽 API Key 中间部分
+    safe_config = dict(config)
+    if 'api_key' in safe_config and safe_config['api_key']:
+        key = safe_config['api_key']
+        if len(key) > 8:
+            safe_config['api_key'] = key[:4] + '****' + key[-4:]
+        elif len(key) > 4:
+            safe_config['api_key'] = key[:2] + '****'
+    return jsonify(safe_config)
+
+@bp.route('/api/ai_config', methods=['POST'])
+@login_required
+def api_save_ai_config():
+    """保存当前用户的 AI 接口配置"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    # 验证配置
+    provider = data.get('provider', '').strip()
+    if provider and provider not in ['openai', 'gemini', 'baidu', 'custom']:
+        return jsonify({'error': '无效的接口提供商'}), 400
+    
+    # 如果新的 api_key 被屏蔽了（****），保留旧值
+    if 'api_key' in data:
+        new_key = data['api_key']
+        if '****' in new_key:
+            old_config = current_user.ai_api_config or {}
+            data['api_key'] = old_config.get('api_key', new_key)
+    
+    current_user.ai_api_config = {
+        'provider': data.get('provider', 'openai'),
+        'api_key': data.get('api_key', ''),
+        'api_url': data.get('api_url', ''),
+        'model': data.get('model', 'gpt-4o'),
+    }
+    db.session.commit()
+    return jsonify({'message': 'AI 接口配置保存成功'}), 200
+
+
+# ===== 图片识别 API =====
+
+@bp.route('/api/ai_recognize_ticket', methods=['POST'])
+@login_required
+def api_ai_recognize_ticket():
+    """上传彩票图片，调用 AI 接口识别号码
+    支持 test_mode=1 参数进行纯文本测试连接（无需上传真实图片）"""
+    is_test = request.args.get('test_mode') == '1'
+    
+    if not is_test:
+        if 'image' not in request.files:
+            return jsonify({'error': '请上传图片文件'}), 400
+        
+        file = request.files['image']
+        if not file.filename:
+            return jsonify({'error': '请选择图片文件'}), 400
+        
+        # 检查文件大小（限制 10MB）
+        file.seek(0, 2)  # 移到文件末尾
+        file_size = file.tell()
+        file.seek(0)  # 回到文件开头
+        if file_size > 10 * 1024 * 1024:
+            return jsonify({'error': '图片大小不能超过 10MB'}), 400
+        
+        # 检查文件类型
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in allowed_extensions:
+            return jsonify({'error': '不支持的图片格式，请上传 PNG、JPG、GIF、BMP 或 WebP 格式'}), 400
+    else:
+        # 测试模式：创建一个空的文本文件对象
+        import io
+        file = io.BytesIO(b'test')
+        file.filename = 'test.txt'
+        ext = 'txt'
+    
+    # 获取用户 AI 配置
+    ai_config = current_user.ai_api_config or {}
+    provider = ai_config.get('provider', 'openai')
+    api_key = ai_config.get('api_key', '')
+    api_url = ai_config.get('api_url', '')
+    model = ai_config.get('model', 'gpt-4o')
+    
+    if not api_key:
+        return jsonify({'error': '请先在个人中心配置 AI 接口信息'}), 400
+    
+    # 读取图片内容并转为 Base64
+    import base64
+    img_data = base64.b64encode(file.read()).decode('utf-8')
+    mime_type = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
+    data_url = f'data:{mime_type};base64,{img_data}'
+    
+    try:
+        if provider == 'openai' or provider == 'custom':
+            result = _call_openai_api(api_key, api_url, model, data_url, is_test)
+        elif provider == 'gemini':
+            result = _call_gemini_api(api_key, api_url, model, data_url, is_test)
+        elif provider == 'baidu':
+            result = _call_baidu_api(api_key, api_url, data_url, is_test)
+        else:
+            return jsonify({'error': '不支持的接口提供商'}), 400
+        
+        # 如果是测试模式，只验证连接成功即可
+        if is_test:
+            return jsonify({'success': True, 'message': 'API 连接测试成功！'})
+        
+        # 验证识别结果 - 支持多注格式
+        if not result:
+            return jsonify({'error': 'AI 识别结果为空'}), 500
+        
+        tickets = result.get('tickets', [])
+        lottery_type = result.get('lottery_type', 'ssq')
+        
+        # 如果没有 tickets 数组，尝试旧的单注格式
+        if not tickets and 'red_balls' in result and 'blue_balls' in result:
+            reds = result.get('red_balls', [])
+            blues = result.get('blue_balls', [])
+            reds = [int(b) for b in reds if str(b).isdigit()]
+            blues = [int(b) for b in blues if str(b).isdigit()]
+            tickets = [{'red_balls': reds, 'blue_balls': blues, 'multiplier': 1}]
+        
+        if not tickets:
+            return jsonify({'error': 'AI 识别结果格式不正确，未能提取号码'}), 500
+        
+        # 验证每注号码
+        validated_tickets = []
+        for i, ticket in enumerate(tickets):
+            reds = ticket.get('red_balls', [])
+            blues = ticket.get('blue_balls', [])
+            multi = int(ticket.get('multiplier', 1))
+            
+            reds = [int(b) for b in reds if str(b).isdigit()]
+            blues = [int(b) for b in blues if str(b).isdigit()]
+            
+            if not reds or not blues:
+                continue  # 跳过无效的注
+            
+            # 根据彩票类型验证号码范围
+            if lottery_type == 'ssq':
+                if not all(1 <= b <= 33 for b in reds) or not all(1 <= b <= 16 for b in blues):
+                    continue
+            else:
+                if not all(1 <= b <= 35 for b in reds) or not all(1 <= b <= 12 for b in blues):
+                    continue
+            
+            validated_tickets.append({
+                'red_balls': sorted(set(reds)),
+                'blue_balls': sorted(set(blues)),
+                'multiplier': max(1, multi),
+            })
+        
+        if not validated_tickets:
+            return jsonify({'error': '未能从图片中识别出有效的彩票号码'}), 400
+        
+        # 计算总倍数和总费用
+        total_multiplier = sum(t['multiplier'] for t in validated_tickets)
+        total_cost = sum(t['multiplier'] * 2 for t in validated_tickets)
+        
+        return jsonify({
+            'success': True,
+            'tickets': validated_tickets,
+            'lottery_type': lottery_type,
+            'total_multiplier': total_multiplier,
+            'total_cost': total_cost,
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'AI 识别失败: {str(e)}'}), 500
+
+
+def _call_openai_api(api_key, api_url, model, data_url, is_test=False):
+    """调用 OpenAI 兼容接口进行图片识别"""
+    import requests
+    
+    url = api_url or 'https://api.openai.com/v1/chat/completions'
+    
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+    }
+    
+    if is_test:
+        # 测试模式：只发文字请求验证 API Key
+        payload = {
+            'model': model or 'gpt-4o',
+            'messages': [
+                {'role': 'user', 'content': '请回复"连接测试成功"这几个字'}
+            ],
+            'temperature': 0.1,
+            'max_tokens': 50,
+        }
+    else:
+        prompt = """你是一个彩票号码识别专家。请仔细分析这张图片中的彩票号码，严格按照以下 JSON 格式返回结果：
+
+{
+    "lottery_type": "ssq 或 dlt",
+    "tickets": [
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字},
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字}
+    ]
+}
+
+判断规则：
+- 双色球（SSQ）：红球6个（范围1-33），蓝球1个（范围1-16）
+- 大乐透（DLT）：前区5个（范围1-35），后区2个（范围1-12）
+- 仔细查看图片中所有号码，识别每一注号码（彩票可能有多个号码组合）
+- 识别每注号码的倍数（如2倍、3倍等），如果看不清倍数默认为1
+- 识别彩票总费用（金额），放入 total_cost 字段
+- 只返回 JSON，不要包含其他文字说明"""
+        
+        payload = {
+            'model': model or 'gpt-4o',
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': prompt},
+                        {'type': 'image_url', 'image_url': {'url': data_url}}
+                    ]
+                }
+            ],
+            'temperature': 0.1,
+            'max_tokens': 500,
+        }
+    
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    
+    if response.status_code != 200:
+        raise Exception(f'AI 接口调用失败 (HTTP {response.status_code}): {response.text}')
+    
+    if is_test:
+        return {'success': True}
+    
+    result = response.json()
+    content = result['choices'][0]['message']['content']
+    
+    # 尝试从返回内容中提取 JSON
+    import json
+    import re
+    
+    # 先尝试直接解析
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    
+    # 尝试提取 ```json ... ``` 块
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+    
+    # 尝试提取 {...} 对象
+    obj_match = re.search(r'\{[\s\S]*\}', content)
+    if obj_match:
+        try:
+            return json.loads(obj_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    
+    raise Exception(f'无法解析 AI 返回结果: {content[:200]}')
+
+
+def _repair_truncated_json(text):
+    """尝试修复被截断的 JSON 字符串"""
+    import json
+    # 移除 ```json ... ``` 标记
+    import re
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+    text = text.strip()
+    
+    # 尝试直接解析
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    
+    # 尝试提取最外层的 {...} 对象
+    brace_depth = 0
+    bracket_depth = 0
+    start = -1
+    end = -1
+    
+    for i, ch in enumerate(text):
+        if ch == '{':
+            if start == -1:
+                start = i
+            brace_depth += 1
+        elif ch == '}':
+            brace_depth -= 1
+            if brace_depth == 0 and start >= 0:
+                end = i + 1
+                break
+        elif ch == '[':
+            bracket_depth += 1
+        elif ch == ']':
+            bracket_depth -= 1
+    
+    if start >= 0 and end > start:
+        candidate = text[start:end]
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+    
+    # 如果 JSON 不完整，尝试补全
+    # 找到最外层 { 和 } 的平衡
+    if start >= 0:
+        # 从 start 开始提取，并补全缺失的 }
+        partial = text[start:]
+        # 计算未闭合的 { 数量
+        open_braces = 0
+        for ch in partial:
+            if ch == '{': open_braces += 1
+            elif ch == '}': open_braces -= 1
+        # 补全缺失的 }
+        if open_braces > 0:
+            partial += '}' * open_braces
+        
+        # 补全缺失的 ]
+        open_brackets = 0
+        for ch in partial:
+            if ch == '[': open_brackets += 1
+            elif ch == ']': open_brackets -= 1
+        if open_brackets > 0:
+            partial += ']' * open_brackets
+        
+        # 补全末尾的引号
+        # 检查最后是否为不完整的字符串
+        in_string = False
+        escape = False
+        for ch in partial:
+            if escape:
+                escape = False
+                continue
+            if ch == '\\':
+                escape = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+        if in_string:
+            partial += '"'
+        
+        try:
+            return json.loads(partial)
+        except json.JSONDecodeError:
+            pass
+    
+    return None
+
+
+def _call_gemini_api(api_key, api_url, model, data_url, is_test=False):
+    """调用 Gemini（Google）API 进行图片识别"""
+    import requests
+    import json
+    import re
+    
+    # Gemini API 原生端点
+    if api_url:
+        url = api_url
+    else:
+        # 官方 Gemini API 需要 API Key 在 URL 中
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{model or "gemini-2.0-flash-exp"}:generateContent?key={api_key}'
+    
+    if is_test:
+        # 测试模式：只发文字请求验证 API Key
+        payload = {
+            'contents': [
+                {
+                    'parts': [
+                        {'text': '请回复"连接测试成功"这几个字'}
+                    ]
+                }
+            ],
+            'generationConfig': {
+                'temperature': 0.1,
+                'maxOutputTokens': 50,
+            }
+        }
+    else:
+        # 从 data_url 提取纯 base64 和 mime type
+        if ',' in data_url:
+            mime_type = data_url.split(';')[0].split(':')[1]
+            img_b64 = data_url.split(',', 1)[1]
+        else:
+            mime_type = 'image/png'
+            img_b64 = data_url
+        
+        prompt = """你是一个彩票号码识别专家。请仔细分析这张图片中的彩票号码，严格按照以下 JSON 格式返回结果（只返回 JSON，不要包含其他文字说明）：
+
+{
+    "lottery_type": "ssq 或 dlt",
+    "tickets": [
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字},
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字}
+    ]
+}
+
+判断规则：
+- 双色球（SSQ）：红球6个（范围1-33），蓝球1个（范围1-16）
+- 大乐透（DLT）：前区5个（范围1-35），后区2个（范围1-12）
+- 仔细查看图片中所有号码，识别每一注号码（彩票可能有多个号码组合）
+- 识别每注号码的倍数（如2倍、3倍等），如果看不清倍数默认为1
+- 识别彩票总费用（金额），放入 total_cost 字段"""
+        
+        payload = {
+            'contents': [
+                {
+                    'parts': [
+                        {'text': prompt},
+                        {
+                            'inline_data': {
+                                'mime_type': mime_type,
+                                'data': img_b64
+                            }
+                        }
+                    ]
+                }
+            ],
+            'generationConfig': {
+                'temperature': 0.1,
+                'maxOutputTokens': 8192,
+            }
+        }
+    
+    # 请求头：官方 API 不需要额外 headers（key 在 URL 中），转接接口需要 Bearer token
+    headers = {'Content-Type': 'application/json'}
+    if api_url:
+        headers['Authorization'] = f'Bearer {api_key}'
+    
+    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    
+    if response.status_code != 200:
+        # 对于官方 API，key 已在 URL 中，不需要重试
+        if not api_url:
+            raise Exception(f'AI 接口调用失败 (HTTP {response.status_code}): {response.text}')
+        
+        # 对于转接接口，尝试把 key 放到 URL 参数重试
+        if '?' in url:
+            retry_url = url + '&key=' + api_key
+        else:
+            retry_url = url + '?key=' + api_key
+        
+        headers2 = {'Content-Type': 'application/json'}
+        response = requests.post(retry_url, headers=headers2, json=payload, timeout=60)
+        
+        if response.status_code != 200:
+            raise Exception(f'AI 接口调用失败 (HTTP {response.status_code}): {response.text}')
+    
+    if is_test:
+        return {'success': True}
+    
+    result = response.json()
+    
+    # Gemini 响应格式：candidates[0].content.parts[0].text
+    try:
+        content = result['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError):
+        raise Exception(f'无法解析 Gemini 返回结果: {json.dumps(result, ensure_ascii=False)[:200]}')
+    
+    # 尝试从返回内容中提取 JSON
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    
+    # 尝试提取 ```json ... ``` 块
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+    
+    # 尝试提取 {...} 对象
+    obj_match = re.search(r'\{[\s\S]*\}', content)
+    if obj_match:
+        try:
+            return json.loads(obj_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    
+    # 尝试修复被截断的 JSON
+    try:
+        repaired = _repair_truncated_json(content)
+        if repaired:
+            return repaired
+    except Exception:
+        pass
+    
+    raise Exception(f'无法解析 Gemini 返回结果: {content[:200]}')
+
+
+def _call_baidu_api(api_key, api_url, data_url, is_test=False):
+    """调用百度 OCR API 进行文字识别，然后提取号码"""
+    import requests
+    import base64
+    import json
+    import re
+    
+    # 从 data_url 中提取纯 base64
+    img_b64 = data_url.split(',', 1)[1] if ',' in data_url else data_url
+    
+    # 百度 OCR API
+    ocr_url = api_url or 'https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic'
+    
+    # 获取 access_token
+    token_url = 'https://aip.baidubce.com/oauth/2.0/token'
+    token_data = {
+        'grant_type': 'client_credentials',
+        'client_id': api_key,  # API Key
+        'client_secret': api_url,  # Secret Key（百度需要两个key，这里用api_url字段存Secret Key）
+    }
+    
+    token_resp = requests.post(token_url, data=token_data, timeout=10)
+    if token_resp.status_code != 200:
+        raise Exception(f'百度 API 认证失败: {token_resp.text}')
+    
+    access_token = token_resp.json().get('access_token')
+    if not access_token:
+        raise Exception('获取百度 access_token 失败')
+    
+    if is_test:
+        # 测试模式：能获取到 access_token 就算成功
+        return {'success': True}
+    
+    # 调用 OCR
+    ocr_resp = requests.post(
+        f'{ocr_url}?access_token={access_token}',
+        data={'image': img_b64},
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        timeout=30
+    )
+    
+    if ocr_resp.status_code != 200:
+        raise Exception(f'百度 OCR 调用失败: {ocr_resp.text}')
+    
+    ocr_result = ocr_resp.json()
+    words_result = ocr_result.get('words_result', [])
+    
+    # 提取所有文字
+    all_text = ' '.join([item['words'] for item in words_result])
+    
+    # 从文字中提取号码
+    numbers = re.findall(r'(\d{1,2})', all_text)
+    numbers = [int(n) for n in numbers if 1 <= int(n) <= 35]
+    numbers = list(set(numbers))
+    
+    if len(numbers) < 6:
+        raise Exception(f'未能从图片中识别出足够多的号码（仅识别到 {len(numbers)} 个有效号码）')
+    
+    # 自动判断并分配红蓝球
+    numbers.sort()
+    if len(numbers) >= 8:
+        red_balls = numbers[:6]
+        blue_balls = numbers[6:8]
+        lottery_type = 'dlt' if len(blue_balls) >= 2 else 'ssq'
+    elif len(numbers) >= 7:
+        red_balls = numbers[:6]
+        blue_balls = numbers[6:7]
+        lottery_type = 'ssq'
+    else:
+        red_balls = numbers[:5]
+        blue_balls = numbers[5:7]
+        lottery_type = 'dlt'
+    
+    return {
+        'red_balls': red_balls,
+        'blue_balls': blue_balls,
+        'lottery_type': lottery_type,
+    }
+
+
 # ===== 页面路由 =====
 
 @bp.route('/profile')
