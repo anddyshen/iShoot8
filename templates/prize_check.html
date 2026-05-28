@@ -365,13 +365,35 @@
                     <p class="text-muted">蓝球: <span id="ssq_selected_blue"></span></p>
                 </div>
             </div>
-            <button class="btn btn-success me-2" id="ssq_add_to_candidates">添加到对奖列表</button>
-            <button class="btn btn-info me-2" id="ssq_add_to_fun_game">添加到大奖时光机</button>
-            <button class="btn btn-outline-warning me-2" id="ssq_check_smart_filter">智选规则</button>
-            <button class="btn btn-outline-info me-2" id="ssq_copy_latest_draw">填入最新奖号</button>
-            <button class="btn btn-outline-secondary me-2" id="ssq_paste_from_clipboard">填入复制号码</button>
-            <button class="btn btn-outline-warning me-2" id="ssq_random_select">随机号码</button>
-            <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">添加到：</span>
+                    <button class="btn btn-outline-success" id="ssq_add_to_candidates">对奖列表</button>
+                    <button class="btn btn-outline-info" id="ssq_add_to_fun_game">大奖时光机</button>
+                    <button class="btn btn-outline-danger" id="ssq_add_to_favorites">心仪号码</button>
+                    <button class="btn btn-outline-success" id="ssq_add_to_purchased">欲购号码</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">填入：</span>
+                    <button class="btn btn-outline-info" id="ssq_copy_latest_draw">最新奖号</button>
+                    <button class="btn btn-outline-secondary" id="ssq_paste_from_clipboard">剪贴板号码</button>
+                    <button class="btn btn-outline-warning" id="ssq_random_select">随机号码</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">核查：</span>
+                    <button class="btn btn-outline-warning" id="ssq_check_smart_filter">智选规则</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">清空：</span>
+                    <button class="btn btn-secondary" id="ssq_clear_selection">清空选择</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -697,13 +719,35 @@
                     <p class="text-muted">蓝球: <span id="dlt_selected_blue"></span></p>
                 </div>
             </div>
-            <button class="btn btn-success me-2" id="dlt_add_to_candidates">添加到对奖列表</button>
-            <button class="btn btn-info me-2" id="dlt_add_to_fun_game">添加到大奖时光机</button>
-            <button class="btn btn-outline-warning me-2" id="dlt_check_smart_filter">智选规则</button>
-            <button class="btn btn-outline-info me-2" id="dlt_copy_latest_draw">填入最新奖号</button>
-            <button class="btn btn-outline-secondary me-2" id="dlt_paste_from_clipboard">填入复制号码</button>
-            <button class="btn btn-outline-warning me-2" id="dlt_random_select">随机号码</button>
-            <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">添加到：</span>
+                    <button class="btn btn-outline-success" id="dlt_add_to_candidates">对奖列表</button>
+                    <button class="btn btn-outline-info" id="dlt_add_to_fun_game">大奖时光机</button>
+                    <button class="btn btn-outline-danger" id="dlt_add_to_favorites">心仪号码</button>
+                    <button class="btn btn-outline-success" id="dlt_add_to_purchased">欲购号码</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">填入：</span>
+                    <button class="btn btn-outline-info" id="dlt_copy_latest_draw">最新奖号</button>
+                    <button class="btn btn-outline-secondary" id="dlt_paste_from_clipboard">剪贴板号码</button>
+                    <button class="btn btn-outline-warning" id="dlt_random_select">随机号码</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">核查：</span>
+                    <button class="btn btn-outline-warning" id="dlt_check_smart_filter">智选规则</button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold" style="min-width:70px;">清空：</span>
+                    <button class="btn btn-secondary" id="dlt_clear_selection">清空选择</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1382,6 +1426,76 @@
     setupBallSelector('ssq', 33, 16);
     // Setup for DLT
     setupBallSelector('dlt', 35, 12);
+
+    // ========== 心仪号码 / 欲购号码按钮事件绑定 ==========
+    function setupUserActionButtons(lotteryType) {
+        const favoriteBtn = document.getElementById(`${lotteryType}_add_to_favorites`);
+        const purchasedBtn = document.getElementById(`${lotteryType}_add_to_purchased`);
+        if (!favoriteBtn || !purchasedBtn) return;
+
+        const redSelector = document.getElementById(`${lotteryType}_red_selector`);
+        const blueSelector = document.getElementById(`${lotteryType}_blue_selector`);
+
+        function getSelectedBalls() {
+            const selectedRed = [];
+            const selectedBlue = [];
+            redSelector.querySelectorAll('.ball.selected-red').forEach(ball => {
+                selectedRed.push(parseInt(ball.dataset.ballValue));
+            });
+            blueSelector.querySelectorAll('.ball.selected-blue').forEach(ball => {
+                selectedBlue.push(parseInt(ball.dataset.ballValue));
+            });
+            return { red: selectedRed, blue: selectedBlue };
+        }
+
+        function checkMinBalls(redBalls, blueBalls) {
+            const minRed = lotteryType === 'ssq' ? 6 : 5;
+            const minBlue = lotteryType === 'ssq' ? 1 : 2;
+            const lotteryName = lotteryType === 'ssq' ? '双色球' : '大乐透';
+            if (redBalls.length < minRed) {
+                alert(`${lotteryName}红球至少需要 ${minRed} 个，当前只选择了 ${redBalls.length} 个。`);
+                return false;
+            }
+            if (blueBalls.length < minBlue) {
+                alert(`${lotteryName}蓝球至少需要 ${minBlue} 个，当前只选择了 ${blueBalls.length} 个。`);
+                return false;
+            }
+            return true;
+        }
+
+        favoriteBtn.addEventListener('click', function() {
+            const { red, blue } = getSelectedBalls();
+            if (red.length === 0 && blue.length === 0) {
+                alert('请先选择号码。');
+                return;
+            }
+            if (!checkMinBalls(red, blue)) return;
+            // 调用 script.js 中的 addFavoriteNumber
+            if (typeof addFavoriteNumber === 'function') {
+                addFavoriteNumber(lotteryType, red.join(','), blue.join(','));
+            } else {
+                alert('addFavoriteNumber 函数未定义，请确认 script.js 已加载。');
+            }
+        });
+
+        purchasedBtn.addEventListener('click', function() {
+            const { red, blue } = getSelectedBalls();
+            if (red.length === 0 && blue.length === 0) {
+                alert('请先选择号码。');
+                return;
+            }
+            if (!checkMinBalls(red, blue)) return;
+            // 调用 script.js 中的 addPurchasedTicketAuto
+            if (typeof addPurchasedTicketAuto === 'function') {
+                addPurchasedTicketAuto(lotteryType, red.join(','), blue.join(','));
+            } else {
+                alert('addPurchasedTicketAuto 函数未定义，请确认 script.js 已加载。');
+            }
+        });
+    }
+
+    setupUserActionButtons('ssq');
+    setupUserActionButtons('dlt');
 
     // Range slider for check range
     const ssqCheckRange = document.getElementById('ssq_check_range');
