@@ -256,7 +256,7 @@
                             <div class="card bg-light">
                                 <div class="card-body py-2 px-3 text-center">
                                     <small class="text-muted">单价</small>
-                                    <h5 class="mb-0">2 元/注</h5>
+                                    <h5 class="mb-0" id="unitPrice">2 元/注</h5>
                                 </div>
                             </div>
                         </div>
@@ -267,6 +267,16 @@
                                     <h5 class="mb-0 text-danger fw-bold" id="ticketCostDisplay">¥0</h5>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 追加投注（仅大乐透） -->
+                    <div class="mb-3" id="additionalSection" style="display:none;">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="ticketAdditional" onchange="updateCost()">
+                            <label class="form-check-label" for="ticketAdditional">
+                                <strong class="text-warning">追加投注</strong> <span class="text-muted">（单注3元，一/二等奖金额更高）</span>
+                            </label>
                         </div>
                     </div>
 
@@ -305,7 +315,7 @@
                         <div class="display-4 text-muted mb-3">
                             <i class="bi bi-image"></i>
                         </div>
-                        <p class="text-muted">上传彩票照片，AI 将自动识别彩票品种、号码、倍数和金额</p>
+                        <p class="text-muted">上传彩票照片，AI 将自动识别彩票品种、号码、倍数、追加和金额</p>
                         <div class="d-flex justify-content-center gap-3 mt-3">
                             <button type="button" class="btn btn-outline-primary btn-lg" onclick="document.getElementById('photoInput').click()">
                                 <i class="bi bi-image"></i> 选择图片
@@ -336,17 +346,23 @@
                                 <h6 class="text-success mb-3">
                                     <i class="bi bi-check-circle"></i> 识别成功
                                 </h6>
-                                <div class="mb-2">
+                                <div class="mb-2 d-flex justify-content-between align-items-center">
                                     <span class="badge bg-primary" id="recogLotteryType">双色球</span>
+                                    <div>
+                                        <input type="checkbox" id="selectAllRecog" checked onchange="toggleAllRecog()">
+                                        <label for="selectAllRecog" class="text-muted small">全选/取消</label>
+                                    </div>
                                 </div>
                                 <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
                                     <table class="table table-sm table-bordered recog-table">
                                         <thead class="table-light">
                                             <tr>
+                                                <th style="width:35px;"><i class="bi bi-check"></i></th>
                                                 <th>#</th>
                                                 <th>红球/前区</th>
                                                 <th>蓝球/后区</th>
                                                 <th>倍数</th>
+                                                <th>追加</th>
                                                 <th>金额</th>
                                             </tr>
                                         </thead>
@@ -356,8 +372,9 @@
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 p-2 bg-light rounded">
                                     <div>
-                                        <small class="text-muted">期号</small>
-                                        <input type="text" class="form-control form-control-sm" id="photoIssue" style="width:120px;display:inline-block;" placeholder="如 2026050">
+                                        <small class="text-muted">期号（AI 识别）</small>
+                                        <span id="photoIssueDisplay" class="fw-bold ms-2"></span>
+                                        <input type="hidden" id="photoIssue" value="">
                                     </div>
                                     <div class="text-end">
                                         <small class="text-muted">合计：</small>
@@ -386,7 +403,7 @@
             <div class="modal-footer" id="photoModalFooter" style="display:none;">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-success" onclick="batchAddFromPhoto()">
-                    <i class="bi bi-check-lg"></i> 确认添加全部号码
+                    <i class="bi bi-check-lg"></i> 确认添加勾选的号码
                 </button>
             </div>
         </div>
@@ -411,16 +428,24 @@ function combination(n, k) {
 // 计算复式注数
 function calculateUnits(redCount, blueCount, lotteryType) {
     if (lotteryType === 'ssq') {
-        // 双色球：红球6选n，蓝球1选m
         const redWays = combination(redCount, 6);
         const blueWays = combination(blueCount, 1);
         return redWays * blueWays;
     } else {
-        // 大乐透：前区5选n，后区2选m
         const redWays = combination(redCount, 5);
         const blueWays = combination(blueCount, 2);
         return redWays * blueWays;
     }
+}
+
+// 获取单注价格
+function getUnitPrice() {
+    const lotteryType = document.getElementById('ticketLotteryType').value;
+    const isAdditional = document.getElementById('ticketAdditional').checked;
+    if (lotteryType === 'dlt' && isAdditional) {
+        return 3;
+    }
+    return 2;
 }
 
 // 更新注数和金额显示
@@ -429,6 +454,9 @@ function updateCost() {
     const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
     const redCount = selectedRedBalls.size;
     const blueCount = selectedBlueBalls.size;
+    const unitPrice = getUnitPrice();
+    
+    document.getElementById('unitPrice').textContent = unitPrice + ' 元/注';
     
     let units = 0;
     if (redCount > 0 && blueCount > 0) {
@@ -436,7 +464,7 @@ function updateCost() {
     }
     
     document.getElementById('ticketUnits').textContent = units;
-    const totalCost = units * 2 * multiplier;
+    const totalCost = units * unitPrice * multiplier;
     document.getElementById('ticketCostDisplay').textContent = '¥' + totalCost;
 }
 
@@ -459,7 +487,6 @@ function switchFilter(filter) {
     currentPage = 1;
     selectedIds.clear();
     updateBatchDeleteBtn();
-    // 更新按钮高亮
     document.querySelectorAll('#filterTabs .btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`#filterTabs .btn[data-filter="${filter}"]`).classList.add('active');
     loadTickets();
@@ -542,7 +569,7 @@ async function checkAllTickets() {
     }
 }
 
-/** 北京时间格式化：手动解析 ISO 字符串，强制显示北京时间 */
+/** 北京时间格式化 */
 function formatBeijingTime(dateStr) {
     if (!dateStr) return '-';
     let clean = dateStr.replace(/[Zz]$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
@@ -618,6 +645,7 @@ async function loadTickets() {
                 <th>期号</th>
                 <th>号码</th>
                 <th>倍数</th>
+                <th>追加</th>
                 <th>金额</th>
                 <th>中奖</th>
                 <th>添加时间</th>
@@ -633,6 +661,14 @@ async function loadTickets() {
                 const blues = item.blue_balls ? item.blue_balls.split(',').map(n => parseInt(n)) : [];
                 ballsHtml = reds.map(n => `<span class="ball ball-red" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#ff6b6b;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
                 ballsHtml += blues.map(n => `<span class="ball ball-blue" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;text-align:center;background:#339af0;color:#fff;font-size:11px;margin:1px;">${String(n).padStart(2, '0')}</span>`).join('');
+            }
+            
+            // 追加显示
+            let additionalHtml = '';
+            if (item.is_additional) {
+                additionalHtml = '<span class="badge bg-warning text-dark">追加</span>';
+            } else {
+                additionalHtml = '<span class="text-muted">—</span>';
             }
             
             // 中奖信息显示
@@ -672,6 +708,7 @@ async function loadTickets() {
                         <i class="bi bi-pencil"></i> 改
                     </button>
                 </td>
+                <td>${additionalHtml}</td>
                 <td id="cost_display_${item.id}">¥${(item.cost || 0).toFixed(2)}</td>
                 <td>${prizeHtml}</td>
                 <td>${formatBeijingTime(item.created_at)}</td>
@@ -752,7 +789,6 @@ function updateSelectedDisplay() {
 function resetBallSelectors() {
     selectedRedBalls.clear();
     selectedBlueBalls.clear();
-    // 清除所有选中样式
     document.querySelectorAll('#redBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
     document.querySelectorAll('#blueBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
     updateSelectedDisplay();
@@ -771,7 +807,6 @@ function initBallSelectors(lotteryType) {
         buildBallSelector('redBallGrid', 35, 'red');
         buildBallSelector('blueBallGrid', 12, 'blue');
     }
-    // 重置选中状态
     resetBallSelectors();
 }
 
@@ -793,13 +828,11 @@ async function toggleEditMultiplier(id) {
     const btn = document.getElementById('multiplier_btn_' + id);
     
     if (editGroup.style.display === 'none') {
-        // 切换到编辑模式
         textSpan.style.display = 'none';
         editGroup.style.display = 'inline-block';
         input.focus();
         btn.innerHTML = '<i class="bi bi-check-lg"></i> 存';
     } else {
-        // 保存模式
         const newMultiplier = parseInt(input.value);
         if (!newMultiplier || newMultiplier < 1) {
             alert('倍数至少为1');
@@ -808,7 +841,6 @@ async function toggleEditMultiplier(id) {
         }
         
         try {
-            // 先获取当前ticket数据计算新金额
             const ticketsResp = await fetch(`/auth/api/purchased?page=1&per_page=1000`);
             const ticketsData = await ticketsResp.json();
             const ticket = ticketsData.tickets.find(t => t.id === id);
@@ -817,11 +849,11 @@ async function toggleEditMultiplier(id) {
                 return;
             }
             
-            // 根据号码计算注数
             const redCount = ticket.red_balls ? ticket.red_balls.split(',').length : 0;
             const blueCount = ticket.blue_balls ? ticket.blue_balls.split(',').length : 0;
             const units = calculateUnits(redCount, blueCount, ticket.lottery_type);
-            const newCost = units * 2 * newMultiplier;
+            const unitPrice = ticket.is_additional ? 3 : 2;
+            const newCost = units * unitPrice * newMultiplier;
             
             const resp = await fetch('/auth/api/purchased/' + id, {
                 method: 'PUT',
@@ -836,7 +868,6 @@ async function toggleEditMultiplier(id) {
                 textSpan.style.display = 'inline';
                 editGroup.style.display = 'none';
                 btn.innerHTML = '<i class="bi bi-pencil"></i> 改';
-                // 刷新列表更新统计
                 loadTickets();
             } else {
                 alert('保存失败：' + (result.error || '未知错误'));
@@ -875,13 +906,11 @@ async function toggleEditIssue(id) {
     const btn = document.getElementById('issue_btn_' + id);
     
     if (editGroup.style.display === 'none') {
-        // 切换到编辑模式
         textSpan.style.display = 'none';
         editGroup.style.display = 'inline-block';
         input.focus();
         btn.innerHTML = '<i class="bi bi-check-lg"></i> 存';
     } else {
-        // 保存模式
         const newIssue = input.value.trim();
         if (!newIssue) {
             alert('期号不能为空');
@@ -901,7 +930,6 @@ async function toggleEditIssue(id) {
                 textSpan.style.display = 'inline';
                 editGroup.style.display = 'none';
                 btn.innerHTML = '<i class="bi bi-pencil"></i> 改';
-                // 保存后重新对所有号码对奖，然后刷新列表
                 await checkAllTickets();
                 loadTickets();
             } else {
@@ -920,16 +948,19 @@ async function addTicket() {
     const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
     const lotteryType = document.getElementById('ticketLotteryType').value;
     const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
+    const isAdditional = document.getElementById('ticketAdditional').checked;
     
     // 自动计算注数和金额
     const units = calculateUnits(redArr.length, blueArr.length, lotteryType);
-    const cost = units * 2 * multiplier;
+    const unitPrice = (lotteryType === 'dlt' && isAdditional) ? 3 : 2;
+    const cost = units * unitPrice * multiplier;
     
     const data = {
         lottery_type: lotteryType,
         issue: document.getElementById('ticketIssue').value.trim(),
         red_balls: redArr.join(','),
         blue_balls: blueArr.join(','),
+        is_additional: isAdditional,
         cost: cost,
         multiplier: multiplier,
         note: document.getElementById('ticketNote').value.trim(),
@@ -965,6 +996,7 @@ async function addTicket() {
             resetBallSelectors();
             document.getElementById('ticketIssue').value = '';
             document.getElementById('ticketMultiplier').value = '1';
+            document.getElementById('ticketAdditional').checked = false;
             document.getElementById('ticketNote').value = '';
             loadTickets();
         } else {
@@ -992,7 +1024,6 @@ async function removeTicket(id) {
 }
 
 async function refreshData() {
-    // 刷新数据：先对奖，再重新加载列表
     await checkAllTickets();
     loadTickets();
 }
@@ -1013,6 +1044,8 @@ async function fetchLatestIssue(lotteryType) {
 document.getElementById('addTicketModal').addEventListener('shown.bs.modal', async function() {
     const lotteryType = document.getElementById('ticketLotteryType').value;
     initBallSelectors(lotteryType);
+    // 控制追加复选框显示
+    document.getElementById('additionalSection').style.display = lotteryType === 'dlt' ? '' : 'none';
     updateCost();
     const issue = await fetchLatestIssue(lotteryType);
     if (issue) {
@@ -1024,6 +1057,11 @@ document.getElementById('addTicketModal').addEventListener('shown.bs.modal', asy
 document.getElementById('ticketLotteryType').addEventListener('change', async function() {
     const lotteryType = this.value;
     initBallSelectors(lotteryType);
+    // 控制追加复选框显示
+    document.getElementById('additionalSection').style.display = lotteryType === 'dlt' ? '' : 'none';
+    if (lotteryType === 'ssq') {
+        document.getElementById('ticketAdditional').checked = false;
+    }
     updateCost();
     const issue = await fetchLatestIssue(lotteryType);
     if (issue) {
@@ -1036,7 +1074,6 @@ document.getElementById('ticketLotteryType').addEventListener('change', async fu
 // 弹出照片弹窗时重置状态
 document.getElementById('photoImportModal').addEventListener('shown.bs.modal', function() {
     resetPhotoImport();
-    // 自动填充最新期号
     fetchLatestIssue('ssq').then(issue => {
         if (issue) document.getElementById('photoIssue').value = issue;
     });
@@ -1062,6 +1099,14 @@ function resetPhotoImport() {
     document.getElementById('photoRecogLoading').style.display = 'none';
     document.getElementById('photoRecogError').style.display = 'none';
     photoRecogData = null;
+}
+
+// 全选/取消全选照片识别结果
+function toggleAllRecog() {
+    const checked = document.getElementById('selectAllRecog').checked;
+    document.querySelectorAll('.recog-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
 }
 
 // 处理图片上传
@@ -1126,6 +1171,16 @@ function displayRecognitionResult(data) {
     document.getElementById('recogLotteryType').textContent = lotteryType === 'ssq' ? '双色球' : '大乐透';
     document.getElementById('recogLotteryType').className = 'badge bg-' + (lotteryType === 'ssq' ? 'primary' : 'success');
     
+    // 显示AI识别的期号（直接使用，不需要加减调整）
+    const aiIssue = data.issue || '';
+    if (aiIssue) {
+        document.getElementById('photoIssueDisplay').textContent = aiIssue;
+        document.getElementById('photoIssue').value = aiIssue;
+    } else {
+        document.getElementById('photoIssueDisplay').textContent = '（AI未识别到期号）';
+        document.getElementById('photoIssue').value = '';
+    }
+    
     // 生成号码表格
     const tbody = document.getElementById('recogTicketsBody');
     tbody.innerHTML = '';
@@ -1134,17 +1189,22 @@ function displayRecognitionResult(data) {
         const reds = ticket.red_balls || [];
         const blues = ticket.blue_balls || [];
         const multi = ticket.multiplier || 1;
-        const cost = multi * 2;
+        const isAdditional = ticket.is_additional || false;
+        const unitPrice = isAdditional ? 3 : 2;
+        const cost = multi * unitPrice;
         
         const redHtml = reds.map(n => `<span class="recog-ball red">${String(n).padStart(2, '0')}</span>`).join('');
         const blueHtml = blues.map(n => `<span class="recog-ball blue">${String(n).padStart(2, '0')}</span>`).join('');
+        const additionalHtml = isAdditional ? '<span class="badge bg-warning text-dark">追加</span>' : '<span class="text-muted">—</span>';
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td><input type="checkbox" class="form-check-input recog-checkbox" data-idx="${idx}" checked></td>
             <td>${idx + 1}</td>
             <td>${redHtml}</td>
             <td>${blueHtml}</td>
             <td>${multi} 倍</td>
+            <td>${additionalHtml}</td>
             <td>¥${cost.toFixed(2)}</td>
         `;
         tbody.appendChild(tr);
@@ -1153,12 +1213,15 @@ function displayRecognitionResult(data) {
     // 显示总费用
     document.getElementById('recogTotalCost').textContent = '¥' + (data.total_cost || 0).toFixed(2);
     
+    // 全选复选框重置为选中
+    document.getElementById('selectAllRecog').checked = true;
+    
     // 显示结果区域和底部按钮
     document.getElementById('photoRecogResult').style.display = '';
     document.getElementById('photoModalFooter').style.display = '';
 }
 
-// 批量添加识别结果中的所有号码
+// 批量添加识别结果中勾选的号码
 async function batchAddFromPhoto() {
     if (!photoRecogData) return;
     
@@ -1171,23 +1234,40 @@ async function batchAddFromPhoto() {
         return;
     }
     
+    // 只添加勾选的号码
+    const checkedIndexes = [];
+    document.querySelectorAll('.recog-checkbox:checked').forEach(cb => {
+        checkedIndexes.push(parseInt(cb.dataset.idx));
+    });
+    
+    if (checkedIndexes.length === 0) {
+        alert('请至少勾选一注号码');
+        return;
+    }
+    
     let successCount = 0;
     let failCount = 0;
     
-    for (const ticket of tickets) {
+    for (const idx of checkedIndexes) {
+        const ticket = tickets[idx];
+        if (!ticket) continue;
+        
         const reds = ticket.red_balls || [];
         const blues = ticket.blue_balls || [];
         const multi = ticket.multiplier || 1;
+        const isAdditional = ticket.is_additional || false;
         
         // 计算注数和金额
         const units = calculateUnits(reds.length, blues.length, lotteryType);
-        const cost = units * 2 * multi;
+        const unitPrice = isAdditional ? 3 : 2;
+        const cost = units * unitPrice * multi;
         
         const data = {
             lottery_type: lotteryType,
             issue: issue,
             red_balls: reds.join(','),
             blue_balls: blues.join(','),
+            is_additional: isAdditional,
             cost: cost,
             multiplier: multi,
             note: '照片导入',
@@ -1224,9 +1304,7 @@ async function batchAddFromPhoto() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 1. 先对所有号码对奖
     await checkAllTickets();
-    // 2. 加载显示数据
     loadTickets();
 });
 </script>

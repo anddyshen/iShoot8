@@ -234,6 +234,7 @@ class UserPurchasedTicket(db.Model):
     issue = db.Column(db.String(10), nullable=False)
     red_balls = db.Column(db.String(50), nullable=False)
     blue_balls = db.Column(db.String(20), nullable=False)
+    is_additional = db.Column(db.Boolean, default=False)  # 是否追加投注（仅大乐透）
     cost = db.Column(db.Float, nullable=False, default=2.0)  # 投注金额
     multiplier = db.Column(db.Integer, default=1)  # 倍数
     prize_amount = db.Column(db.Float, default=0.0)  # 中奖金额
@@ -251,6 +252,7 @@ class UserPurchasedTicket(db.Model):
             'issue': self.issue,
             'red_balls': self.red_balls,
             'blue_balls': self.blue_balls,
+            'is_additional': self.is_additional,
             'cost': self.cost,
             'multiplier': self.multiplier,
             'prize_amount': self.prize_amount,

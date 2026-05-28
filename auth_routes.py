@@ -275,6 +275,7 @@ def api_ai_recognize_ticket():
             reds = ticket.get('red_balls', [])
             blues = ticket.get('blue_balls', [])
             multi = int(ticket.get('multiplier', 1))
+            is_additional = ticket.get('is_additional', False)
             
             reds = [int(b) for b in reds if str(b).isdigit()]
             blues = [int(b) for b in blues if str(b).isdigit()]
@@ -282,10 +283,11 @@ def api_ai_recognize_ticket():
             if not reds or not blues:
                 continue  # 跳过无效的注
             
-            # 根据彩票类型验证号码范围
+            # 根据彩票类型验证号码范围和追加
             if lottery_type == 'ssq':
                 if not all(1 <= b <= 33 for b in reds) or not all(1 <= b <= 16 for b in blues):
                     continue
+                is_additional = False  # 双色球没有追加
             else:
                 if not all(1 <= b <= 35 for b in reds) or not all(1 <= b <= 12 for b in blues):
                     continue
@@ -294,19 +296,24 @@ def api_ai_recognize_ticket():
                 'red_balls': sorted(set(reds)),
                 'blue_balls': sorted(set(blues)),
                 'multiplier': max(1, multi),
+                'is_additional': is_additional,
             })
         
         if not validated_tickets:
             return jsonify({'error': '未能从图片中识别出有效的彩票号码'}), 400
         
-        # 计算总倍数和总费用
+        # 计算总倍数和总费用（追加按3元/注，普通2元/注）
         total_multiplier = sum(t['multiplier'] for t in validated_tickets)
-        total_cost = sum(t['multiplier'] * 2 for t in validated_tickets)
+        total_cost = sum(t['multiplier'] * (3 if t.get('is_additional') else 2) for t in validated_tickets)
+        
+        # 从识别结果中提取期号
+        ai_issue = result.get('issue', '')
         
         return jsonify({
             'success': True,
             'tickets': validated_tickets,
             'lottery_type': lottery_type,
+            'issue': ai_issue,
             'total_multiplier': total_multiplier,
             'total_cost': total_cost,
         })
@@ -316,20 +323,21 @@ def api_ai_recognize_ticket():
 
 
 def _call_openai_api(api_key, api_url, model, data_url, is_test=False):
-    """调用 OpenAI 兼容接口进行图片识别"""
+    """调用 OpenAI 兼容接口进行图片识别
+    支持标准 OpenAI 接口、gemini-balance 等轮询代理、以及各类 OpenAI 兼容网关。
+    自动尝试多种认证方式以兼容不同代理实现。"""
     import requests
+    import json
+    import re
     
     url = api_url or 'https://api.openai.com/v1/chat/completions'
     
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json',
-    }
+    effective_model = model or 'gpt-4o'
     
     if is_test:
         # 测试模式：只发文字请求验证 API Key
         payload = {
-            'model': model or 'gpt-4o',
+            'model': effective_model,
             'messages': [
                 {'role': 'user', 'content': '请回复"连接测试成功"这几个字'}
             ],
@@ -341,6 +349,7 @@ def _call_openai_api(api_key, api_url, model, data_url, is_test=False):
 
 {
     "lottery_type": "ssq 或 dlt",
+    "issue": "期号字符串，如 2026050",
     "tickets": [
         {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字},
         {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字}
@@ -350,13 +359,14 @@ def _call_openai_api(api_key, api_url, model, data_url, is_test=False):
 判断规则：
 - 双色球（SSQ）：红球6个（范围1-33），蓝球1个（范围1-16）
 - 大乐透（DLT）：前区5个（范围1-35），后区2个（范围1-12）
+- 识别彩票期号（如 2026050），放入 issue 字段
 - 仔细查看图片中所有号码，识别每一注号码（彩票可能有多个号码组合）
 - 识别每注号码的倍数（如2倍、3倍等），如果看不清倍数默认为1
 - 识别彩票总费用（金额），放入 total_cost 字段
 - 只返回 JSON，不要包含其他文字说明"""
         
         payload = {
-            'model': model or 'gpt-4o',
+            'model': effective_model,
             'messages': [
                 {
                     'role': 'user',
@@ -370,44 +380,139 @@ def _call_openai_api(api_key, api_url, model, data_url, is_test=False):
             'max_tokens': 500,
         }
     
-    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    # ===== 先检查 URL 路径：如果 URL 不含 /chat/completions，自动尝试常见路径 =====
     
-    if response.status_code != 200:
-        raise Exception(f'AI 接口调用失败 (HTTP {response.status_code}): {response.text}')
+    errors = []
+    urls_to_try = [url]  # 先试原始 URL
     
-    if is_test:
-        return {'success': True}
+    # 如果原始 URL 不含 /chat/completions 或 /generateContent，加常见路径
+    if '/chat/completions' not in url and '/generateContent' not in url:
+        base = url.rstrip('/')
+        urls_to_try = [
+            url,                              # 原始地址
+            f'{base}/chat/completions',       # 常见路径
+            f'{base}/v1/chat/completions',    # OpenAI 标准路径
+            f'{base}/v1beta/chat/completions', # Gemini 兼容路径
+        ]
+        # 去重
+        urls_to_try = list(dict.fromkeys(urls_to_try))
     
-    result = response.json()
-    content = result['choices'][0]['message']['content']
+    # ===== 遍历所有 URL，对每个 URL 尝试所有认证方式 =====
     
-    # 尝试从返回内容中提取 JSON
+    auth_methods = [
+        ('方式1(Bearer)', {'Authorization': 'Bearer ' + api_key, 'Content-Type': 'application/json'}),
+        ('方式2(x-goog-api-key)', {'x-goog-api-key': api_key, 'Content-Type': 'application/json'}),
+        ('方式4(直接Auth)', {'Authorization': api_key, 'Content-Type': 'application/json'}),
+    ]
+    
+    for try_url in urls_to_try:
+        for method_name, headers in auth_methods:
+            try:
+                response = requests.post(try_url, headers=headers, json=payload, timeout=30)
+                if response.status_code == 200:
+                    if is_test:
+                        return {'success': True}
+                    return _parse_openai_response(response)
+                errors.append(f'{method_name} @ {try_url} -> HTTP {response.status_code}')
+            except Exception as e:
+                errors.append(f'{method_name} @ {try_url} -> {str(e)[:50]}')
+        
+        # 特殊：方式3 (?key=) 需要修改 URL
+        try:
+            connector = '&' if '?' in try_url else '?'
+            url_with_key = f'{try_url}{connector}key={api_key}'
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(url_with_key, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                if is_test:
+                    return {'success': True}
+                return _parse_openai_response(response)
+            errors.append(f'方式3(?key=) @ {try_url} -> HTTP {response.status_code}')
+        except Exception as e:
+            errors.append(f'方式3(?key=) @ {try_url} -> {str(e)[:50]}')
+    
+    # 所有方式都失败
+    error_detail = ' | '.join(errors)
+    
+    # 分析错误模式，给出针对性建议
+    suggestions = []
+    error_types = set()
+    for e in errors:
+        if 'HTTP 405' in e:
+            error_types.add('405')
+        elif 'HTTP 401' in e:
+            error_types.add('401')
+        elif 'HTTP 404' in e:
+            error_types.add('404')
+    
+    if '401' in error_types:
+        suggestions.append('🔑 API Key 可能不正确，请检查')
+    if '404' in error_types:
+        suggestions.append('🌐 API URL 路径可能不正确，已自动尝试了 /v1/chat/completions 等常见路径仍未成功')
+    if '405' in error_types:
+        suggestions.append('🌐 API URL 可能只是根地址（如 http://127.0.0.1:8787），已自动尝试了 /v1/chat/completions 等常见路径，请检查代理的完整地址')
+    if 'Connection' in str(errors) or 'timeout' in str(errors):
+        suggestions.append('🔌 无法连接到服务器，请检查网络/代理设置')
+    
+    suggestion_text = '\n'.join(suggestions) if suggestions else '💡 建议：在 API URL 字段填写完整的接口地址，包括路径部分'
+    
+    raise Exception(f'AI 接口调用失败（已尝试 {len(urls_to_try)} 个URL路径 × 多种认证方式）:\n{error_detail}\n\n{suggestion_text}')
+
+
+def _parse_openai_response(response):
+    """解析 OpenAI 兼容接口的返回结果"""
     import json
     import re
     
-    # 先尝试直接解析
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
+    result = response.json()
     
-    # 尝试提取 ```json ... ``` 块
-    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
-    if json_match:
+    # 检查是否有 choices 字段（标准 OpenAI 格式）
+    if 'choices' in result and len(result['choices']) > 0:
+        content = result['choices'][0]['message']['content']
+        
+        # 尝试从返回内容中提取 JSON
         try:
-            return json.loads(json_match.group(1))
+            return json.loads(content)
         except json.JSONDecodeError:
             pass
+        
+        # 尝试提取 ```json ... ``` 块
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+        
+        # 尝试提取 {...} 对象
+        obj_match = re.search(r'\{[\s\S]*\}', content)
+        if obj_match:
+            try:
+                return json.loads(obj_match.group(0))
+            except json.JSONDecodeError:
+                pass
+        
+        raise Exception(f'无法解析 AI 返回结果: {content[:200]}')
     
-    # 尝试提取 {...} 对象
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
+    # 检查是否有 candidates 字段（Gemini 原生格式转发的响应）
+    if 'candidates' in result:
         try:
-            return json.loads(obj_match.group(0))
-        except json.JSONDecodeError:
+            content = result['candidates'][0]['content']['parts'][0]['text']
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                pass
+            obj_match = re.search(r'\{[\s\S]*\}', content)
+            if obj_match:
+                try:
+                    return json.loads(obj_match.group(0))
+                except json.JSONDecodeError:
+                    pass
+            raise Exception(f'无法解析 AI 返回结果: {content[:200]}')
+        except (KeyError, IndexError):
             pass
     
-    raise Exception(f'无法解析 AI 返回结果: {content[:200]}')
+    raise Exception(f'无法识别的 AI 返回格式: {json.dumps(result, ensure_ascii=False)[:200]}')
 
 
 def _repair_truncated_json(text):
@@ -540,17 +645,20 @@ def _call_gemini_api(api_key, api_url, model, data_url, is_test=False):
 
 {
     "lottery_type": "ssq 或 dlt",
+    "issue": "期号字符串，如 2026050",
     "tickets": [
-        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字},
-        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字}
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字, "is_additional": true或false},
+        {"red_balls": [红球号码数组], "blue_balls": [蓝球号码数组], "multiplier": 倍数数字, "is_additional": true或false}
     ]
 }
 
 判断规则：
-- 双色球（SSQ）：红球6个（范围1-33），蓝球1个（范围1-16）
-- 大乐透（DLT）：前区5个（范围1-35），后区2个（范围1-12）
+- 双色球（SSQ）：红球6个（范围1-33），蓝球1个（范围1-16）。双色球没有追加投注，is_additional 始终为 false
+- 大乐透（DLT）：前区5个（范围1-35），后区2个（范围1-12）。大乐透可能有追加投注，请识别彩票上是否有"追加"字样
+- 识别彩票期号（如 2026050），放入 issue 字段
 - 仔细查看图片中所有号码，识别每一注号码（彩票可能有多个号码组合）
 - 识别每注号码的倍数（如2倍、3倍等），如果看不清倍数默认为1
+- 识别每注是否为追加投注（大乐透才有），如果图片上有"追加"字样则 is_additional 为 true，没有则为 false
 - 识别彩票总费用（金额），放入 total_cost 字段"""
         
         payload = {
@@ -999,6 +1107,7 @@ def api_add_purchased():
     issue = data.get('issue', '').strip()
     red_balls = data.get('red_balls', '').strip()
     blue_balls = data.get('blue_balls', '').strip()
+    is_additional = data.get('is_additional', False)
     cost = float(data.get('cost', 2))
     multiplier = int(data.get('multiplier', 1))
     note = data.get('note', '').strip()
@@ -1011,6 +1120,10 @@ def api_add_purchased():
         return jsonify({'error': '投注金额至少2元'}), 400
     if multiplier < 1:
         return jsonify({'error': '倍数至少为1'}), 400
+    
+    # 双色球不能追加
+    if lottery_type == 'ssq':
+        is_additional = False
     
     # 自动对奖（如果存在开奖数据）
     prize_amount = 0.0
@@ -1071,6 +1184,7 @@ def api_add_purchased():
         issue=issue,
         red_balls=red_balls,
         blue_balls=blue_balls,
+        is_additional=is_additional,
         cost=cost,
         multiplier=multiplier,
         prize_amount=prize_amount,
