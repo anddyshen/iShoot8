@@ -1,6 +1,67 @@
 {% extends "base.html" %}
 {% block title %}心仪号码{% endblock %}
 {% block content %}
+<style>
+.ball-selector {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+}
+.ball-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+.selector-ball {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.selector-ball.red {
+    background: #fff;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+.selector-ball.red:hover {
+    background: #fce4e4;
+}
+.selector-ball.red.selected {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+}
+.selector-ball.blue {
+    background: #fff;
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+.selector-ball.blue:hover {
+    background: #e4edfc;
+}
+.selector-ball.blue.selected {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.4);
+}
+.selector-ball:active {
+    transform: scale(0.9);
+}
+.selected-display {
+    font-size: 0.9rem;
+}
+</style>
 <div class="card shadow">
     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
         <h4 class="mb-0"><i class="bi bi-heart"></i> 心仪号码</h4>
@@ -15,10 +76,19 @@
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted">
-            <i class="bi bi-info-circle"></i> 
-            在号码筛选页面可以将心仪的号码保存到此，方便随时查看和使用。
-        </p>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <p class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    在号码筛选页面可以将心仪的号码保存到此，方便随时查看和使用。
+                </p>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addFavoriteModal">
+                    <i class="bi bi-plus-circle"></i> 添加心仪号码
+                </button>
+            </div>
+        </div>
 
         <!-- 彩种筛选标签 -->
         <div class="btn-group mb-3" role="group" id="filterTabs">
@@ -49,6 +119,69 @@
                 </li>
             </ul>
         </nav>
+    </div>
+</div>
+
+<!-- 添加心仪号码弹窗 -->
+<div class="modal fade" id="addFavoriteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-heart"></i> 添加心仪号码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addFavoriteForm">
+                    <div class="mb-3">
+                        <label class="form-label">彩种</label>
+                        <div class="btn-group" role="group" id="favLotteryTypeGroup">
+                            <button type="button" class="btn btn-outline-primary active" data-type="ssq" onclick="switchFavLotteryType('ssq')">双色球</button>
+                            <button type="button" class="btn btn-outline-success" data-type="dlt" onclick="switchFavLotteryType('dlt')">大乐透</button>
+                        </div>
+                    </div>
+
+                    <!-- 红球/前区号码选择器 -->
+                    <div class="mb-3">
+                        <label class="form-label" id="favRedLabel">红球号码（点击选择，支持复式，不限数量）</label>
+                        <div class="ball-selector" id="favRedBallSelector">
+                            <div class="ball-grid" id="favRedBallGrid">
+                                <!-- 由JS动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 蓝球/后区号码选择器 -->
+                    <div class="mb-3">
+                        <label class="form-label" id="favBlueLabel">蓝球号码（点击选择，支持复式，不限数量）</label>
+                        <div class="ball-selector" id="favBlueBallSelector">
+                            <div class="ball-grid" id="favBlueBallGrid">
+                                <!-- 由JS动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 已选号码显示 -->
+                    <div class="mb-3">
+                        <div class="selected-display p-2 bg-light rounded">
+                            <span class="text-muted">已选：</span>
+                            <span id="favSelectedRedDisplay" class="text-danger fw-bold me-2">红球：未选择</span>
+                            <span id="favSelectedBlueDisplay" class="text-primary fw-bold">蓝球：未选择</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">备注（选填）</label>
+                        <input type="text" class="form-control" id="favNote" placeholder="如：守号、机选等">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="addFavorite()">
+                    <i class="bi bi-heart"></i> 添加
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -324,6 +457,193 @@ async function saveNote(id) {
 async function refreshFavorites() {
     await loadFavorites();
 }
+
+// ========== 心仪号码添加弹窗 - 号码选择器逻辑 ==========
+
+let favSelectedRedBalls = new Set();
+let favSelectedBlueBalls = new Set();
+
+function buildFavBallSelector(containerId, count, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+        const ball = document.createElement('div');
+        ball.className = `selector-ball ${type}`;
+        ball.textContent = String(i).padStart(2, '0');
+        ball.dataset.num = i;
+        ball.onclick = function() { toggleFavBall(this, type); };
+        container.appendChild(ball);
+    }
+}
+
+function toggleFavBall(el, type) {
+    const num = parseInt(el.dataset.num);
+    if (type === 'red') {
+        if (favSelectedRedBalls.has(num)) {
+            favSelectedRedBalls.delete(num);
+            el.classList.remove('selected');
+        } else {
+            favSelectedRedBalls.add(num);
+            el.classList.add('selected');
+        }
+    } else if (type === 'blue') {
+        if (favSelectedBlueBalls.has(num)) {
+            favSelectedBlueBalls.delete(num);
+            el.classList.remove('selected');
+        } else {
+            favSelectedBlueBalls.add(num);
+            el.classList.add('selected');
+        }
+    }
+    updateFavSelectedDisplay();
+}
+
+function updateFavSelectedDisplay() {
+    const redArr = Array.from(favSelectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(favSelectedBlueBalls).sort((a, b) => a - b);
+    
+    const redDisplay = document.getElementById('favSelectedRedDisplay');
+    const blueDisplay = document.getElementById('favSelectedBlueDisplay');
+    
+    if (redArr.length > 0) {
+        redDisplay.innerHTML = '红球：<span class="text-danger">' + redArr.map(n => String(n).padStart(2, '0')).join(', ') + '</span>';
+    } else {
+        redDisplay.innerHTML = '红球：<span class="text-muted">未选择</span>';
+    }
+    
+    if (blueArr.length > 0) {
+        blueDisplay.innerHTML = '蓝球：<span class="text-primary">' + blueArr.map(n => String(n).padStart(2, '0')).join(', ') + '</span>';
+    } else {
+        blueDisplay.innerHTML = '蓝球：<span class="text-muted">未选择</span>';
+    }
+}
+
+function resetFavBallSelectors() {
+    favSelectedRedBalls.clear();
+    favSelectedBlueBalls.clear();
+    document.querySelectorAll('#favRedBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('#favBlueBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    updateFavSelectedDisplay();
+}
+
+function initFavBallSelectors(lotteryType) {
+    if (lotteryType === 'ssq') {
+        document.getElementById('favRedLabel').textContent = '红球号码（点击选择，支持复式，不限数量，1-33）';
+        document.getElementById('favBlueLabel').textContent = '蓝球号码（点击选择，支持复式，不限数量，1-16）';
+        buildFavBallSelector('favRedBallGrid', 33, 'red');
+        buildFavBallSelector('favBlueBallGrid', 16, 'blue');
+    } else {
+        document.getElementById('favRedLabel').textContent = '前区号码（点击选择，支持复式，不限数量，1-35）';
+        document.getElementById('favBlueLabel').textContent = '后区号码（点击选择，支持复式，不限数量，1-12）';
+        buildFavBallSelector('favRedBallGrid', 35, 'red');
+        buildFavBallSelector('favBlueBallGrid', 12, 'blue');
+    }
+    resetFavBallSelectors();
+}
+
+async function addFavorite() {
+    const redArr = Array.from(favSelectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(favSelectedBlueBalls).sort((a, b) => a - b);
+    const lotteryType = getFavLotteryType();
+    
+    // 检查号码数量是否满足最低要求（复式多余没关系）
+    if (lotteryType === 'ssq') {
+        if (redArr.length < 6) {
+            alert('双色球至少选择6个红球号码（当前选了' + redArr.length + '个）');
+            return;
+        }
+        if (blueArr.length < 1) {
+            alert('双色球至少选择1个蓝球号码（当前选了' + blueArr.length + '个）');
+            return;
+        }
+    } else if (lotteryType === 'dlt') {
+        if (redArr.length < 5) {
+            alert('大乐透至少选择5个前区号码（当前选了' + redArr.length + '个）');
+            return;
+        }
+        if (blueArr.length < 2) {
+            alert('大乐透至少选择2个后区号码（当前选了' + blueArr.length + '个）');
+            return;
+        }
+    }
+    
+    const data = {
+        lottery_type: lotteryType,
+        red_balls: redArr.join(','),
+        blue_balls: blueArr.join(','),
+        note: document.getElementById('favNote').value.trim(),
+    };
+    
+    try {
+        const resp = await fetch('/auth/api/favorites', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addFavoriteModal'));
+            modal.hide();
+            resetFavBallSelectors();
+            document.getElementById('favNote').value = '';
+            loadFavorites();
+        } else {
+            alert('错误：' + result.error);
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
+async function fetchLatestIssue(lotteryType) {
+    try {
+        const resp = await fetch('/api/prediction/latest_issues');
+        if (!resp.ok) throw new Error('获取最新期号失败');
+        const data = await resp.json();
+        return data[lotteryType] || '';
+    } catch (err) {
+        console.error('获取最新期号失败:', err);
+        return '';
+    }
+}
+
+// 获取当前选中的彩种类型
+function getFavLotteryType() {
+    const activeBtn = document.querySelector('#favLotteryTypeGroup .btn.active');
+    return activeBtn ? activeBtn.dataset.type : 'ssq';
+}
+
+// 切换彩种按钮
+async function switchFavLotteryType(type) {
+    // 更新按钮高亮
+    document.querySelectorAll('#favLotteryTypeGroup .btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`#favLotteryTypeGroup .btn[data-type="${type}"]`).classList.add('active');
+    // 重新初始化号码选择器
+    initFavBallSelectors(type);
+    // 获取最新期号并填入备注（+1）
+    const issue = await fetchLatestIssue(type);
+    if (issue) {
+        const nextIssue = parseInt(issue) + 1;
+        document.getElementById('favNote').value = '第' + nextIssue + '期';
+    } else {
+        document.getElementById('favNote').value = '';
+    }
+}
+
+// 弹窗显示时初始化号码选择器，并自动填写备注（最新期号+1）
+document.getElementById('addFavoriteModal').addEventListener('shown.bs.modal', async function() {
+    const lotteryType = getFavLotteryType();
+    initFavBallSelectors(lotteryType);
+    // 获取最新期号并填入备注（+1）
+    const issue = await fetchLatestIssue(lotteryType);
+    if (issue) {
+        const nextIssue = parseInt(issue) + 1;
+        document.getElementById('favNote').value = '第' + nextIssue + '期';
+    } else {
+        document.getElementById('favNote').value = '';
+    }
+});
 
 document.addEventListener('DOMContentLoaded', loadFavorites);
 </script>

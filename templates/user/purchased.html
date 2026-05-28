@@ -1,6 +1,67 @@
 {% extends "base.html" %}
 {% block title %}已购号码{% endblock %}
 {% block content %}
+<style>
+.ball-selector {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+}
+.ball-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+.selector-ball {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.selector-ball.red {
+    background: #fff;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+.selector-ball.red:hover {
+    background: #fce4e4;
+}
+.selector-ball.red.selected {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+}
+.selector-ball.blue {
+    background: #fff;
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+.selector-ball.blue:hover {
+    background: #e4edfc;
+}
+.selector-ball.blue.selected {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.4);
+}
+.selector-ball:active {
+    transform: scale(0.9);
+}
+.selected-display {
+    font-size: 0.9rem;
+}
+</style>
 <div class="card shadow">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
         <h4 class="mb-0"><i class="bi bi-cart-check"></i> 已购号码</h4>
@@ -24,7 +85,7 @@
             </div>
             <div class="col-md-6 text-end">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                    <i class="bi bi-plus-circle"></i> 添加已购号码
+                    <i class="bi bi-plus-circle"></i> 添加欲购号码
                 </button>
             </div>
         </div>
@@ -77,7 +138,7 @@
                 <i class="bi bi-inbox display-1"></i>
                 <p class="mt-3">暂无已购号码记录</p>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                    <i class="bi bi-plus-circle"></i> 添加第一条记录
+                    <i class="bi bi-plus-circle"></i> 添加欲购号码
                 </button>
             </div>
         </div>
@@ -97,12 +158,12 @@
     </div>
 </div>
 
-<!-- 添加已购号码弹窗 -->
+<!-- 添加欲购号码弹窗 -->
 <div class="modal fade" id="addTicketModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 添加已购号码</h5>
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 添加欲购号码</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -116,25 +177,75 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">期号</label>
-                        <input type="text" class="form-control" id="ticketIssue" placeholder="如 2026050" required>
+                        <div>
+                            <div class="input-group" style="width:200px;">
+                                <button class="btn btn-outline-secondary" onclick="adjustAddIssue(-1)" type="button">−</button>
+                                <input type="text" class="form-control text-center" id="ticketIssue" placeholder="如 2026050" inputmode="numeric" pattern="[0-9]*" required>
+                                <button class="btn btn-outline-secondary" onclick="adjustAddIssue(1)" type="button">+</button>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- 红球/前区号码选择器 -->
                     <div class="mb-3">
-                        <label class="form-label">红球号码</label>
-                        <input type="text" class="form-control" id="ticketRedBalls" placeholder="如 01,02,03,04,05,06" required>
-                        <div class="form-text">逗号分隔</div>
+                        <label class="form-label" id="redLabel">红球号码（点击选择，支持复式，不限数量）</label>
+                        <div class="ball-selector" id="redBallSelector">
+                            <div class="ball-grid" id="redBallGrid">
+                                <!-- 由JS动态生成 -->
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- 蓝球/后区号码选择器 -->
                     <div class="mb-3">
-                        <label class="form-label">蓝球号码</label>
-                        <input type="text" class="form-control" id="ticketBlueBalls" placeholder="如 07" required>
-                        <div class="form-text">逗号分隔</div>
+                        <label class="form-label" id="blueLabel">蓝球号码（点击选择，支持复式，不限数量）</label>
+                        <div class="ball-selector" id="blueBallSelector">
+                            <div class="ball-grid" id="blueBallGrid">
+                                <!-- 由JS动态生成 -->
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- 已选号码显示 -->
                     <div class="mb-3">
-                        <label class="form-label">投注金额 (元)</label>
-                        <input type="number" class="form-control" id="ticketCost" placeholder="如 2" min="2" step="2" required>
+                        <div class="selected-display p-2 bg-light rounded">
+                            <span class="text-muted">已选：</span>
+                            <span id="selectedRedDisplay" class="text-danger fw-bold me-2">红球：未选择</span>
+                            <span id="selectedBlueDisplay" class="text-primary fw-bold">蓝球：未选择</span>
+                        </div>
                     </div>
+
+                    <!-- 注数与金额自动计算 -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-2 px-3 text-center">
+                                    <small class="text-muted">注数</small>
+                                    <h5 class="mb-0" id="ticketUnits">0</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-2 px-3 text-center">
+                                    <small class="text-muted">单价</small>
+                                    <h5 class="mb-0">2 元/注</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success bg-opacity-10">
+                                <div class="card-body py-2 px-3 text-center">
+                                    <small class="text-muted">总金额</small>
+                                    <h5 class="mb-0 text-danger fw-bold" id="ticketCostDisplay">¥0</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">倍数</label>
-                        <input type="number" class="form-control" id="ticketMultiplier" value="1" min="1" required>
+                        <input type="number" class="form-control" id="ticketMultiplier" value="1" min="1" required onchange="updateCost()">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">备注（选填）</label>
@@ -155,12 +266,60 @@
 
 {% block scripts %}
 <script>
+// 组合数计算函数 C(n, k)
+function combination(n, k) {
+    if (k > n || k < 0) return 0;
+    if (k === 0 || k === n) return 1;
+    k = Math.min(k, n - k);
+    let result = 1;
+    for (let i = 1; i <= k; i++) {
+        result = result * (n - k + i) / i;
+    }
+    return result;
+}
+
+// 计算复式注数
+function calculateUnits(redCount, blueCount, lotteryType) {
+    if (lotteryType === 'ssq') {
+        // 双色球：红球6选n，蓝球1选m
+        const redWays = combination(redCount, 6);
+        const blueWays = combination(blueCount, 1);
+        return redWays * blueWays;
+    } else {
+        // 大乐透：前区5选n，后区2选m
+        const redWays = combination(redCount, 5);
+        const blueWays = combination(blueCount, 2);
+        return redWays * blueWays;
+    }
+}
+
+// 更新注数和金额显示
+function updateCost() {
+    const lotteryType = document.getElementById('ticketLotteryType').value;
+    const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
+    const redCount = selectedRedBalls.size;
+    const blueCount = selectedBlueBalls.size;
+    
+    let units = 0;
+    if (redCount > 0 && blueCount > 0) {
+        units = calculateUnits(redCount, blueCount, lotteryType);
+    }
+    
+    document.getElementById('ticketUnits').textContent = units;
+    const totalCost = units * 2 * multiplier;
+    document.getElementById('ticketCostDisplay').textContent = '¥' + totalCost;
+}
+
 // 当前状态
 let currentFilter = 'all';
 let currentPage = 1;
 const perPage = 20;
 let totalPages = 1;
 let selectedIds = new Set();
+
+// 号码选择器状态
+let selectedRedBalls = new Set();
+let selectedBlueBalls = new Set();
 
 function switchFilter(filter) {
     currentFilter = filter;
@@ -307,7 +466,7 @@ async function loadTickets() {
                     <i class="bi bi-inbox display-1"></i>
                     <p class="mt-3">暂无已购号码记录</p>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTicketModal">
-                        <i class="bi bi-plus-circle"></i> 添加第一条记录
+                        <i class="bi bi-plus-circle"></i> 添加欲购号码
                     </button>
                 </div>`;
             badge.textContent = '0 条';
@@ -325,6 +484,7 @@ async function loadTickets() {
                 <th>彩种</th>
                 <th>期号</th>
                 <th>号码</th>
+                <th>倍数</th>
                 <th>金额</th>
                 <th>中奖</th>
                 <th>添加时间</th>
@@ -368,7 +528,18 @@ async function loadTickets() {
                     </button>
                 </td>
                 <td>${ballsHtml || '-'}</td>
-                <td>¥${(item.cost || 0).toFixed(2)}</td>
+                <td>
+                    <span id="multiplier_text_${item.id}">${item.multiplier || 1} 倍</span>
+                    <span id="multiplier_edit_group_${item.id}" style="display:none;">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="adjustMultiplier(${item.id}, -1)" title="减1" style="padding:0 6px;">−</button>
+                        <input type="number" id="multiplier_input_${item.id}" value="${item.multiplier || 1}" class="form-control form-control-sm" style="display:inline-block;width:60px;text-align:center;height:30px;" min="1">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="adjustMultiplier(${item.id}, 1)" title="加1" style="padding:0 6px;">+</button>
+                    </span>
+                    <button class="btn btn-sm btn-outline-primary ms-1" id="multiplier_btn_${item.id}" onclick="toggleEditMultiplier(${item.id})" style="padding:0 8px;font-size:12px;">
+                        <i class="bi bi-pencil"></i> 改
+                    </button>
+                </td>
+                <td id="cost_display_${item.id}">¥${(item.cost || 0).toFixed(2)}</td>
                 <td>${prizeHtml}</td>
                 <td>${formatBeijingTime(item.created_at)}</td>
                 <td>
@@ -386,57 +557,176 @@ async function loadTickets() {
     }
 }
 
-async function addTicket() {
-    const data = {
-        lottery_type: document.getElementById('ticketLotteryType').value,
-        issue: document.getElementById('ticketIssue').value.trim(),
-        red_balls: document.getElementById('ticketRedBalls').value.trim(),
-        blue_balls: document.getElementById('ticketBlueBalls').value.trim(),
-        cost: parseFloat(document.getElementById('ticketCost').value),
-        multiplier: parseInt(document.getElementById('ticketMultiplier').value) || 1,
-        note: document.getElementById('ticketNote').value.trim(),
-    };
-    
-    if (!data.issue || !data.red_balls || !data.blue_balls || !data.cost) {
-        alert('请填写完整信息');
-        return;
-    }
-    
-    try {
-        const resp = await fetch('/auth/api/purchased', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data),
-        });
-        const result = await resp.json();
-        if (resp.ok) {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addTicketModal'));
-            modal.hide();
-            document.getElementById('addTicketForm').reset();
-            loadTickets();
-        } else {
-            alert('错误：' + result.error);
-        }
-    } catch (err) {
-        alert('网络错误');
+// ========== 号码选择器逻辑 ==========
+
+function buildBallSelector(containerId, count, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+        const ball = document.createElement('div');
+        ball.className = `selector-ball ${type}`;
+        ball.textContent = String(i).padStart(2, '0');
+        ball.dataset.num = i;
+        ball.onclick = function() { toggleBall(this, type); };
+        container.appendChild(ball);
     }
 }
 
-async function removeTicket(id) {
-    if (!confirm('确定删除此记录？')) return;
-    try {
-        const resp = await fetch('/auth/api/purchased/' + id, { method: 'DELETE' });
-        if (resp.ok) {
-            selectedIds.delete(id);
-            updateBatchDeleteBtn();
-            loadTickets();
+function toggleBall(el, type) {
+    const num = parseInt(el.dataset.num);
+    if (type === 'red') {
+        if (selectedRedBalls.has(num)) {
+            selectedRedBalls.delete(num);
+            el.classList.remove('selected');
         } else {
-            alert('删除失败');
+            selectedRedBalls.add(num);
+            el.classList.add('selected');
         }
-    } catch (err) {
-        alert('网络错误');
+    } else if (type === 'blue') {
+        if (selectedBlueBalls.has(num)) {
+            selectedBlueBalls.delete(num);
+            el.classList.remove('selected');
+        } else {
+            selectedBlueBalls.add(num);
+            el.classList.add('selected');
+        }
+    }
+    updateSelectedDisplay();
+    updateCost();
+}
+
+function updateSelectedDisplay() {
+    const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+    
+    const redDisplay = document.getElementById('selectedRedDisplay');
+    const blueDisplay = document.getElementById('selectedBlueDisplay');
+    
+    if (redArr.length > 0) {
+        redDisplay.innerHTML = '红球：<span class="text-danger">' + redArr.map(n => String(n).padStart(2, '0')).join(', ') + '</span>';
+    } else {
+        redDisplay.innerHTML = '红球：<span class="text-muted">未选择</span>';
+    }
+    
+    if (blueArr.length > 0) {
+        blueDisplay.innerHTML = '蓝球：<span class="text-primary">' + blueArr.map(n => String(n).padStart(2, '0')).join(', ') + '</span>';
+    } else {
+        blueDisplay.innerHTML = '蓝球：<span class="text-muted">未选择</span>';
     }
 }
+
+function resetBallSelectors() {
+    selectedRedBalls.clear();
+    selectedBlueBalls.clear();
+    // 清除所有选中样式
+    document.querySelectorAll('#redBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('#blueBallGrid .selector-ball').forEach(el => el.classList.remove('selected'));
+    updateSelectedDisplay();
+    updateCost();
+}
+
+function initBallSelectors(lotteryType) {
+    if (lotteryType === 'ssq') {
+        document.getElementById('redLabel').textContent = '红球号码（点击选择，支持复式，不限数量，1-33）';
+        document.getElementById('blueLabel').textContent = '蓝球号码（点击选择，支持复式，不限数量，1-16）';
+        buildBallSelector('redBallGrid', 33, 'red');
+        buildBallSelector('blueBallGrid', 16, 'blue');
+    } else {
+        document.getElementById('redLabel').textContent = '前区号码（点击选择，支持复式，不限数量，1-35）';
+        document.getElementById('blueLabel').textContent = '后区号码（点击选择，支持复式，不限数量，1-12）';
+        buildBallSelector('redBallGrid', 35, 'red');
+        buildBallSelector('blueBallGrid', 12, 'blue');
+    }
+    // 重置选中状态
+    resetBallSelectors();
+}
+
+// ========== 倍数编辑逻辑 ==========
+
+function adjustMultiplier(id, delta) {
+    const input = document.getElementById('multiplier_input_' + id);
+    let val = parseInt(input.value);
+    if (!isNaN(val)) {
+        val = Math.max(1, val + delta);
+        input.value = val;
+    }
+}
+
+async function toggleEditMultiplier(id) {
+    const textSpan = document.getElementById('multiplier_text_' + id);
+    const editGroup = document.getElementById('multiplier_edit_group_' + id);
+    const input = document.getElementById('multiplier_input_' + id);
+    const btn = document.getElementById('multiplier_btn_' + id);
+    
+    if (editGroup.style.display === 'none') {
+        // 切换到编辑模式
+        textSpan.style.display = 'none';
+        editGroup.style.display = 'inline-block';
+        input.focus();
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> 存';
+    } else {
+        // 保存模式
+        const newMultiplier = parseInt(input.value);
+        if (!newMultiplier || newMultiplier < 1) {
+            alert('倍数至少为1');
+            input.focus();
+            return;
+        }
+        
+        try {
+            // 先获取当前ticket数据计算新金额
+            const ticketsResp = await fetch(`/auth/api/purchased?page=1&per_page=1000`);
+            const ticketsData = await ticketsResp.json();
+            const ticket = ticketsData.tickets.find(t => t.id === id);
+            if (!ticket) {
+                alert('记录不存在');
+                return;
+            }
+            
+            // 根据号码计算注数
+            const redCount = ticket.red_balls ? ticket.red_balls.split(',').length : 0;
+            const blueCount = ticket.blue_balls ? ticket.blue_balls.split(',').length : 0;
+            const units = calculateUnits(redCount, blueCount, ticket.lottery_type);
+            const newCost = units * 2 * newMultiplier;
+            
+            const resp = await fetch('/auth/api/purchased/' + id, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({multiplier: newMultiplier, cost: newCost}),
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                textSpan.textContent = newMultiplier + ' 倍';
+                const costDisplay = document.getElementById('cost_display_' + id);
+                costDisplay.textContent = '¥' + newCost.toFixed(2);
+                textSpan.style.display = 'inline';
+                editGroup.style.display = 'none';
+                btn.innerHTML = '<i class="bi bi-pencil"></i> 改';
+                // 刷新列表更新统计
+                loadTickets();
+            } else {
+                alert('保存失败：' + (result.error || '未知错误'));
+            }
+        } catch (err) {
+            alert('网络错误，请重试');
+        }
+    }
+}
+
+// ========== 添加弹窗期号调整 ==========
+
+function adjustAddIssue(delta) {
+    const input = document.getElementById('ticketIssue');
+    let val = parseInt(input.value);
+    if (isNaN(val)) {
+        // 如果输入为空或不是数字，设为空并返回
+        return;
+    }
+    input.value = val + delta;
+}
+
+// ========== 期号编辑逻辑 ==========
 
 function adjustIssue(id, delta) {
     const input = document.getElementById('issue_input_' + id);
@@ -491,6 +781,84 @@ async function toggleEditIssue(id) {
     }
 }
 
+// ========== 添加/删除逻辑 ==========
+
+async function addTicket() {
+    const redArr = Array.from(selectedRedBalls).sort((a, b) => a - b);
+    const blueArr = Array.from(selectedBlueBalls).sort((a, b) => a - b);
+    const lotteryType = document.getElementById('ticketLotteryType').value;
+    const multiplier = parseInt(document.getElementById('ticketMultiplier').value) || 1;
+    
+    // 自动计算注数和金额
+    const units = calculateUnits(redArr.length, blueArr.length, lotteryType);
+    const cost = units * 2 * multiplier;
+    
+    const data = {
+        lottery_type: lotteryType,
+        issue: document.getElementById('ticketIssue').value.trim(),
+        red_balls: redArr.join(','),
+        blue_balls: blueArr.join(','),
+        cost: cost,
+        multiplier: multiplier,
+        note: document.getElementById('ticketNote').value.trim(),
+    };
+    
+    if (!data.issue) {
+        alert('请输入期号');
+        return;
+    }
+    if (redArr.length === 0) {
+        alert('请选择红球号码');
+        return;
+    }
+    if (blueArr.length === 0) {
+        alert('请选择蓝球号码');
+        return;
+    }
+    if (cost < 2) {
+        alert('投注金额至少2元');
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/auth/api/purchased', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addTicketModal'));
+            modal.hide();
+            resetBallSelectors();
+            document.getElementById('ticketIssue').value = '';
+            document.getElementById('ticketMultiplier').value = '1';
+            document.getElementById('ticketNote').value = '';
+            loadTickets();
+        } else {
+            alert('错误：' + result.error);
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
+async function removeTicket(id) {
+    if (!confirm('确定删除此记录？')) return;
+    try {
+        const resp = await fetch('/auth/api/purchased/' + id, { method: 'DELETE' });
+        if (resp.ok) {
+            selectedIds.delete(id);
+            updateBatchDeleteBtn();
+            loadTickets();
+        } else {
+            alert('删除失败');
+        }
+    } catch (err) {
+        alert('网络错误');
+    }
+}
+
 async function refreshData() {
     // 刷新数据：先对奖，再重新加载列表
     await checkAllTickets();
@@ -509,18 +877,22 @@ async function fetchLatestIssue(lotteryType) {
     }
 }
 
-// 弹窗显示时自动填充期号
+// 弹窗显示时初始化号码选择器并自动填充期号
 document.getElementById('addTicketModal').addEventListener('shown.bs.modal', async function() {
     const lotteryType = document.getElementById('ticketLotteryType').value;
+    initBallSelectors(lotteryType);
+    updateCost();
     const issue = await fetchLatestIssue(lotteryType);
     if (issue) {
         document.getElementById('ticketIssue').value = issue;
     }
 });
 
-// 切换彩种时自动更新期号
+// 切换彩种时更新号码选择器并自动更新期号
 document.getElementById('ticketLotteryType').addEventListener('change', async function() {
     const lotteryType = this.value;
+    initBallSelectors(lotteryType);
+    updateCost();
     const issue = await fetchLatestIssue(lotteryType);
     if (issue) {
         document.getElementById('ticketIssue').value = issue;

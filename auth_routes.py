@@ -382,8 +382,8 @@ def api_get_purchased():
     all_tickets = query.order_by(UserPurchasedTicket.created_at.desc()).all()
     total = len(all_tickets)
     
-    # 计算统计信息（基于全部数据）
-    total_cost = sum(t.cost * t.multiplier for t in all_tickets)
+    # 计算统计信息（基于全部数据）- cost已包含倍数，直接求和
+    total_cost = sum(t.cost for t in all_tickets)
     total_prize = sum(t.prize_amount for t in all_tickets)
     
     # 分页
@@ -503,7 +503,7 @@ def api_add_purchased():
 @bp.route('/api/purchased/<int:ticket_id>', methods=['PUT'])
 @login_required
 def api_update_purchased(ticket_id):
-    """更新已购号码记录（期号）- 更新后重新对奖"""
+    """更新已购号码记录（期号、倍数、金额）- 更新后重新对奖"""
     ticket = UserPurchasedTicket.query.filter_by(id=ticket_id, user_id=current_user.id).first()
     if not ticket:
         return jsonify({'error': '记录不存在'}), 404
@@ -520,6 +520,18 @@ def api_update_purchased(ticket_id):
         
         # 期号变更后重新对奖
         _check_ticket_prize(ticket)
+    
+    if 'multiplier' in data:
+        multiplier = int(data['multiplier'])
+        if multiplier < 1:
+            return jsonify({'error': '倍数至少为1'}), 400
+        ticket.multiplier = multiplier
+    
+    if 'cost' in data:
+        cost = float(data['cost'])
+        if cost < 2:
+            return jsonify({'error': '金额至少2元'}), 400
+        ticket.cost = cost
     
     db.session.commit()
     return jsonify({'message': '更新成功', 'ticket': ticket.to_dict()})
