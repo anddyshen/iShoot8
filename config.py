@@ -3,7 +3,7 @@ import os
 import json
 
 # 项目版本号
-__version__ = "1.8.6" # 更新版本号 - 2026年新奖金规则，多用户系统
+__version__ = "1.8.7" # 更新版本号 - 2026年新奖金规则，多用户系统
 
 # 网站基本信息
 SITE_NAME = "iShoot"
