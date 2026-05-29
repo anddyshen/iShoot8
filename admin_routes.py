@@ -53,6 +53,12 @@ def admin_login():
             flash('你不是管理员，无法登录后台。', 'danger')
             return render_template('admin/login.html')
         
+        # 检查是否需要强制修改密码
+        if user.password_must_be_changed:
+            flash('首次登录或使用默认密码，请立即修改密码。', 'warning')
+            login_user(user)
+            return redirect(url_for('admin_routes.admin_change_password'))
+        
         # 更新最后登录时间
         user.last_login_at = datetime.utcnow()
         db.session.commit()
@@ -399,6 +405,8 @@ def admin_data_update():
 @bp.route('/change_password', methods=['GET', 'POST'])
 @admin_required
 def admin_change_password():
+    from auth_routes import validate_password_strength, check_password_history, save_password_history
+    
     if request.method == 'POST':
         current_password = request.form.get('current_password')
         new_password = request.form.get('new_password')
@@ -408,15 +416,32 @@ def admin_change_password():
             flash('当前密码错误。', 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
 
-        if len(new_password) < 6:
-            flash('新密码长度至少6位。', 'danger')
+        # 密码强度验证
+        is_valid, errors = validate_password_strength(new_password)
+        if not is_valid:
+            for error in errors:
+                flash(error, 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
 
         if new_password != confirm_password:
             flash('两次输入的新密码不一致。', 'danger')
             return redirect(url_for('admin_routes.admin_change_password'))
+        
+        # 检查密码历史
+        history_valid, history_msg = check_password_history(current_user, new_password)
+        if not history_valid:
+            flash(history_msg, 'danger')
+            return redirect(url_for('admin_routes.admin_change_password'))
 
         current_user.set_password(new_password)
+        
+        # 清除强制修改密码标记
+        if current_user.password_must_be_changed:
+            current_user.password_must_be_changed = False
+        
+        # 保存密码历史
+        save_password_history(current_user)
+        
         db.session.commit()
 
         flash('密码修改成功！', 'success')
@@ -485,20 +510,39 @@ def admin_toggle_user_admin(user_id):
 @bp.route('/users/<int:user_id>/reset_password', methods=['POST'])
 @admin_required
 def admin_reset_user_password(user_id):
-    """管理员重置用户密码"""
+    """管理员重置用户密码 - 增强版：带密码策略验证、密码历史、强制修改标记"""
+    from auth_routes import validate_password_strength, check_password_history, save_password_history
+    
     user = db.session.get(User, user_id)
     if not user:
         flash('用户不存在。', 'danger')
         return redirect(url_for('admin_routes.admin_users'))
     
     new_password = request.form.get('new_password', '')
-    if len(new_password) < 6:
-        flash('密码至少6个字符。', 'danger')
+    
+    # 密码强度验证
+    is_valid, errors = validate_password_strength(new_password)
+    if not is_valid:
+        for error in errors:
+            flash(error, 'danger')
+        return redirect(url_for('admin_routes.admin_users'))
+    
+    # 检查密码历史
+    history_valid, history_msg = check_password_history(user, new_password)
+    if not history_valid:
+        flash(history_msg, 'danger')
         return redirect(url_for('admin_routes.admin_users'))
     
     user.set_password(new_password)
+    
+    # 保存密码历史
+    save_password_history(user)
+    
+    # 标记为需要强制修改密码（首次登录时）
+    user.password_must_be_changed = True
+    
     db.session.commit()
-    flash(f'用户 {user.username} 的密码已重置。', 'success')
+    flash(f'用户 {user.username} 的密码已重置，下次登录需强制修改密码。', 'success')
     return redirect(url_for('admin_routes.admin_users'))
 
 

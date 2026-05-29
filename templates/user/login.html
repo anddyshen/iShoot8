@@ -30,6 +30,11 @@
                         <input type="checkbox" class="form-check-input" id="remember" name="remember">
                         <label class="form-check-label" for="remember">记住我</label>
                     </div>
+                    <div class="mb-3 text-end">
+                        <a href="{{ url_for('auth_routes.forgot_password') }}" class="text-decoration-none small">
+                            <i class="bi bi-question-circle"></i> 忘记密码？
+                        </a>
+                    </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-box-arrow-in-right"></i> 登录

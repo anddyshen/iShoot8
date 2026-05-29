@@ -39,7 +39,24 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock"></i></span>
                             <input type="password" class="form-control" id="password" name="password" 
-                                   placeholder="至少6个字符" required minlength="6" autocomplete="new-password">
+                                   placeholder="至少8个字符" required minlength="8" autocomplete="new-password">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <ul class="text-muted small mt-2" id="passwordRequirements" style="list-style: none; padding-left: 0;">
+                            <li id="req-length" class="text-danger"><i class="bi bi-x-circle"></i> 至少8个字符</li>
+                            <li id="req-upper" class="text-danger"><i class="bi bi-x-circle"></i> 包含至少一个大写字母</li>
+                            <li id="req-lower" class="text-danger"><i class="bi bi-x-circle"></i> 包含至少一个小写字母</li>
+                            <li id="req-digit" class="text-danger"><i class="bi bi-x-circle"></i> 包含至少一个数字</li>
+                            <li id="req-special" class="text-danger"><i class="bi bi-x-circle"></i> 包含至少一个特殊字符（!@#$%^&* 等）</li>
+                        </ul>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 6px;">
+                                <div id="passwordStrength" class="progress-bar" role="progressbar" 
+                                     style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small id="passwordStrengthText" class="text-muted">请输入密码</small>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -47,8 +64,9 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                             <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                   placeholder="再次输入密码" required minlength="6" autocomplete="new-password">
+                                   placeholder="再次输入密码" required minlength="8" autocomplete="new-password">
                         </div>
+                        <div id="passwordMatch" class="form-text"></div>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-success">

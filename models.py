@@ -1,6 +1,7 @@
 # models.py
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import desc
 import random
 import string
 
@@ -274,6 +275,7 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=beijing_now)
     last_login_at = db.Column(db.DateTime)
+    password_must_be_changed = db.Column(db.Boolean, default=False)  # 首次登录或默认密码需强制修改
     notification_config = db.Column(db.JSON, default=dict)
     preferences = db.Column(db.JSON, default=dict)
     ai_api_config = db.Column(db.JSON, default=dict)
@@ -341,6 +343,59 @@ class NotificationLog(db.Model):
     
     def __repr__(self):
         return f'<NotificationLog {self.id} - {self.channel} - {self.status}>'
+
+
+# ==================== 密码安全相关模型 ====================
+
+class PasswordHistory(db.Model):
+    """密码历史记录表 - 防止重复使用旧密码"""
+    __tablename__ = 'password_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=beijing_now)
+    
+    user = db.relationship('User', backref=db.backref('password_history', lazy='dynamic', order_by=desc('created_at')))
+    
+    def __repr__(self):
+        return f'<PasswordHistory user_id={self.user_id} at {self.created_at}>'
+
+
+class LoginAttempt(db.Model):
+    """登录尝试记录表 - 用于暴力破解防护"""
+    __tablename__ = 'login_attempts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), nullable=False, index=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    success = db.Column(db.Boolean, default=False)
+    attempted_at = db.Column(db.DateTime, default=beijing_now, index=True)
+    
+    def __repr__(self):
+        return f'<LoginAttempt {self.username} success={self.success} at {self.attempted_at}>'
+
+
+class PasswordResetToken(db.Model):
+    """密码重置令牌表"""
+    __tablename__ = 'password_reset_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(100), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=beijing_now)
+    used_at = db.Column(db.DateTime, nullable=True)
+    
+    user = db.relationship('User', backref=db.backref('password_reset_tokens', lazy='dynamic'))
+    
+    def is_expired(self):
+        return datetime.now() > self.expires_at
+    
+    def __repr__(self):
+        return f'<PasswordResetToken user_id={self.user_id} expires_at={self.expires_at}>'
 
 
 # 首次运行生成随机管理路由前缀

@@ -3,7 +3,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timezone, timedelta
 from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw, NotificationLog
+from models import PasswordHistory, LoginAttempt, PasswordResetToken
 from config import CURRENT_SETTINGS
+import secrets
+import string
 
 # 北京时间（UTC+8）— 返回 naive datetime，与 models.py 保持一致
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -20,6 +23,217 @@ def _format_beijing_time(dt):
     # 全部加8小时（UTC → 北京时间）
     dt = dt + timedelta(hours=8)
     return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+# ==================== 密码策略验证工具函数 ====================
+
+def get_password_policy():
+    """获取密码策略配置"""
+    return CURRENT_SETTINGS.get('password_policy', {
+        "min_length": 8,
+        "require_uppercase": True,
+        "require_lowercase": True,
+        "require_digit": True,
+        "require_special": True,
+        "password_history": 5,
+    })
+
+
+def validate_password_strength(password):
+    """
+    检查密码强度，返回 (is_valid: bool, errors: list)
+    """
+    policy = get_password_policy()
+    errors = []
+    
+    # 检查最小长度
+    min_length = policy.get('min_length', 8)
+    if len(password) < min_length:
+        errors.append(f'密码长度不能少于{min_length}个字符')
+    
+    # 检查是否包含大写字母
+    if policy.get('require_uppercase', True) and not any(c.isupper() for c in password):
+        errors.append('密码必须包含至少一个大写字母')
+    
+    # 检查是否包含小写字母
+    if policy.get('require_lowercase', True) and not any(c.islower() for c in password):
+        errors.append('密码必须包含至少一个小写字母')
+    
+    # 检查是否包含数字
+    if policy.get('require_digit', True) and not any(c.isdigit() for c in password):
+        errors.append('密码必须包含至少一个数字')
+    
+    # 检查是否包含特殊字符
+    if policy.get('require_special', True):
+        special_chars = set(string.punctuation)
+        if not any(c in special_chars for c in password):
+            errors.append('密码必须包含至少一个特殊字符（如 !@#$%^&* 等）')
+    
+    return len(errors) == 0, errors
+
+
+def check_password_history(user, new_password):
+    """
+    检查新密码是否与历史密码重复
+    返回 (is_valid: bool, message: str)
+    """
+    policy = get_password_policy()
+    history_count = policy.get('password_history', 5)
+    
+    # 获取最近N次密码历史
+    recent_history = PasswordHistory.query.filter_by(user_id=user.id).order_by(
+        PasswordHistory.created_at.desc()
+    ).limit(history_count).all()
+    
+    for ph in recent_history:
+        from werkzeug.security import check_password_hash
+        if check_password_hash(ph.password_hash, new_password):
+            return False, f'新密码不能与最近{history_count}次使用过的密码相同'
+    
+    return True, ''
+
+
+def save_password_history(user):
+    """保存当前密码到历史记录"""
+    history = PasswordHistory(
+        user_id=user.id,
+        password_hash=user.password_hash
+    )
+    db.session.add(history)
+    
+    # 清理多余的历史记录（保留最近N+1条）
+    policy = get_password_policy()
+    max_history = policy.get('password_history', 5) + 1  # 多保留一条以确保
+    
+    old_records = PasswordHistory.query.filter_by(user_id=user.id).order_by(
+        PasswordHistory.created_at.desc()
+    ).offset(max_history).all()
+    
+    for record in old_records:
+        db.session.delete(record)
+
+
+# ==================== 登录锁定检测 ====================
+
+def get_login_lockout_config():
+    """获取登录锁定配置"""
+    return CURRENT_SETTINGS.get('login_lockout', {
+        "max_attempts": 5,
+        "lockout_minutes": 15,
+    })
+
+
+def is_user_locked_out(username):
+    """
+    检查用户是否被锁定
+    返回 (is_locked: bool, remaining_minutes: int)
+    """
+    config = get_login_lockout_config()
+    max_attempts = config.get('max_attempts', 5)
+    lockout_minutes = config.get('lockout_minutes', 15)
+    
+    # 获取最近 lockout_minutes 分钟内的失败尝试
+    since = beijing_now() - timedelta(minutes=lockout_minutes)
+    recent_failures = LoginAttempt.query.filter(
+        LoginAttempt.username == username,
+        LoginAttempt.success == False,
+        LoginAttempt.attempted_at >= since
+    ).count()
+    
+    if recent_failures >= max_attempts:
+        # 获取最早一次失败尝试的时间，计算还需要锁定多久
+        earliest_failure = LoginAttempt.query.filter(
+            LoginAttempt.username == username,
+            LoginAttempt.success == False,
+            LoginAttempt.attempted_at >= since
+        ).order_by(LoginAttempt.attempted_at.asc()).first()
+        
+        if earliest_failure:
+            lockout_until = earliest_failure.attempted_at + timedelta(minutes=lockout_minutes)
+            now = beijing_now()
+            if now < lockout_until:
+                remaining = int((lockout_until - now).total_seconds() / 60)
+                return True, max(1, remaining)
+    
+    return False, 0
+
+
+def record_login_attempt(username, success, ip_address=None):
+    """记录登录尝试"""
+    attempt = LoginAttempt(
+        username=username,
+        ip_address=ip_address,
+        success=success
+    )
+    db.session.add(attempt)
+    db.session.commit()
+
+
+# ==================== 密码重置工具 ====================
+
+def send_password_reset_email(user, token):
+    """发送密码重置邮件"""
+    from flask import current_app
+    from flask_mail import Message
+    from threading import Thread
+    
+    if not user.email:
+        return False, '该用户未设置邮箱地址'
+    
+    reset_url = url_for('auth_routes.reset_password', token=token, _external=True)
+    
+    html_content = f"""
+    <html>
+    <head><style>
+        body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
+        .content {{ line-height: 1.6; }}
+        .btn {{ display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+        .footer {{ margin-top: 20px; font-size: 12px; color: #999; }}
+    </style></head>
+    <body>
+        <div class="header">
+            <h2>🔐 密码重置请求</h2>
+        </div>
+        <div class="content">
+            <p>您好，{user.nickname or user.username}：</p>
+            <p>您最近请求了密码重置，请点击下方链接重置您的密码：</p>
+            <p style="text-align: center;">
+                <a class="btn" href="{reset_url}">重置密码</a>
+            </p>
+            <p>或复制以下链接到浏览器地址栏：</p>
+            <p style="font-size: 12px; color: #666; word-break: break-all;">{reset_url}</p>
+            <p>此链接将在1小时后过期。如果您没有请求密码重置，请忽略此邮件。</p>
+        </div>
+        <div class="footer">
+            <p>来自 iShoot 彩票助手 | {current_app.config.get('SITE_URL', 'ishoot.cc')}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        msg = Message(
+            subject='🔐 iShoot 密码重置',
+            recipients=[user.email],
+            html=html_content,
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER')
+        )
+        
+        def send_async(app, msg):
+            with app.app_context():
+                app.mail.send(msg)
+        
+        Thread(target=send_async, args=(current_app._get_current_object(), msg)).start()
+        return True, '密码重置邮件已发送'
+    except Exception as e:
+        current_app.logger.error(f"密码重置邮件发送失败: {e}")
+        return False, str(e)
+
+
+# ==================== 路由：注册 ====================
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -44,8 +258,15 @@ def register():
             flash('用户名至少3个字符。', 'danger')
             return render_template('user/register.html')
         
-        if not password or len(password) < 6:
-            flash('密码至少6个字符。', 'danger')
+        if not password:
+            flash('密码不能为空。', 'danger')
+            return render_template('user/register.html')
+        
+        # 密码强度验证
+        is_valid, errors = validate_password_strength(password)
+        if not is_valid:
+            for error in errors:
+                flash(error, 'danger')
             return render_template('user/register.html')
         
         if password != confirm_password:
@@ -69,12 +290,20 @@ def register():
         user.set_password(password)
         
         db.session.add(user)
+        db.session.flush()  # 获取user.id
+        
+        # 保存密码历史
+        save_password_history(user)
+        
         db.session.commit()
         
         flash('注册成功，请登录。', 'success')
         return redirect(url_for('auth_routes.login'))
     
     return render_template('user/register.html')
+
+
+# ==================== 路由：登录 ====================
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -87,21 +316,55 @@ def login():
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
         
+        # 获取客户端IP
+        ip_address = request.remote_addr or request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+        
+        # 检查是否被锁定
+        is_locked, remaining_minutes = is_user_locked_out(username)
+        if is_locked:
+            flash(f'账户已被临时锁定，请{remaining_minutes}分钟后再试。', 'danger')
+            return render_template('user/login.html')
+        
         user = User.query.filter_by(username=username).first()
         
         if not user or not user.check_password(password):
+            # 记录失败尝试
+            record_login_attempt(username, False, ip_address)
             flash('用户名或密码错误。', 'danger')
+            
+            # 检查剩余尝试次数
+            config = get_login_lockout_config()
+            max_attempts = config.get('max_attempts', 5)
+            lockout_minutes = config.get('lockout_minutes', 15)
+            since = beijing_now() - timedelta(minutes=lockout_minutes)
+            recent_failures = LoginAttempt.query.filter(
+                LoginAttempt.username == username,
+                LoginAttempt.success == False,
+                LoginAttempt.attempted_at >= since
+            ).count()
+            remaining_attempts = max_attempts - recent_failures
+            if remaining_attempts > 0:
+                flash(f'剩余尝试次数：{remaining_attempts} 次', 'warning')
+            
             return render_template('user/login.html')
         
         if not user.is_active:
             flash('账户已被禁用，请联系管理员。', 'danger')
             return render_template('user/login.html')
         
+        # 记录成功登录
+        record_login_attempt(username, True, ip_address)
+        
         # 更新最后登录时间
         user.last_login_at = beijing_now()
         db.session.commit()
         
         login_user(user, remember=remember)
+        
+        # 检查是否需要强制修改密码
+        if user.password_must_be_changed:
+            flash('首次登录或使用默认密码，请立即修改密码。', 'warning')
+            return redirect(url_for('auth_routes.profile'))
         
         # 重定向到登录前页面
         next_page = request.args.get('next')
@@ -114,12 +377,14 @@ def login():
     
     return render_template('user/login.html')
 
+
 @bp.route('/logout')
 def logout():
     """退出登录"""
     logout_user()
     flash('已退出登录。', 'info')
     return redirect(url_for('routes.index'))
+
 
 # ===== API 接口 =====
 
@@ -146,6 +411,156 @@ def api_update_profile():
     
     db.session.commit()
     return jsonify({'message': '更新成功', 'user': current_user.to_dict()})
+
+
+# ===== 修改密码 API =====
+
+@bp.route('/api/change_password', methods=['POST'])
+@login_required
+def api_change_password():
+    """修改密码 - 带密码策略和密码历史检查"""
+    data = request.get_json()
+    old_password = data.get('old_password', '')
+    new_password = data.get('new_password', '')
+    confirm_password = data.get('confirm_password', '')
+    
+    if not current_user.check_password(old_password):
+        return jsonify({'error': '当前密码错误'}), 400
+    
+    # 密码强度验证
+    is_valid, errors = validate_password_strength(new_password)
+    if not is_valid:
+        return jsonify({'error': '；'.join(errors)}), 400
+    
+    if new_password != confirm_password:
+        return jsonify({'error': '两次输入的新密码不一致'}), 400
+    
+    # 检查密码历史
+    history_valid, history_msg = check_password_history(current_user, new_password)
+    if not history_valid:
+        return jsonify({'error': history_msg}), 400
+    
+    # 更新密码
+    current_user.set_password(new_password)
+    
+    # 清除强制修改密码标记
+    if current_user.password_must_be_changed:
+        current_user.password_must_be_changed = False
+    
+    # 保存密码历史
+    save_password_history(current_user)
+    
+    db.session.commit()
+    return jsonify({'message': '密码修改成功'})
+
+# ===== 忘记密码 / 重置密码 =====
+
+@bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """忘记密码页面 - 输入邮箱/用户名，发送重置链接"""
+    if request.method == 'POST':
+        email_or_username = request.form.get('email_or_username', '').strip()
+        
+        if not email_or_username:
+            flash('请输入邮箱或用户名。', 'danger')
+            return render_template('user/forgot_password.html')
+        
+        # 查找用户
+        user = User.query.filter(
+            (User.email == email_or_username) | (User.username == email_or_username)
+        ).first()
+        
+        if not user or not user.email:
+            flash('未找到匹配的账户或该账户未设置邮箱。', 'danger')
+            return render_template('user/forgot_password.html')
+        
+        # 生成重置令牌
+        token = secrets.token_urlsafe(48)
+        expires_at = beijing_now() + timedelta(hours=1)
+        
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            email=user.email,
+            expires_at=expires_at
+        )
+        db.session.add(reset_token)
+        db.session.commit()
+        
+        # 发送重置邮件
+        success, message = send_password_reset_email(user, token)
+        
+        if success:
+            flash('密码重置链接已发送到您的邮箱，请查收。', 'success')
+        else:
+            flash(f'邮件发送失败：{message}，请联系管理员。', 'danger')
+        
+        return render_template('user/forgot_password.html')
+    
+    return render_template('user/forgot_password.html')
+
+
+@bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """重置密码页面 - 验证Token并设置新密码"""
+    # 查找有效Token
+    reset_token = PasswordResetToken.query.filter_by(token=token, is_used=False).first()
+    
+    if not reset_token:
+        flash('重置链接无效或已被使用。', 'danger')
+        return redirect(url_for('auth_routes.login'))
+    
+    if reset_token.is_expired():
+        flash('重置链接已过期（有效期1小时），请重新申请。', 'danger')
+        return redirect(url_for('auth_routes.forgot_password'))
+    
+    user = User.query.get(reset_token.user_id)
+    if not user:
+        flash('用户不存在。', 'danger')
+        return redirect(url_for('auth_routes.login'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        # 密码强度验证
+        is_valid, errors = validate_password_strength(new_password)
+        if not is_valid:
+            for error in errors:
+                flash(error, 'danger')
+            return render_template('user/reset_password.html', token=token)
+        
+        if new_password != confirm_password:
+            flash('两次输入的密码不一致。', 'danger')
+            return render_template('user/reset_password.html', token=token)
+        
+        # 检查密码历史
+        history_valid, history_msg = check_password_history(user, new_password)
+        if not history_valid:
+            flash(history_msg, 'danger')
+            return render_template('user/reset_password.html', token=token)
+        
+        # 更新密码
+        user.set_password(new_password)
+        
+        # 清除强制修改密码标记
+        if user.password_must_be_changed:
+            user.password_must_be_changed = False
+        
+        # 保存密码历史
+        save_password_history(user)
+        
+        # 标记Token已使用
+        reset_token.is_used = True
+        reset_token.used_at = beijing_now()
+        
+        db.session.commit()
+        
+        flash('密码重置成功，请使用新密码登录。', 'success')
+        return redirect(url_for('auth_routes.login'))
+    
+    return render_template('user/reset_password.html', token=token)
+
 
 # ===== AI 配置 API =====
 
@@ -863,29 +1278,6 @@ def purchased():
 def manual_entry():
     """手工添加号码页面"""
     return render_template('user/manual_entry.html')
-
-
-@bp.route('/api/change_password', methods=['POST'])
-@login_required
-def api_change_password():
-    """修改密码"""
-    data = request.get_json()
-    old_password = data.get('old_password', '')
-    new_password = data.get('new_password', '')
-    confirm_password = data.get('confirm_password', '')
-    
-    if not current_user.check_password(old_password):
-        return jsonify({'error': '当前密码错误'}), 400
-    
-    if len(new_password) < 6:
-        return jsonify({'error': '新密码至少6个字符'}), 400
-    
-    if new_password != confirm_password:
-        return jsonify({'error': '两次输入的新密码不一致'}), 400
-    
-    current_user.set_password(new_password)
-    db.session.commit()
-    return jsonify({'message': '密码修改成功'})
 
 
 def _check_ticket_prize(ticket):

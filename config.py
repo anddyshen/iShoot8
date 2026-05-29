@@ -152,6 +152,20 @@ DEFAULT_SETTINGS = {
     # 用户系统设置
     "allow_registration": False,  # 是否允许用户注册，默认关闭
 
+    # 密码策略设置
+    "password_policy": {
+        "min_length": 8,           # 最小长度
+        "require_uppercase": True,  # 需要大写字母
+        "require_lowercase": True,  # 需要小写字母
+        "require_digit": True,      # 需要数字
+        "require_special": True,    # 需要特殊字符
+        "password_history": 5,      # 不能使用最近N次密码
+    },
+    "login_lockout": {
+        "max_attempts": 5,          # 最大尝试次数
+        "lockout_minutes": 15,      # 锁定时间（分钟）
+    },
+
     # 邮件服务设置
     "smtp_server": "",
     "smtp_port": 587,

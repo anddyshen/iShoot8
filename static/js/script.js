@@ -1907,6 +1907,173 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ==================== 密码强度检查功能（用于注册、修改密码页面） ====================
+function checkPasswordStrength(password) {
+    let score = 0;
+    const requirements = {
+        length: password.length >= 8,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        digit: /\d/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    };
+    
+    // 更新UI指示
+    const reqEls = {
+        length: document.getElementById('req-length'),
+        upper: document.getElementById('req-upper'),
+        lower: document.getElementById('req-lower'),
+        digit: document.getElementById('req-digit'),
+        special: document.getElementById('req-special'),
+    };
+    
+    for (const [key, el] of Object.entries(reqEls)) {
+        if (!el) continue;
+        if (requirements[key]) {
+            el.className = 'text-success';
+            el.innerHTML = '<i class="bi bi-check-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+        } else {
+            el.className = 'text-danger';
+            el.innerHTML = '<i class="bi bi-x-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+        }
+    }
+    
+    // 计算分数
+    if (password.length >= 8) score += 20;
+    if (password.length >= 12) score += 10;
+    if (requirements.upper) score += 15;
+    if (requirements.lower) score += 15;
+    if (requirements.digit) score += 15;
+    if (requirements.special) score += 15;
+    if (requirements.upper && requirements.lower) score += 5;
+    if (requirements.digit && requirements.special) score += 5;
+    
+    // 更新进度条
+    const bar = document.getElementById('passwordStrength');
+    const text = document.getElementById('passwordStrengthText');
+    if (bar) bar.style.width = Math.min(100, score) + '%';
+    
+    if (text) {
+        if (score < 30) {
+            if (bar) bar.className = 'progress-bar bg-danger';
+            text.textContent = '弱 - 密码强度不足';
+            text.className = 'text-danger';
+        } else if (score < 60) {
+            if (bar) bar.className = 'progress-bar bg-warning';
+            text.textContent = '中等 - 可以接受';
+            text.className = 'text-warning';
+        } else if (score < 80) {
+            if (bar) bar.className = 'progress-bar bg-info';
+            text.textContent = '强 - 密码强度良好';
+            text.className = 'text-info';
+        } else {
+            if (bar) bar.className = 'progress-bar bg-success';
+            text.textContent = '非常强 - 密码非常安全';
+            text.className = 'text-success';
+        }
+    }
+    
+    return requirements.length && requirements.upper && requirements.lower && requirements.digit && requirements.special;
+}
+
+// 密码显示切换
+function togglePasswordVisibility(inputId, button) {
+    const input = document.getElementById(inputId);
+    if (!input || !button) return;
+    const icon = button.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        if (icon) icon.className = 'bi bi-eye';
+    }
+}
+
+// 检查两次密码是否匹配
+function checkPasswordsMatch(passwordId, confirmId, matchElId, submitBtnId) {
+    const pwd = document.getElementById(passwordId).value;
+    const confirm = document.getElementById(confirmId).value;
+    const matchEl = document.getElementById(matchElId);
+    const submitBtn = document.getElementById(submitBtnId);
+    
+    if (!matchEl || !submitBtn) return;
+    
+    if (!confirm) {
+        matchEl.textContent = '';
+        matchEl.className = 'form-text';
+        submitBtn.disabled = true;
+        return;
+    }
+    
+    const pwdValid = checkPasswordStrength(pwd);
+    
+    if (pwd === confirm) {
+        matchEl.innerHTML = '<i class="bi bi-check-circle text-success"></i> 密码匹配';
+        matchEl.className = 'form-text text-success';
+        submitBtn.disabled = !pwdValid;
+    } else {
+        matchEl.innerHTML = '<i class="bi bi-x-circle text-danger"></i> 密码不匹配';
+        matchEl.className = 'form-text text-danger';
+        submitBtn.disabled = true;
+    }
+}
+
+// 绑定密码强度检查事件
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定注册页面的密码检查
+    const regPwd = document.getElementById('password');
+    const regConfirmPwd = document.getElementById('confirm_password');
+    const regToggleBtn = document.getElementById('togglePassword');
+    
+    if (regPwd) {
+        regPwd.addEventListener('input', function() {
+            checkPasswordStrength(this.value);
+            if (regConfirmPwd && regConfirmPwd.value) {
+                checkPasswordsMatch('password', 'confirm_password', 'passwordMatch', null);
+            }
+        });
+    }
+    
+    if (regConfirmPwd) {
+        regConfirmPwd.addEventListener('input', function() {
+            checkPasswordsMatch('password', 'confirm_password', 'passwordMatch', null);
+        });
+    }
+    
+    if (regToggleBtn) {
+        regToggleBtn.addEventListener('click', function() {
+            togglePasswordVisibility('password', this);
+        });
+    }
+    
+    // 绑定个人中心页面的密码检查
+    const profileNewPwd = document.getElementById('new_password');
+    const profileConfirmPwd = document.getElementById('confirm_password');
+    const profileToggleBtn = document.getElementById('toggleNewPassword');
+    
+    if (profileNewPwd && !profileNewPwd.closest('#reset_password_form')) {
+        profileNewPwd.addEventListener('input', function() {
+            checkPasswordStrength(this.value);
+            if (profileConfirmPwd && profileConfirmPwd.value) {
+                checkPasswordsMatch('new_password', 'confirm_password', 'passwordMatch', null);
+            }
+        });
+    }
+    
+    if (profileConfirmPwd && !profileConfirmPwd.closest('#reset_password_form')) {
+        profileConfirmPwd.addEventListener('input', function() {
+            checkPasswordsMatch('new_password', 'confirm_password', 'passwordMatch', null);
+        });
+    }
+    
+    if (profileToggleBtn) {
+        profileToggleBtn.addEventListener('click', function() {
+            togglePasswordVisibility('new_password', this);
+        });
+    }
+});
+
 // ==================== 通知系统前端功能 ====================
 
 // 更新未读通知数量徽标（仅在有未读时显示，不擅自隐藏）
