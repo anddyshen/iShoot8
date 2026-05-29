@@ -7,11 +7,20 @@
 .notification-settings { max-width: 800px; margin: 0 auto; }
 .settings-card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .settings-card h3 { margin-top: 0; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #f0f0f0; color: #333; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+
+/* Toggle Switch */
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
+.toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+.toggle-switch input:checked + .toggle-slider { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+.toggle-switch input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
+
 .channel-item { display: flex; align-items: flex-start; padding: 16px; border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 12px; transition: all 0.2s; }
 .channel-item:hover { border-color: #667eea; box-shadow: 0 2px 8px rgba(102,126,234,0.1); }
 .channel-item.disabled { opacity: 0.6; background: #f9f9f9; }
 .channel-switch { margin-right: 16px; padding-top: 2px; }
-.channel-switch input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #667eea; }
 .channel-info { flex: 1; }
 .channel-info .channel-label { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px; }
 .channel-info .channel-desc { font-size: 13px; color: #999; }
@@ -22,15 +31,23 @@
 .channel-config label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 500; }
 .channel-config input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; }
 .channel-config input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.1); }
+.channel-test { margin-top: 10px; }
 .channel-test .btn-test { padding: 6px 16px; font-size: 12px; border: 1px solid #667eea; color: #667eea; background: transparent; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
 .channel-test .btn-test:hover { background: #667eea; color: #fff; }
 .channel-test .btn-test:disabled { opacity: 0.5; cursor: not-allowed; }
+.channel-test .cooldown-tip { font-size: 11px; color: #ff4d4f; margin-left: 8px; }
+
 .event-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .event-item { display: flex; align-items: center; padding: 12px; border: 1px solid #e8e8e8; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
 .event-item:hover { border-color: #667eea; }
 .event-item input[type="checkbox"] { margin-right: 10px; width: 18px; height: 18px; accent-color: #667eea; }
 .event-item .event-label { font-size: 14px; color: #333; font-weight: 500; }
 .event-item .event-desc { font-size: 12px; color: #999; margin-top: 2px; }
+
+.email-info { font-size: 13px; color: #666; background: #f0f7ff; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #667eea; }
+.email-info .email-addr { font-weight: 600; color: #333; }
+.email-info .email-empty { color: #ff4d4f; font-weight: 500; }
+
 .save-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
 .save-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102,126,234,0.4); }
 .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -105,8 +122,15 @@ let config = {
   notify_on_prize: true,
   notify_on_smart_filter: true,
   notify_on_draw_results: false,
+  email_enabled: false,
 };
 let availableChannels = [];
+let userEmail = '';
+
+// 测试冷却相关变量
+let testCount = 0;
+let firstTestTime = 0;
+let testCooldownTimer = null;
 
 async function loadSettings() {
   try {
@@ -114,6 +138,13 @@ async function loadSettings() {
     const data = await res.json();
     config = data.config || config;
     availableChannels = data.available_channels || [];
+    userEmail = data.user_email || '';
+    
+    // 如果配置中没有 email_enabled，默认为 false
+    if (config.email_enabled === undefined) {
+      config.email_enabled = false;
+    }
+    
     renderChannels();
     applyEventSettings();
   } catch (e) {
@@ -128,34 +159,100 @@ function renderChannels() {
     return;
   }
   
-  html = '';
+  let html = '';
   availableChannels.forEach(ch => {
-    const isEnabled = config.enabled_channels.includes(ch.name);
-    const chConfig = config.channel_configs[ch.name] || {};
+    const isEmail = ch.name === 'email';
     
-    html += `<div class="channel-item ${isEnabled ? '' : 'disabled'}">`;
-    html += `<div class="channel-switch"><input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleChannel('${ch.name}', this.checked)"></div>`;
-    html += `<div class="channel-info">`;
-    html += `<div class="channel-label">${ch.label}</div>`;
-    
-    if (ch.config_fields && ch.config_fields.length) {
-      html += `<div class="channel-config ${isEnabled ? 'show' : ''}" id="config_${ch.name}">`;
-      ch.config_fields.forEach(field => {
-        html += `<div class="form-group">`;
-        html += `<label>${field.label}${field.required ? ' <span style="color:#ff4d4f;">*</span>' : ''}</label>`;
-        html += `<input type="${field.type || 'text'}" id="${ch.name}_${field.key}" placeholder="${field.placeholder || ''}" value="${chConfig[field.key] || ''}" onchange="updateChannelConfig('${ch.name}', '${field.key}', this.value)">`;
-        html += `</div>`;
-      });
-      html += `<div class="channel-test"><button class="btn-test" onclick="testChannel('${ch.name}')" id="testBtn_${ch.name}">🧪 测试连接</button></div>`;
+    if (isEmail) {
+      // 邮件通知特殊处理：使用独立开关，不依赖 enabled_channels
+      const emailEnabled = config.email_enabled === true;
+      html += `<div class="channel-item ${emailEnabled ? '' : 'disabled'}">`;
+      html += `<div class="channel-switch"><label class="toggle-switch"><input type="checkbox" ${emailEnabled ? 'checked' : ''} onchange="toggleEmailChannel(this.checked)"><span class="toggle-slider"></span></label></div>`;
+      html += `<div class="channel-info">`;
+      html += `<div class="channel-label">📧 邮件通知</div>`;
+      
+      // 显示邮箱信息
+      if (userEmail) {
+        html += `<div class="email-info">📧 通知将发送至：<span class="email-addr">${userEmail}</span></div>`;
+      } else {
+        html += `<div class="email-info"><span class="email-empty">⚠️ 您尚未填写邮箱</span>，请先在 <a href="/auth/profile" style="color:#667eea;">个人中心</a> 填写邮箱地址</div>`;
+      }
+      
+      // 邮件测试按钮
+      html += `<div class="channel-config ${emailEnabled ? 'show' : ''}" id="config_email">`;
+      html += `<div class="channel-test">`;
+      html += `<button class="btn-test" onclick="testEmailChannel()" id="testBtn_email">🧪 发送测试邮件</button>`;
+      html += `<span class="cooldown-tip" id="cooldownTip_email" style="display:none;"></span>`;
       html += `</div>`;
+      html += `</div>`;
+      html += `</div></div>`;
     } else {
-      html += `<div class="channel-desc">✅ 无需额外配置</div>`;
+      // 其他渠道正常显示
+      const isEnabled = config.enabled_channels.includes(ch.name);
+      const chConfig = config.channel_configs[ch.name] || {};
+      
+      html += `<div class="channel-item ${isEnabled ? '' : 'disabled'}">`;
+      html += `<div class="channel-switch"><label class="toggle-switch"><input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleChannel('${ch.name}', this.checked)"><span class="toggle-slider"></span></label></div>`;
+      html += `<div class="channel-info">`;
+      html += `<div class="channel-label">${ch.label}</div>`;
+      
+      if (ch.config_fields && ch.config_fields.length) {
+        html += `<div class="channel-config ${isEnabled ? 'show' : ''}" id="config_${ch.name}">`;
+        ch.config_fields.forEach(field => {
+          html += `<div class="form-group">`;
+          html += `<label>${field.label}${field.required ? ' <span style="color:#ff4d4f;">*</span>' : ''}</label>`;
+          html += `<input type="${field.type || 'text'}" id="${ch.name}_${field.key}" placeholder="${field.placeholder || ''}" value="${chConfig[field.key] || ''}" onchange="updateChannelConfig('${ch.name}', '${field.key}', this.value)">`;
+          html += `</div>`;
+        });
+        html += `<div class="channel-test"><button class="btn-test" onclick="testChannel('${ch.name}')" id="testBtn_${ch.name}">🧪 测试连接</button></div>`;
+        html += `</div>`;
+      } else {
+        // 无配置字段的渠道（如 in_app）
+        if (ch.name === 'in_app') {
+          html += `<div class="channel-desc">✅ 站内信通知默认开启</div>`;
+        } else {
+          html += `<div class="channel-desc">✅ 无需额外配置</div>`;
+        }
+      }
+      
+      html += `</div></div>`;
     }
-    
-    html += `</div></div>`;
   });
   
   container.innerHTML = html;
+}
+
+function toggleEmailChannel(enabled) {
+  config.email_enabled = enabled;
+  
+  if (enabled) {
+    // 检查用户是否已填写邮箱
+    if (!userEmail) {
+      showToast('⚠️ 请先在个人中心填写邮箱地址', 'error');
+      config.email_enabled = false;
+      // 重新渲染恢复状态
+      renderChannels();
+      return;
+    }
+    
+    // 确保 email 在 enabled_channels 中
+    if (!config.enabled_channels.includes('email')) {
+      config.enabled_channels.push('email');
+    }
+  } else {
+    // 从 enabled_channels 中移除 email
+    const idx = config.enabled_channels.indexOf('email');
+    if (idx !== -1) {
+      config.enabled_channels.splice(idx, 1);
+    }
+  }
+  
+  // 更新邮件配置
+  if (!config.channel_configs['email']) {
+    config.channel_configs['email'] = {};
+  }
+  
+  renderChannels();
 }
 
 function toggleChannel(name, enabled) {
@@ -166,15 +263,7 @@ function toggleChannel(name, enabled) {
     config.enabled_channels.splice(idx, 1);
   }
   
-  // 更新UI
-  const item = document.querySelector(`.channel-item:nth-child(${availableChannels.findIndex(ch => ch.name === name) + 1})`);
-  if (item) {
-    item.classList.toggle('disabled', !enabled);
-  }
-  const cfgDiv = document.getElementById(`config_${name}`);
-  if (cfgDiv) {
-    cfgDiv.classList.toggle('show', enabled);
-  }
+  renderChannels();
 }
 
 function updateChannelConfig(name, key, value) {
@@ -188,6 +277,78 @@ function applyEventSettings() {
   document.getElementById('notify_on_prize').checked = config.notify_on_prize !== false;
   document.getElementById('notify_on_smart_filter').checked = config.notify_on_smart_filter !== false;
   document.getElementById('notify_on_draw_results').checked = config.notify_on_draw_results === true;
+}
+
+// ===== 邮件测试冷却逻辑 =====
+function getCooldownDuration() {
+  // 第1次: 30秒, 第2次: 60秒, 第3次+: 120秒
+  if (testCount <= 1) return 30;
+  if (testCount === 2) return 60;
+  return 120;
+}
+
+function resetTestCooldownIfNeeded() {
+  // 如果距离第一次测试超过15分钟(900秒)，重置计数器
+  if (firstTestTime > 0) {
+    const elapsed = (Date.now() - firstTestTime) / 1000;
+    if (elapsed >= 900) {
+      testCount = 0;
+      firstTestTime = 0;
+    }
+  }
+}
+
+function startTestCooldown() {
+  const btn = document.getElementById('testBtn_email');
+  const tip = document.getElementById('cooldownTip_email');
+  
+  resetTestCooldownIfNeeded();
+  
+  testCount++;
+  if (firstTestTime === 0) {
+    firstTestTime = Date.now();
+  }
+  
+  const duration = getCooldownDuration();
+  btn.disabled = true;
+  tip.style.display = 'inline';
+  tip.textContent = `⏳ ${duration}秒后可再次测试`;
+  
+  let remaining = duration;
+  testCooldownTimer = setInterval(() => {
+    remaining--;
+    tip.textContent = `⏳ ${remaining}秒后可再次测试`;
+    if (remaining <= 0) {
+      clearInterval(testCooldownTimer);
+      btn.disabled = false;
+      tip.style.display = 'none';
+    }
+  }, 1000);
+}
+
+async function testEmailChannel() {
+  const btn = document.getElementById('testBtn_email');
+  if (btn.disabled) return;
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ 发送中...';
+  
+  try {
+    const res = await fetch('/auth/api/notification/test/email', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(data.message || '测试邮件发送成功', 'success');
+      startTestCooldown();
+    } else {
+      showToast(data.error || '测试失败', 'error');
+      btn.disabled = false;
+      btn.textContent = '🧪 发送测试邮件';
+    }
+  } catch (e) {
+    showToast('网络错误', 'error');
+    btn.disabled = false;
+    btn.textContent = '🧪 发送测试邮件';
+  }
 }
 
 async function testChannel(name) {

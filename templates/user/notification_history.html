@@ -122,10 +122,10 @@ function renderNotifications(logs) {
   
   let html = '';
   logs.forEach(log => {
-    const isUnread = log.status === 'sent' && !document.querySelector(`[data-id="${log.id}"].read`);
-    // 简化：基于时间判断是否已读（前端无法持久化，通过标记状态）
+    // 使用后端返回的 is_read 字段判断已读/未读
+    const isUnread = log.status === 'sent' && !log.is_read;
     html += `
-      <div class="notification-item ${log.status === 'sent' ? 'unread' : 'read'}" data-id="${log.id}" onclick="markRead(${log.id})">
+      <div class="notification-item ${isUnread ? 'unread' : 'read'}" data-id="${log.id}" onclick="markRead(${log.id})">
         <div class="notification-icon">${log.status === 'sent' ? '🔔' : '✅'}</div>
         <div class="notification-content">
           <div class="notification-title">
@@ -188,6 +188,10 @@ async function markRead(id) {
       item.classList.remove('unread');
       item.classList.add('read');
     }
+    // 更新小红点
+    if (typeof updateNotificationBadge === 'function') {
+      updateNotificationBadge();
+    }
   } catch (e) {
     // ignore
   }
@@ -195,12 +199,24 @@ async function markRead(id) {
 
 async function markAllRead() {
   try {
-    const res = await fetch('/auth/api/notification/mark_read', { method: 'POST' });
+    const res = await fetch('/auth/api/notification/mark_read', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({}),
+      cache: 'no-store',
+    });
     if (res.ok) {
       document.querySelectorAll('.notification-item.unread').forEach(el => {
         el.classList.remove('unread');
         el.classList.add('read');
       });
+      // 更新小红点
+      if (typeof updateNotificationBadge === 'function') {
+        updateNotificationBadge();
+      }
       showToast('已全部标记为已读', 'success');
     }
   } catch (e) {

@@ -1,5 +1,47 @@
 {% extends "base.html" %}
 {% block title %}个人中心{% endblock %}
+{% block head %}
+<style>
+/* Toggle Switch (for notification settings) */
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
+.toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+.toggle-switch input:checked + .toggle-slider { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+.toggle-switch input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
+
+.channel-item { display: flex; align-items: flex-start; padding: 12px; border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 10px; transition: all 0.2s; }
+.channel-item:hover { border-color: #667eea; box-shadow: 0 2px 8px rgba(102,126,234,0.1); }
+.channel-item.disabled { opacity: 0.6; background: #f9f9f9; }
+.channel-switch { margin-right: 14px; padding-top: 2px; }
+.channel-info { flex: 1; }
+.channel-info .channel-label { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 2px; }
+.channel-info .channel-desc { font-size: 12px; color: #999; }
+.channel-config { width: 100%; margin-top: 10px; padding: 10px; background: #fafafa; border-radius: 6px; display: none; }
+.channel-config.show { display: block; }
+.channel-test { margin-top: 8px; }
+.channel-test .btn-test { padding: 5px 14px; font-size: 12px; border: 1px solid #667eea; color: #667eea; background: transparent; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.channel-test .btn-test:hover { background: #667eea; color: #fff; }
+.channel-test .btn-test:disabled { opacity: 0.5; cursor: not-allowed; }
+.channel-test .cooldown-tip { font-size: 11px; color: #ff4d4f; margin-left: 8px; }
+
+.email-info { font-size: 13px; color: #666; background: #f0f7ff; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #667eea; }
+.email-info .email-addr { font-weight: 600; color: #333; }
+.email-info .email-empty { color: #ff4d4f; font-weight: 500; }
+
+.notif-save-btn { padding: 8px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+.notif-save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+.notif-save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.event-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.event-item { display: flex; align-items: center; padding: 10px; border: 1px solid #e8e8e8; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.event-item:hover { border-color: #667eea; }
+.event-item input[type="checkbox"] { margin-right: 8px; width: 16px; height: 16px; accent-color: #667eea; }
+.event-item .event-label { font-size: 13px; color: #333; font-weight: 500; }
+.event-item .event-desc { font-size: 11px; color: #999; margin-top: 1px; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="row">
     <div class="col-md-4">
@@ -77,7 +119,40 @@
                 <h5 class="mb-0"><i class="bi bi-bell"></i> 通知设置</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">通知功能将在后续版本开放，敬请期待。</p>
+                <div id="profileNotifSettings">
+                    <p style="color: #666; margin-bottom: 12px; font-size: 14px;">选择您希望接收通知的方式，并配置相应的接入信息。</p>
+                    
+                    <div id="profileChannelList">
+                        <div style="text-align: center; padding: 20px; color: #999;">加载中...</div>
+                    </div>
+
+                    <h6 style="margin-top: 16px; margin-bottom: 10px; font-weight: 600; color: #333;">🎯 通知事件</h6>
+                    <div class="event-settings">
+                        <label class="event-item">
+                            <input type="checkbox" id="p_notify_on_prize" checked>
+                            <div>
+                                <div class="event-label">🏆 中奖通知</div>
+                                <div class="event-desc">当您购买的号码中奖时发送通知</div>
+                            </div>
+                        </label>
+                        <label class="event-item">
+                            <input type="checkbox" id="p_notify_on_smart_filter" checked>
+                            <div>
+                                <div class="event-label">🎯 智能筛选结果</div>
+                                <div class="event-desc">智能筛选完成后发送结果通知</div>
+                            </div>
+                        </label>
+                        <label class="event-item">
+                            <input type="checkbox" id="p_notify_on_draw_results">
+                            <div>
+                                <div class="event-label">📊 开奖结果</div>
+                                <div class="event-desc">新一期开奖结果发布时通知</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <button class="notif-save-btn" id="profileNotifSaveBtn" onclick="profileSaveSettings()">💾 保存通知设置</button>
+                </div>
             </div>
         </div>
 
@@ -147,6 +222,7 @@
 
 {% block scripts %}
 <script>
+// ===== 个人资料编辑 =====
 document.getElementById('profileForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const data = {
@@ -171,6 +247,7 @@ document.getElementById('profileForm')?.addEventListener('submit', async functio
     }
 });
 
+// ===== 修改密码 =====
 document.getElementById('passwordForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const newPassword = document.getElementById('new_password').value;
@@ -205,8 +282,6 @@ document.getElementById('passwordForm')?.addEventListener('submit', async functi
 });
 
 // ===== AI 配置功能 =====
-
-// 加载 AI 配置
 async function loadAiConfig() {
     try {
         const resp = await fetch('/auth/api/ai_config');
@@ -231,7 +306,6 @@ async function loadAiConfig() {
     }
 }
 
-// 切换 API URL 字段显示
 function toggleAiUrlField() {
     const provider = document.getElementById('aiProvider').value;
     const aiUrlGroup = document.getElementById('aiUrlGroup');
@@ -257,7 +331,6 @@ function toggleAiUrlField() {
     }
 }
 
-// 切换 API Key 显示/隐藏
 function toggleApiKeyVisibility() {
     const input = document.getElementById('aiApiKey');
     const icon = document.getElementById('apiKeyToggleIcon');
@@ -270,7 +343,6 @@ function toggleApiKeyVisibility() {
     }
 }
 
-// 保存 AI 配置
 document.getElementById('aiConfigForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const data = {
@@ -288,7 +360,7 @@ document.getElementById('aiConfigForm')?.addEventListener('submit', async functi
         const result = await resp.json();
         if (resp.ok) {
             alert('AI 接口配置保存成功！');
-            loadAiConfig();  // 重新加载以显示脱敏后的 Key
+            loadAiConfig();
         } else {
             alert('保存失败：' + (result.error || '未知错误'));
         }
@@ -297,7 +369,6 @@ document.getElementById('aiConfigForm')?.addEventListener('submit', async functi
     }
 });
 
-// 测试 AI 连接
 async function testAiConnection() {
     const testBtn = event.target;
     const resultSpan = document.getElementById('aiTestResult');
@@ -306,7 +377,6 @@ async function testAiConnection() {
     resultSpan.innerHTML = '';
     resultSpan.className = 'ms-2';
     
-    // 先保存当前配置
     const data = {
         provider: document.getElementById('aiProvider').value,
         api_key: document.getElementById('aiApiKey').value,
@@ -327,7 +397,6 @@ async function testAiConnection() {
             return;
         }
         
-        // 使用 test_mode=1 参数进行纯文本测试（无需上传图片）
         const resp = await fetch('/auth/api/ai_recognize_ticket?test_mode=1', {
             method: 'POST',
         });
@@ -335,7 +404,6 @@ async function testAiConnection() {
         
         if (resp.ok) {
             resultSpan.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> 连接成功！API 配置有效</span>';
-            // 重新加载配置（Key 脱敏显示）
             loadAiConfig();
         } else {
             resultSpan.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${result.error}</span>`;
@@ -348,7 +416,278 @@ async function testAiConnection() {
     testBtn.innerHTML = '<i class="bi bi-shield-check"></i> 测试连接';
 }
 
-// 页面加载时读取配置
-document.addEventListener('DOMContentLoaded', loadAiConfig);
+// ===== 通知设置 (嵌入个人中心) =====
+let notifConfig = {
+  enabled_channels: ['in_app'],
+  channel_configs: {},
+  notify_on_prize: true,
+  notify_on_smart_filter: true,
+  notify_on_draw_results: false,
+  email_enabled: false,
+};
+let notifAvailableChannels = [];
+let notifUserEmail = '';
+
+// 测试冷却相关变量
+let notifTestCount = 0;
+let notifFirstTestTime = 0;
+let notifTestCooldownTimer = null;
+
+async function loadProfileNotifSettings() {
+  try {
+    const res = await fetch('/auth/api/notification/settings');
+    const data = await res.json();
+    notifConfig = data.config || notifConfig;
+    notifAvailableChannels = data.available_channels || [];
+    notifUserEmail = data.user_email || '';
+    
+    if (notifConfig.email_enabled === undefined) {
+      notifConfig.email_enabled = false;
+    }
+    
+    renderProfileChannels();
+    applyProfileEventSettings();
+  } catch (e) {
+    console.error('加载通知设置失败', e);
+  }
+}
+
+function renderProfileChannels() {
+  const container = document.getElementById('profileChannelList');
+  if (!notifAvailableChannels.length) {
+    container.innerHTML = '<div style="text-align:center;padding:10px;color:#999;font-size:13px;">暂无可用通知渠道</div>';
+    return;
+  }
+  
+  let html = '';
+  notifAvailableChannels.forEach(ch => {
+    const isEmail = ch.name === 'email';
+    
+    if (isEmail) {
+      const emailEnabled = notifConfig.email_enabled === true;
+      html += `<div class="channel-item ${emailEnabled ? '' : 'disabled'}">`;
+      html += `<div class="channel-switch"><label class="toggle-switch"><input type="checkbox" ${emailEnabled ? 'checked' : ''} onchange="profileToggleEmailChannel(this.checked)"><span class="toggle-slider"></span></label></div>`;
+      html += `<div class="channel-info">`;
+      html += `<div class="channel-label">📧 邮件通知</div>`;
+      
+      if (notifUserEmail) {
+        html += `<div class="email-info">📧 通知将发送至：<span class="email-addr">${notifUserEmail}</span></div>`;
+      } else {
+        html += `<div class="email-info"><span class="email-empty">⚠️ 您尚未填写邮箱</span>，请在上方"编辑资料"中填写邮箱地址</div>`;
+      }
+      
+      html += `<div class="channel-config ${emailEnabled ? 'show' : ''}" id="p_config_email">`;
+      html += `<div class="channel-test">`;
+      html += `<button class="btn-test" onclick="profileTestEmailChannel()" id="p_testBtn_email">🧪 发送测试邮件</button>`;
+      html += `<span class="cooldown-tip" id="p_cooldownTip_email" style="display:none;"></span>`;
+      html += `</div></div>`;
+      html += `</div></div>`;
+    } else {
+      const isEnabled = notifConfig.enabled_channels.includes(ch.name);
+      const chConfig = notifConfig.channel_configs[ch.name] || {};
+      
+      html += `<div class="channel-item ${isEnabled ? '' : 'disabled'}">`;
+      html += `<div class="channel-switch"><label class="toggle-switch"><input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="profileToggleChannel('${ch.name}', this.checked)"><span class="toggle-slider"></span></label></div>`;
+      html += `<div class="channel-info">`;
+      html += `<div class="channel-label">${ch.label}</div>`;
+      
+      if (ch.config_fields && ch.config_fields.length) {
+        html += `<div class="channel-config ${isEnabled ? 'show' : ''}" id="p_config_${ch.name}">`;
+        ch.config_fields.forEach(field => {
+          html += `<div class="mb-2">`;
+          html += `<label style="font-size:12px;color:#666;margin-bottom:2px;">${field.label}${field.required ? ' <span style="color:#ff4d4f;">*</span>' : ''}</label>`;
+          html += `<input type="${field.type || 'text'}" class="form-control form-control-sm" id="p_${ch.name}_${field.key}" placeholder="${field.placeholder || ''}" value="${chConfig[field.key] || ''}" onchange="profileUpdateChannelConfig('${ch.name}', '${field.key}', this.value)">`;
+          html += `</div>`;
+        });
+        html += `<div class="channel-test"><button class="btn-test" onclick="profileTestChannel('${ch.name}')" id="p_testBtn_${ch.name}">🧪 测试连接</button></div>`;
+        html += `</div>`;
+      } else {
+        if (ch.name === 'in_app') {
+          html += `<div class="channel-desc">✅ 站内信通知默认开启</div>`;
+        } else {
+          html += `<div class="channel-desc">✅ 无需额外配置</div>`;
+        }
+      }
+      html += `</div></div>`;
+    }
+  });
+  
+  container.innerHTML = html;
+}
+
+function profileToggleEmailChannel(enabled) {
+  notifConfig.email_enabled = enabled;
+  
+  if (enabled) {
+    if (!notifUserEmail) {
+      alert('⚠️ 请先在"编辑资料"中填写邮箱地址');
+      notifConfig.email_enabled = false;
+      renderProfileChannels();
+      return;
+    }
+    if (!notifConfig.enabled_channels.includes('email')) {
+      notifConfig.enabled_channels.push('email');
+    }
+  } else {
+    const idx = notifConfig.enabled_channels.indexOf('email');
+    if (idx !== -1) {
+      notifConfig.enabled_channels.splice(idx, 1);
+    }
+  }
+  
+  if (!notifConfig.channel_configs['email']) {
+    notifConfig.channel_configs['email'] = {};
+  }
+  renderProfileChannels();
+}
+
+function profileToggleChannel(name, enabled) {
+  const idx = notifConfig.enabled_channels.indexOf(name);
+  if (enabled && idx === -1) {
+    notifConfig.enabled_channels.push(name);
+  } else if (!enabled && idx !== -1) {
+    notifConfig.enabled_channels.splice(idx, 1);
+  }
+  renderProfileChannels();
+}
+
+function profileUpdateChannelConfig(name, key, value) {
+  if (!notifConfig.channel_configs[name]) {
+    notifConfig.channel_configs[name] = {};
+  }
+  notifConfig.channel_configs[name][key] = value;
+}
+
+function applyProfileEventSettings() {
+  document.getElementById('p_notify_on_prize').checked = notifConfig.notify_on_prize !== false;
+  document.getElementById('p_notify_on_smart_filter').checked = notifConfig.notify_on_smart_filter !== false;
+  document.getElementById('p_notify_on_draw_results').checked = notifConfig.notify_on_draw_results === true;
+}
+
+// ===== 邮件测试冷却 =====
+function profileGetCooldownDuration() {
+  if (notifTestCount <= 1) return 30;
+  if (notifTestCount === 2) return 60;
+  return 120;
+}
+
+function profileResetCooldownIfNeeded() {
+  if (notifFirstTestTime > 0) {
+    const elapsed = (Date.now() - notifFirstTestTime) / 1000;
+    if (elapsed >= 900) {
+      notifTestCount = 0;
+      notifFirstTestTime = 0;
+    }
+  }
+}
+
+function profileStartTestCooldown() {
+  const btn = document.getElementById('p_testBtn_email');
+  const tip = document.getElementById('p_cooldownTip_email');
+  
+  profileResetCooldownIfNeeded();
+  
+  notifTestCount++;
+  if (notifFirstTestTime === 0) {
+    notifFirstTestTime = Date.now();
+  }
+  
+  const duration = profileGetCooldownDuration();
+  btn.disabled = true;
+  tip.style.display = 'inline';
+  tip.textContent = `⏳ ${duration}秒后可再次测试`;
+  
+  let remaining = duration;
+  notifTestCooldownTimer = setInterval(() => {
+    remaining--;
+    tip.textContent = `⏳ ${remaining}秒后可再次测试`;
+    if (remaining <= 0) {
+      clearInterval(notifTestCooldownTimer);
+      btn.disabled = false;
+      tip.style.display = 'none';
+    }
+  }, 1000);
+}
+
+async function profileTestEmailChannel() {
+  const btn = document.getElementById('p_testBtn_email');
+  if (btn.disabled) return;
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ 发送中...';
+  
+  try {
+    const res = await fetch('/auth/api/notification/test/email', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || '测试邮件发送成功');
+      profileStartTestCooldown();
+    } else {
+      alert(data.error || '测试失败');
+      btn.disabled = false;
+      btn.textContent = '🧪 发送测试邮件';
+    }
+  } catch (e) {
+    alert('网络错误');
+    btn.disabled = false;
+    btn.textContent = '🧪 发送测试邮件';
+  }
+}
+
+async function profileTestChannel(name) {
+  const btn = document.getElementById(`p_testBtn_${name}`);
+  btn.disabled = true;
+  btn.textContent = '⏳ 发送中...';
+  
+  try {
+    const res = await fetch(`/auth/api/notification/test/${name}`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || '测试成功');
+    } else {
+      alert(data.error || '测试失败');
+    }
+  } catch (e) {
+    alert('网络错误');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🧪 测试连接';
+  }
+}
+
+async function profileSaveSettings() {
+  const btn = document.getElementById('profileNotifSaveBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 保存中...';
+  
+  notifConfig.notify_on_prize = document.getElementById('p_notify_on_prize').checked;
+  notifConfig.notify_on_smart_filter = document.getElementById('p_notify_on_smart_filter').checked;
+  notifConfig.notify_on_draw_results = document.getElementById('p_notify_on_draw_results').checked;
+  
+  try {
+    const res = await fetch('/auth/api/notification/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notifConfig),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message || '通知设置保存成功');
+    } else {
+      alert(data.error || '保存失败');
+    }
+  } catch (e) {
+    alert('网络错误');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 保存通知设置';
+  }
+}
+
+// 页面加载时读取 AI 配置和通知设置
+document.addEventListener('DOMContentLoaded', function() {
+    loadAiConfig();
+    loadProfileNotifSettings();
+});
 </script>
 {% endblock %}

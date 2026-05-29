@@ -1,0 +1,181 @@
+<!-- templates/admin/notifications.html -->
+{% extends "admin/base.html" %}
+
+{% block admin_title %}通知管理{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4"><i class="bi bi-bell-fill me-2"></i>通知管理</h1>
+
+    <!-- 发送全局通知 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="bi bi-send-fill me-2"></i>发送全局通知</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">给所有用户发送站内通知（in_app 渠道），每条通知都会记录在用户的"通知历史"中。</p>
+            <form id="globalNotificationForm">
+                <div class="mb-3">
+                    <label for="notifTitle" class="form-label">通知标题 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="notifTitle" name="title" required maxlength="200"
+                           placeholder="例如：系统维护通知 / 开奖提醒">
+                </div>
+                <div class="mb-3">
+                    <label for="notifContent" class="form-label">通知内容 <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="notifContent" name="content" rows="6" required
+                              placeholder="请输入通知内容..."></textarea>
+                    <div class="form-text">支持纯文本和 HTML 格式。通知内容会保存在用户的"通知历史"中。</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">
+                        预览
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="previewBtn">
+                            <i class="bi bi-eye me-1"></i>预览
+                        </button>
+                    </label>
+                    <div id="adminNotifPreview" class="border rounded p-3 bg-light" style="min-height:100px;display:none;">
+                        <div class="text-muted fst-italic">点击"预览"按钮查看通知效果。</div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="sendNotifBtn">
+                    <i class="bi bi-send-fill me-1"></i>发送全局通知
+                </button>
+                <span id="sendStatus" class="ms-3"></span>
+            </form>
+        </div>
+    </div>
+
+    <!-- 发送统计 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>最近发送记录</h5>
+        </div>
+        <div class="card-body">
+            <div id="recentNotificationsList">
+                <p class="text-muted">暂无发送记录。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ========== API URL 使用 url_for 生成（兼容动态路由前缀） ==========
+    const API = {
+        broadcast: "{{ url_for('admin_routes.admin_broadcast_notification') }}",
+        recent: "{{ url_for('admin_routes.admin_recent_broadcasts') }}",
+    };
+
+    const titleInput = document.getElementById('notifTitle');
+    const contentInput = document.getElementById('notifContent');
+    const previewDiv = document.getElementById('adminNotifPreview');
+    const previewBtn = document.getElementById('previewBtn');
+    
+    // ========== 手动预览 ==========
+    previewBtn.addEventListener('click', function() {
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        
+        if (!title && !content) {
+            alert('请先填写标题或内容再进行预览');
+            return;
+        }
+        
+        previewDiv.style.display = 'block';
+        previewDiv.innerHTML = `
+            <div class="border-bottom pb-2 mb-2">
+                <strong style="font-size:16px;">🔔 ${title || '(无标题)'}</strong>
+            </div>
+            <div style="font-size:14px;color:#333;line-height:1.6;">
+                ${(content || '(无内容)').replace(/\n/g, '<br>')}
+            </div>
+        `;
+    });
+    
+    // ========== 发送全局通知 ==========
+    document.getElementById('globalNotificationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        
+        if (!title || !content) {
+            alert('请填写标题和内容');
+            return;
+        }
+        
+        const btn = document.getElementById('sendNotifBtn');
+        const status = document.getElementById('sendStatus');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>发送中...';
+        status.innerHTML = '<span class="text-info">正在发送...</span>';
+        
+        try {
+            const resp = await fetch(API.broadcast, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+            const result = await resp.json();
+            
+            if (resp.ok) {
+                status.innerHTML = `<span class="text-success">✅ ${result.message}</span>`;
+                // 清空表单
+                titleInput.value = '';
+                contentInput.value = '';
+                // 隐藏预览
+                previewDiv.style.display = 'none';
+                // 刷新发送记录
+                loadRecentNotifications();
+            } else {
+                status.innerHTML = `<span class="text-danger">❌ ${result.error || '发送失败'}</span>`;
+            }
+        } catch (err) {
+            status.innerHTML = `<span class="text-danger">❌ 网络错误</span>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send-fill me-1"></i>发送全局通知';
+        }
+    });
+    
+    // ========== 加载最近发送记录 ==========
+    async function loadRecentNotifications() {
+        try {
+            const resp = await fetch(API.recent);
+            const result = await resp.json();
+            
+            const container = document.getElementById('recentNotificationsList');
+            
+            if (!result.logs || result.logs.length === 0) {
+                container.innerHTML = '<p class="text-muted">暂无发送记录。</p>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-sm">';
+            html += '<thead><tr><th>时间</th><th>操作人</th><th>标题</th><th>接收人数</th></tr></thead><tbody>';
+            
+            result.logs.forEach(log => {
+                html += `<tr>
+                    <td style="white-space:nowrap;">${log.sent_at || '-'}</td>
+                    <td>${log.admin_name || '系统'}</td>
+                    <td>${log.title}</td>
+                    <td>${log.recipient_count} 人</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+            
+        } catch (err) {
+            // 静默失败
+        }
+    }
+    
+    loadRecentNotifications();
+});
+</script>
+{% endblock %}

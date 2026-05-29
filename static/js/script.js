@@ -1909,23 +1909,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== 通知系统前端功能 ====================
 
-// 更新未读通知数量徽标
+// 更新未读通知数量徽标（仅在有未读时显示，不擅自隐藏）
 async function updateNotificationBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    
     try {
-        const res = await fetch('/auth/api/notification/unread_count');
+        const res = await fetch('/auth/api/notification/unread_count?_=' + Date.now(), {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!res.ok) {
+            console.warn('[通知] API返回错误:', res.status);
+            return;
+        }
         const data = await res.json();
-        const badge = document.getElementById('notifBadge');
-        if (badge) {
-            const count = data.unread_count || 0;
-            if (count > 0) {
-                badge.textContent = count > 99 ? '99+' : count;
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
+        const count = data.unread_count || 0;
+        
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'block';
+            badge.style.visibility = 'visible';
+            console.log('[通知] 未读通知:', count);
+        } else {
+            // 只有API明确返回0时才隐藏
+            badge.style.display = 'none';
+            badge.style.visibility = 'hidden';
+            console.log('[通知] 无未读通知');
         }
     } catch (e) {
-        // 静默失败
+        // 网络错误不修改现有状态，保持上次结果
+        console.warn('[通知] 更新异常:', e);
     }
 }
 
@@ -1935,6 +1950,9 @@ async function loadNotificationPreview() {
     const countLabel = document.getElementById('notifPreviewCount');
     
     if (!previewContainer) return;
+    
+    // 先更新红点
+    updateNotificationBadge();
     
     // 如果已经有内容，不重复加载（因为dropdown可能会反复打开）
     if (previewContainer.dataset.loaded === 'true') return;
@@ -1949,7 +1967,8 @@ async function loadNotificationPreview() {
         previewContainer.dataset.loaded = 'true';
         
         if (countLabel) {
-            const unread = data.logs.filter(l => l.status === 'sent').length;
+            // 使用后端返回的 is_read 字段统计未读数量
+            const unread = data.logs.filter(l => l.status === 'sent' && !l.is_read).length;
             countLabel.textContent = `(${unread} 条未读)`;
         }
         
@@ -1985,36 +2004,86 @@ async function loadNotificationPreview() {
     }
 }
 
-// 标记单条通知为已读
+// 标记单条通知为已读，标记完后刷新红点
 async function markRead(id) {
     try {
         await fetch('/auth/api/notification/mark_read', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
             body: JSON.stringify({ ids: [id] }),
+            cache: 'no-store',
         });
-        updateNotificationBadge();
+        // 立即更新小红点
+        await updateNotificationBadge();
     } catch (e) {
-        // 静默失败
+        console.warn('[通知] 标记已读失败:', e);
     }
 }
 
-// 重置预览加载状态（当下拉菜单关闭时）
+// 标记所有通知为已读 (供通知历史页使用)
+async function markAllNotificationsRead() {
+    try {
+        await fetch('/auth/api/notification/mark_read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({}),
+            cache: 'no-store',
+        });
+        await updateNotificationBadge();
+        console.log('[通知] 全部已读成功');
+        // 刷新页面加载预览
+        const preview = document.getElementById('notificationPreview');
+        if (preview) {
+            preview.dataset.loaded = '';
+        }
+        if (typeof loadNotificationPreview === 'function') {
+            loadNotificationPreview();
+        }
+    } catch (e) {
+        console.warn('[通知] 全部已读失败:', e);
+    }
+}
+
+// 通知系统初始化
 document.addEventListener('DOMContentLoaded', function() {
     const notifDropdown = document.getElementById('notificationDropdown');
     if (notifDropdown) {
-        // 当dropdown关闭时，重置加载状态，以便下次打开时重新加载
+        // 当dropdown打开时刷新红点
+        notifDropdown.addEventListener('show.bs.dropdown', function() {
+            updateNotificationBadge();
+        });
+        // 当dropdown关闭时重置加载状态
         notifDropdown.addEventListener('hidden.bs.dropdown', function() {
             const preview = document.getElementById('notificationPreview');
-            if (preview) {
-                preview.dataset.loaded = '';
-            }
+            if (preview) preview.dataset.loaded = '';
+            updateNotificationBadge();
         });
     }
     
-    // 定期更新通知徽标（每30秒）
     if (document.getElementById('notifBadge')) {
-        updateNotificationBadge();
-        setInterval(updateNotificationBadge, 30000);
+        // 服务端已通过 unread_notifications 初始化红点初始状态
+        // JS 负责后续动态刷新
+        
+        // 页面加载后等 DOM 稳定后再更新（确保与服务端 API 数据同步）
+        setTimeout(updateNotificationBadge, 800);
+        
+        // 每5秒轮询一次，确保新消息能及时显示
+        setInterval(updateNotificationBadge, 5000);
+        
+        // 页面切回时立即刷新
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) updateNotificationBadge();
+        });
+        
+        // 用户点击页面任意位置后延迟1秒刷新（捕获用户交互后的状态变化）
+        document.addEventListener('click', function() {
+            setTimeout(updateNotificationBadge, 1000);
+        });
     }
 });

@@ -62,7 +62,7 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="loadNotificationPreview()">
                             <i class="bi bi-bell fs-5"></i>
-                            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px; display: none;">0</span>
+                            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px; {% if current_user.is_authenticated and unread_notifications > 0 %}display:block;{% else %}display:none;{% endif %}">{% if current_user.is_authenticated and unread_notifications > 0 %}{{ unread_notifications if unread_notifications <= 99 else '99+' }}{% else %}0{% endif %}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notificationDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
                             <li><h6 class="dropdown-header">🔔 通知 <small id="notifPreviewCount" class="text-muted"></small></h6></li>
@@ -71,7 +71,6 @@
                             </div>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-center small" href="{{ url_for('auth_routes.notification_history') }}">📋 查看全部通知</a></li>
-                            <li><a class="dropdown-item text-center small" href="{{ url_for('auth_routes.notification_settings') }}">⚙️ 通知设置</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">

@@ -12,6 +12,15 @@ def beijing_now():
 
 bp = Blueprint('auth_routes', __name__, url_prefix='/auth')
 
+# 格式化时间为北京时间（所有 sent_at 都存的是 UTC，显示时加8小时）
+def _format_beijing_time(dt):
+    """将 UTC datetime 格式化为北京时间字符串"""
+    if not dt:
+        return None
+    # 全部加8小时（UTC → 北京时间）
+    dt = dt + timedelta(hours=8)
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     """用户注册"""
@@ -1342,6 +1351,7 @@ def api_get_notification_settings():
     return jsonify({
         'config': config_data,
         'available_channels': available_channels,
+        'user_email': current_user.email or '',
     })
 
 @bp.route('/api/notification/settings', methods=['POST'])
@@ -1411,8 +1421,9 @@ def api_get_notification_history():
             'title': log.title,
             'content': log.content,
             'status': log.status,
+            'is_read': log.is_read,
             'error_message': log.error_message,
-            'sent_at': log.sent_at.strftime('%Y-%m-%d %H:%M:%S') if log.sent_at else None,
+            'sent_at': _format_beijing_time(log.sent_at),
         } for log in logs],
         'total': total,
         'page': page,
@@ -1420,18 +1431,28 @@ def api_get_notification_history():
         'total_pages': max(1, (total + per_page - 1) // per_page),
     })
 
-@bp.route('/api/notification/unread_count', methods=['GET'])
+@bp.route('/api/notification/unread_count')
 @login_required
 def api_get_unread_notification_count():
-    """获取未读通知数量"""
-    count = NotificationLog.query.filter_by(
-        user_id=current_user.id,
-        status='sent'
-    ).filter(
-        NotificationLog.read_at.is_(None)
-    ).count()
-    
-    return jsonify({'unread_count': count})
+    """获取未读通知数量 - 只统计站内通知"""
+    try:
+        from flask import current_app as app
+        count = NotificationLog.query.filter(
+            NotificationLog.user_id == current_user.id,
+            NotificationLog.channel == 'in_app',
+            NotificationLog.status == 'sent',
+            NotificationLog.is_read == False
+        ).count()
+        app.logger.debug(f'[通知] 用户{current_user.id} 未读站内通知数: {count}')
+        resp = jsonify({'unread_count': count})
+        # 禁止浏览器缓存此响应
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+    except Exception as e:
+        app.logger.error(f'[通知] 获取未读数异常: {e}')
+        return jsonify({'unread_count': 0})
 
 @bp.route('/api/notification/mark_read', methods=['POST'])
 @login_required
@@ -1446,15 +1467,14 @@ def api_mark_notification_read():
                 id=log_id, user_id=current_user.id
             ).first()
             if log:
-                log.read_at = beijing_now()
+                log.is_read = True
     else:
         # 标记所有通知为已读
         NotificationLog.query.filter_by(
             user_id=current_user.id,
-            status='sent'
-        ).filter(
-            NotificationLog.read_at.is_(None)
-        ).update({'read_at': beijing_now()})
+            status='sent',
+            is_read=False
+        ).update({'is_read': True})
     
     db.session.commit()
     return jsonify({'message': '已标记为已读'})

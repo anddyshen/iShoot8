@@ -14,10 +14,8 @@ class EmailNotifier(BaseNotifier):
         return '📧 邮件通知'
     
     def get_config_fields(self):
-        return [
-            {'key': 'email_address', 'label': '接收邮箱（留空使用注册邮箱）', 'type': 'email', 'required': False,
-             'placeholder': '留空则使用注册邮箱'},
-        ]
+        # 邮箱通知使用用户注册的邮箱，无需额外配置字段
+        return []
     
     def send(self, user, title, content):
         """发送邮件"""

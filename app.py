@@ -27,7 +27,7 @@ from config import (
     CURRENT_SETTINGS, save_settings, DEFAULT_SETTINGS,
     __version__
 )
-from models import db, SSQDraw, DLTDraw, News, AdminSettings, initialize_admin_route_prefix, User
+from models import db, SSQDraw, DLTDraw, News, AdminSettings, initialize_admin_route_prefix, User, NotificationLog
 
 # 初始化 Flask 应用
 app = Flask(__name__, instance_relative_config=True)
@@ -145,16 +145,32 @@ app.register_blueprint(auth_routes.bp)
 # 上下文处理器：在所有模板中可用
 @app.context_processor
 def inject_global_data():
-    return {
+    """注入全局模板变量"""
+    data = {
         'site_name': SITE_NAME,
         'site_url': SITE_URL,
         'current_datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'app_version': __version__,
         'per_bet_price': PER_BET_PRICE,
-        'settings': CURRENT_SETTINGS, # 将网站设置注入模板
-        'format_lottery_numbers': format_lottery_numbers, # 确保这个也在这里，或者在routes.py中传递
-        # 'calculate_odd_even_sum': calculate_odd_even_sum # 将函数传递给模板
+        'settings': CURRENT_SETTINGS,
+        'format_lottery_numbers': format_lottery_numbers,
+        'unread_notifications': 0,  # 默认无未读
     }
+    
+    # 如果用户已登录，查询站内未读通知数
+    try:
+        if current_user and current_user.is_authenticated:
+            count = NotificationLog.query.filter(
+                NotificationLog.user_id == current_user.id,
+                NotificationLog.channel == 'in_app',
+                NotificationLog.status == 'sent',
+                NotificationLog.is_read == False
+            ).count()
+            data['unread_notifications'] = count
+    except Exception as e:
+        pass  # 用户未登录或数据库未就绪时忽略
+    
+    return data
 
 # 数据库初始化和定时任务启动
 # with app.app_context():

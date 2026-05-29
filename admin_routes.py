@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, current_app
 from flask_login import login_user, logout_user, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 import io
@@ -539,3 +539,135 @@ def admin_news_manage():
             flash('新闻删除成功！', 'success')
         return redirect(url_for('admin_routes.admin_news_manage'))
     return render_template('admin/news_manage.html', news_list=news_list)
+
+
+@bp.route('/notifications')
+@admin_required
+def admin_notifications():
+    """通知管理页面（全局通知）"""
+    return render_template('admin/notifications.html')
+
+
+@bp.route('/api/recent_broadcasts', methods=['GET'])
+@admin_required
+def admin_recent_broadcasts():
+    """获取最近发送的全局通知记录（最近20条）"""
+    from models import NotificationLog
+    
+    # 找到所有标题包含"【系统公告】"的通知，按发送时间倒序排列
+    logs = NotificationLog.query.filter(
+        NotificationLog.title.like('%【系统公告】%')
+    ).order_by(NotificationLog.sent_at.desc()).limit(20).all()
+    
+    # 去重 - 按标题+内容分组，取最早一条（显示操作人）
+    seen = {}
+    result_logs = []
+    for log in logs:
+        key = f"{log.title}|{log.content}"
+        if key not in seen:
+            seen[key] = log
+            # 统计接收人数：同标题+内容的通知记录数（含失败）
+            recipient_count = NotificationLog.query.filter_by(
+                title=log.title, content=log.content
+            ).count()
+            
+            result_logs.append({
+                'id': log.id,
+                'title': log.title.replace('【系统公告】', '').strip(),
+                'content': log.content[:100] if log.content else '',
+                'admin_name': '管理员',
+                'recipient_count': recipient_count,
+                'sent_at': (log.sent_at + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M') if log.sent_at else None,
+            })
+    
+    return {'logs': result_logs}
+
+
+@bp.route('/api/broadcast_notification', methods=['POST'])
+@admin_required
+def admin_broadcast_notification():
+    """向所有用户发送全局通知（站内消息）"""
+    from models import User, NotificationLog
+    from datetime import datetime
+    
+    data = request.get_json()
+    if not data:
+        return {'error': '无效的请求数据'}, 400
+    
+    title = data.get('title', '').strip()
+    content = data.get('content', '').strip()
+    
+    if not title or not content:
+        return {'error': '标题和内容不能为空'}, 400
+    
+    if len(title) > 200:
+        return {'error': '标题长度不能超过200个字符'}, 400
+    
+    # 获取所有活跃用户
+    users = User.query.filter_by(is_active=True).all()
+    
+    if not users:
+        return {'error': '没有活跃用户可发送通知'}, 400
+    
+    # 添加系统公告前缀
+    full_title = f'【系统公告】{title}'
+    
+    # 向每个用户发送站内通知
+    success_count = 0
+    now = datetime.utcnow()
+    
+    for user in users:
+        try:
+            notification = NotificationLog(
+                user_id=user.id,
+                channel='in_app',
+                title=full_title,
+                content=content,
+                status='sent',
+                sent_at=now,
+            )
+            db.session.add(notification)
+            success_count += 1
+        except Exception as e:
+            current_app.logger.error(f"发送通知给用户 {user.id} 失败: {e}")
+    
+    db.session.commit()
+    
+    current_app.logger.info(f"管理员 {current_user.username} 发送全局通知「{title}」给 {success_count} 个用户")
+    
+    return {'message': f'通知已成功发送给 {success_count} 个用户！'}
+
+
+@bp.route('/api/test_email', methods=['POST'])
+@admin_required
+def admin_test_email():
+    """管理员发送测试邮件（无冷却限制）"""
+    import json
+    data = request.get_json()
+    if not data:
+        return {'error': '无效的请求数据'}, 400
+    
+    to_email = data.get('email', '').strip()
+    if not to_email:
+        return {'error': '请输入接收测试邮件的邮箱地址'}, 400
+    
+    from notification.email_notifier import EmailNotifier
+    
+    # 创建一个临时用户对象用于发送测试邮件
+    class TempUser:
+        email = to_email
+        notification_config = {
+            'channel_configs': {
+                'email': {
+                    'email_address': to_email,
+                }
+            }
+        }
+    
+    notifier = EmailNotifier()
+    success, message = notifier.send(TempUser(), '🧪 iShoot 后台邮件测试', '这是一封来自 iShoot 管理后台的测试邮件，如果您收到此邮件，说明邮件配置正确。')
+    
+    if success:
+        return {'message': f'测试邮件已成功发送至 {to_email}'}
+    else:
+        return {'error': f'发送失败: {message}'}, 500
