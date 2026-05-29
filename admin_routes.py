@@ -154,12 +154,12 @@ def _process_trend_rules_form(lottery_type, ball_type, redirect_route):
                 continue
 
             try:
-                if isinstance(default_param_value, int):
+                if isinstance(default_param_value, bool):
+                    updated_rules[rule_name]['params'][param_key] = (param_value.lower() == 'true')
+                elif isinstance(default_param_value, int):
                     updated_rules[rule_name]['params'][param_key] = int(param_value)
                 elif isinstance(default_param_value, float):
                     updated_rules[rule_name]['params'][param_key] = float(param_value)
-                elif isinstance(default_param_value, bool):
-                    updated_rules[rule_name]['params'][param_key] = (param_value.lower() == 'true')
                 elif isinstance(default_param_value, list): # 假设列表是逗号分隔的数字
                     updated_rules[rule_name]['params'][param_key] = [int(x.strip()) for x in param_value.split(',') if x.strip()]
                 else: # 字符串类型
@@ -206,7 +206,10 @@ def _process_config_settings_form(settings_keys, redirect_route):
                     continue # 跳过当前设置项，处理下一个
                 
                 # 尝试转换类型
-                if isinstance(DEFAULT_SETTINGS.get(key), int):
+                # 注意：bool 是 int 的子类，所以必须先判断 bool，再判断 int
+                if isinstance(DEFAULT_SETTINGS.get(key), bool):
+                    CURRENT_SETTINGS[key] = (value.lower() == 'true')
+                elif isinstance(DEFAULT_SETTINGS.get(key), int):
                     try:
                         CURRENT_SETTINGS[key] = int(value)
                     except (ValueError, TypeError):
@@ -226,8 +229,6 @@ def _process_config_settings_form(settings_keys, redirect_route):
                     except (ValueError, TypeError):
                         flash(f"设置 '{SETTING_LABELS_CHINESE.get(key, key)}' 的值必须是浮点数。", 'danger')
                         return redirect(url_for(redirect_route))
-                elif isinstance(DEFAULT_SETTINGS.get(key), bool):
-                    CURRENT_SETTINGS[key] = (value.lower() == 'true')
                 elif isinstance(DEFAULT_SETTINGS.get(key), list): # 假设列表是逗号分隔的数字
                     try:
                         CURRENT_SETTINGS[key] = [int(x.strip()) for x in value.split(',') if x.strip()]

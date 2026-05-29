@@ -30,74 +30,8 @@
     </div>
 </div>
 
-<div class="card mt-4">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0"><i class="bi bi-envelope"></i> 邮件通知测试</h5>
-    </div>
-    <div class="card-body">
-        <p class="text-muted">
-            发送测试邮件到指定邮箱，验证邮件通知配置是否正常。<br>
-            <small>当前邮件配置使用系统全局邮件设置（MAIL_SERVER、MAIL_PORT 等）。</small>
-        </p>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="email" class="form-control" id="adminTestEmail" placeholder="输入接收测试邮件的邮箱地址" value="">
-                    <button class="btn btn-info" type="button" id="adminSendTestEmailBtn" onclick="adminSendTestEmail()">
-                        <i class="bi bi-send"></i> 发送测试邮件
-                    </button>
-                </div>
-                <div id="adminTestEmailResult" class="mt-2" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-<script>
-async function adminSendTestEmail() {
-    const emailInput = document.getElementById('adminTestEmail');
-    const btn = document.getElementById('adminSendTestEmailBtn');
-    const resultDiv = document.getElementById('adminTestEmailResult');
-    const email = emailInput.value.trim();
-    
-    if (!email) {
-        resultDiv.style.display = 'block';
-        resultDiv.className = 'mt-2 text-danger';
-        resultDiv.textContent = '⚠️ 请输入邮箱地址';
-        return;
-    }
-    
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 发送中...';
-    resultDiv.style.display = 'none';
-    
-    try {
-        const res = await fetch('/admin/api/test_email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email }),
-        });
-        const data = await res.json();
-        
-        resultDiv.style.display = 'block';
-        if (res.ok) {
-            resultDiv.className = 'mt-2 text-success';
-            resultDiv.innerHTML = '<i class="bi bi-check-circle"></i> ' + data.message;
-        } else {
-            resultDiv.className = 'mt-2 text-danger';
-            resultDiv.innerHTML = '<i class="bi bi-x-circle"></i> ' + (data.error || '发送失败');
-        }
-    } catch (e) {
-        resultDiv.style.display = 'block';
-        resultDiv.className = 'mt-2 text-danger';
-        resultDiv.textContent = '网络错误，请重试';
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-send"></i> 发送测试邮件';
-    }
-}
-</script>
 {% endblock %}

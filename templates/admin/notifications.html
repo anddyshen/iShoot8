@@ -7,6 +7,30 @@
 <div class="container-fluid">
     <h1 class="h2 mb-4"><i class="bi bi-bell-fill me-2"></i>通知管理</h1>
 
+    <!-- 邮件通知测试 -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0"><i class="bi bi-envelope me-2"></i>邮件通知测试</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                发送测试邮件到指定邮箱，验证邮件通知配置是否正常。<br>
+                <small>当前邮件配置使用系统全局邮件设置（SMTP 服务器、端口等），请在<a href="{{ url_for('admin_routes.admin_settings_general') }}">综合参数设置</a>中配置。</small>
+            </p>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="email" class="form-control" id="adminTestEmail" placeholder="输入接收测试邮件的邮箱地址" value="">
+                        <button class="btn btn-info" type="button" id="adminSendTestEmailBtn" onclick="adminSendTestEmail()">
+                            <i class="bi bi-send"></i> 发送测试邮件
+                        </button>
+                    </div>
+                    <div id="adminTestEmailResult" class="mt-2" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 发送全局通知 -->
     <div class="card mb-4">
         <div class="card-header">
@@ -62,6 +86,51 @@
 {% block scripts %}
 {{ super() }}
 <script>
+// ========== 邮件测试功能 ==========
+async function adminSendTestEmail() {
+    const emailInput = document.getElementById('adminTestEmail');
+    const btn = document.getElementById('adminSendTestEmailBtn');
+    const resultDiv = document.getElementById('adminTestEmailResult');
+    const email = emailInput.value.trim();
+    
+    if (!email) {
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'mt-2 text-danger';
+        resultDiv.textContent = '⚠️ 请输入邮箱地址';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 发送中...';
+    resultDiv.style.display = 'none';
+    
+    try {
+        const res = await fetch('{{ url_for("admin_routes.admin_test_email") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email }),
+        });
+        const data = await res.json();
+        
+        resultDiv.style.display = 'block';
+        if (res.ok) {
+            resultDiv.className = 'mt-2 text-success';
+            resultDiv.innerHTML = '<i class="bi bi-check-circle"></i> ' + data.message;
+        } else {
+            resultDiv.className = 'mt-2 text-danger';
+            resultDiv.innerHTML = '<i class="bi bi-x-circle"></i> ' + (data.error || '发送失败');
+        }
+    } catch (e) {
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'mt-2 text-danger';
+        resultDiv.textContent = '网络错误，请重试';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send"></i> 发送测试邮件';
+    }
+}
+
+// ========== 全局通知功能 ==========
 document.addEventListener('DOMContentLoaded', function() {
     // ========== API URL 使用 url_for 生成（兼容动态路由前缀） ==========
     const API = {
