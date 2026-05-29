@@ -26,6 +26,21 @@
                                    placeholder="请输入密码" required autocomplete="current-password">
                         </div>
                     </div>
+                    <div id="captchaSection" class="mb-3" style="display:none;">
+                        <label for="captcha" class="form-label">验证码</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                            <input type="text" class="form-control" id="captcha" name="captcha" 
+                                   placeholder="输入验证码结果" autocomplete="off">
+                            <button class="btn btn-outline-secondary" type="button" id="refreshCaptcha" title="刷新验证码">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 text-center" id="captchaImageContainer">
+                            <img id="captchaImage" src="" alt="验证码" style="border-radius: 4px; cursor: pointer;" onclick="refreshCaptcha()">
+                        </div>
+                        <div class="form-text text-muted">请输入图中算术题的结果</div>
+                    </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="remember" name="remember">
                         <label class="form-check-label" for="remember">记住我</label>
@@ -49,4 +64,44 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 验证码刷新函数
+function refreshCaptcha() {
+    var img = document.getElementById('captchaImage');
+    if (img) {
+        img.src = '{{ url_for("auth_routes.captcha_image") }}?t=' + new Date().getTime();
+    }
+}
+
+// 检查是否需要验证码
+function checkNeedCaptcha() {
+    var username = document.getElementById('username').value;
+    if (!username) return;
+    
+    fetch('{{ url_for("auth_routes.check_captcha_needed") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: username})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var section = document.getElementById('captchaSection');
+        if (data.needs_captcha) {
+            section.style.display = 'block';
+            refreshCaptcha();
+        } else {
+            section.style.display = 'none';
+        }
+    })
+    .catch(function() {});
+}
+
+// 页面加载和用户名输入时检查
+document.addEventListener('DOMContentLoaded', checkNeedCaptcha);
+document.getElementById('username').addEventListener('blur', checkNeedCaptcha);
+document.getElementById('refreshCaptcha').addEventListener('click', refreshCaptcha);
+</script>
 {% endblock %}

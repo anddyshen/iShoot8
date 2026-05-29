@@ -21,10 +21,34 @@
     <div class="card-body">
         <form method="POST" action="{{ url_for('admin_routes.admin_settings_general') }}">
             {% for key in general_settings_keys %}
-                {% if key != 'annual_holidays' %}
+                {% if key != 'annual_holidays' and key != 'captcha' %}
                     {{ render_setting_field(key, settings[key], default_settings.get(key), setting_labels.get(key, key), setting_labels) }}
                 {% endif %}
             {% endfor %}
+            
+            <hr>
+            <h5 class="mb-3"><i class="bi bi-shield-lock"></i> {{ setting_labels.get('captcha', '验证码设置') }}</h5>
+            <div class="card mb-3">
+                <div class="card-body">
+                    {% set captcha_config = settings.get('captcha', default_settings.get('captcha', {})) %}
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="captcha_enabled" name="captcha_enabled" value="true"
+                                   {% if captcha_config.get('enabled', True) %}checked{% endif %}>
+                            <label class="form-check-label" for="captcha_enabled">{{ setting_labels.get('captcha_enabled', '启用登录验证码') }}</label>
+                        </div>
+                        <div class="form-text text-muted">启用后，登录时若失败次数达到阈值将显示验证码</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="captcha_failed_attempts_threshold" class="form-label">{{ setting_labels.get('captcha_failed_attempts_threshold', '触发验证码的失败次数阈值') }}</label>
+                        <input type="number" class="form-control" id="captcha_failed_attempts_threshold" 
+                               name="captcha_failed_attempts_threshold" 
+                               value="{{ captcha_config.get('failed_attempts_threshold', 2) }}" min="1" max="10">
+                        <div class="form-text text-muted">连续登录失败达到该次数后，登录时需输入验证码。例如设置为2表示失败2次后触发验证码</div>
+                    </div>
+                </div>
+            </div>
+            
             <button type="submit" class="btn btn-primary">保存设置</button>
         </form>
     </div>

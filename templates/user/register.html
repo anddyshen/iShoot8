@@ -27,12 +27,13 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="email" class="form-label">邮箱</label>
+                        <label for="email" class="form-label">邮箱 <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-envelope"></i></span>
                             <input type="email" class="form-control" id="email" name="email" 
-                                   placeholder="用于密码找回（选填）">
+                                   placeholder="请输入邮箱（用于密码找回）" required>
                         </div>
+                        <div class="form-text">邮箱用于密码找回，注册后将不可修改</div>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">密码 <span class="text-danger">*</span></label>
@@ -69,7 +70,7 @@
                         <div id="passwordMatch" class="form-text"></div>
                     </div>
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="btn btn-success" id="submitBtn">
                             <i class="bi bi-person-plus"></i> 注册
                         </button>
                     </div>
@@ -82,4 +83,134 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 密码强度检测函数 - 与 script.js 一致
+function checkPasswordStrength(password) {
+    let score = 0;
+    const requirements = {
+        length: password.length >= 8,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        digit: /\d/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    };
+    
+    // 更新UI指示
+    const reqEls = {
+        length: document.getElementById('req-length'),
+        upper: document.getElementById('req-upper'),
+        lower: document.getElementById('req-lower'),
+        digit: document.getElementById('req-digit'),
+        special: document.getElementById('req-special'),
+    };
+    
+    for (const [key, el] of Object.entries(reqEls)) {
+        if (!el) continue;
+        if (requirements[key]) {
+            el.className = 'text-success';
+            el.innerHTML = '<i class="bi bi-check-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+        } else {
+            el.className = 'text-danger';
+            el.innerHTML = '<i class="bi bi-x-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+        }
+    }
+    
+    // 计算分数
+    if (password.length >= 8) score += 20;
+    if (password.length >= 12) score += 10;
+    if (requirements.upper) score += 15;
+    if (requirements.lower) score += 15;
+    if (requirements.digit) score += 15;
+    if (requirements.special) score += 15;
+    if (requirements.upper && requirements.lower) score += 5;
+    if (requirements.digit && requirements.special) score += 5;
+    
+    // 更新进度条
+    const bar = document.getElementById('passwordStrength');
+    const text = document.getElementById('passwordStrengthText');
+    if (bar) bar.style.width = Math.min(100, score) + '%';
+    
+    if (text) {
+        if (score < 30) {
+            if (bar) bar.className = 'progress-bar bg-danger';
+            text.textContent = '弱 - 密码强度不足';
+            text.className = 'text-danger';
+        } else if (score < 60) {
+            if (bar) bar.className = 'progress-bar bg-warning';
+            text.textContent = '中等 - 可以接受';
+            text.className = 'text-warning';
+        } else if (score < 80) {
+            if (bar) bar.className = 'progress-bar bg-info';
+            text.textContent = '强 - 密码强度良好';
+            text.className = 'text-info';
+        } else {
+            if (bar) bar.className = 'progress-bar bg-success';
+            text.textContent = '非常强 - 密码非常安全';
+            text.className = 'text-success';
+        }
+    }
+    
+    return requirements.length && requirements.upper && requirements.lower && requirements.digit && requirements.special;
+}
+
+// 检查两次密码是否匹配
+function checkPasswordsMatch() {
+    const pwd = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm_password').value;
+    const matchEl = document.getElementById('passwordMatch');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (!matchEl || !submitBtn) return;
+    
+    if (!confirm) {
+        matchEl.textContent = '';
+        matchEl.className = 'form-text';
+        submitBtn.disabled = true;
+        return;
+    }
+    
+    const pwdValid = checkPasswordStrength(pwd);
+    
+    if (pwd === confirm) {
+        matchEl.innerHTML = '<i class="bi bi-check-circle text-success"></i> 密码匹配';
+        matchEl.className = 'form-text text-success';
+        submitBtn.disabled = !pwdValid;
+    } else {
+        matchEl.innerHTML = '<i class="bi bi-x-circle text-danger"></i> 密码不匹配';
+        matchEl.className = 'form-text text-danger';
+        submitBtn.disabled = true;
+    }
+}
+
+// 密码显示切换
+document.getElementById('togglePassword').addEventListener('click', function() {
+    const input = document.getElementById('password');
+    const icon = this.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+});
+
+// 实时检查
+document.getElementById('password').addEventListener('input', function() {
+    checkPasswordStrength(this.value);
+    if (document.getElementById('confirm_password').value) {
+        checkPasswordsMatch();
+    }
+});
+
+document.getElementById('confirm_password').addEventListener('input', checkPasswordsMatch);
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    checkPasswordStrength('');
+});
+</script>
 {% endblock %}

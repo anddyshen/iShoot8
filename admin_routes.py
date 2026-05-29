@@ -282,9 +282,28 @@ def admin_settings_dlt():
 @bp.route('/settings/general', methods=['GET', 'POST'])
 @admin_required
 def admin_settings_general():
-    response = _process_config_settings_form(GENERAL_SETTINGS_KEYS, 'admin_routes.admin_settings_general')
-    if response:
-        return response
+    if request.method == 'POST':
+        # 处理验证码设置（dict类型）
+        captcha_config = CURRENT_SETTINGS.get('captcha', {"enabled": True, "failed_attempts_threshold": 2})
+        captcha_enabled = request.form.get('captcha_enabled') == 'true'
+        captcha_threshold = request.form.get('captcha_failed_attempts_threshold', '2')
+        try:
+            captcha_threshold = int(captcha_threshold)
+            if captcha_threshold < 1:
+                captcha_threshold = 1
+        except ValueError:
+            captcha_threshold = 2
+        captcha_config['enabled'] = captcha_enabled
+        captcha_config['failed_attempts_threshold'] = captcha_threshold
+        CURRENT_SETTINGS['captcha'] = captcha_config
+        
+        # 处理其他普通设置
+        response = _process_config_settings_form(GENERAL_SETTINGS_KEYS, 'admin_routes.admin_settings_general')
+        if response:
+            return response
+        save_settings(CURRENT_SETTINGS)
+        flash('网站设置已更新！', 'success')
+        return redirect(url_for('admin_routes.admin_settings_general'))
     
     general_settings = {key: CURRENT_SETTINGS[key] for key in GENERAL_SETTINGS_KEYS if key in CURRENT_SETTINGS}
     return render_template('admin/settings_general.html', 

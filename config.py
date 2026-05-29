@@ -174,6 +174,12 @@ DEFAULT_SETTINGS = {
     "smtp_use_tls": True,
     "smtp_from_name": "iShoot 彩票助手",
 
+    # 验证码设置
+    "captcha": {
+        "enabled": True,
+        "failed_attempts_threshold": 2,
+    },
+
     # 定时更新设置
     "scheduled_update_enabled": True,
     "scheduled_update_hour": 3,
@@ -267,6 +273,9 @@ GENERAL_SETTINGS_KEYS = [
     'smtp_password',
     'smtp_use_tls',
     'smtp_from_name',
+
+    # 验证码设置
+    'captcha',
 ]
 
 # 趋势设置参数键
@@ -353,6 +362,11 @@ SETTING_LABELS_CHINESE = {
 
     # 用户设置
     'allow_registration': '允许用户注册',
+
+    # 验证码设置
+    'captcha': '验证码设置',
+    'captcha_enabled': '启用登录验证码',
+    'captcha_failed_attempts_threshold': '触发验证码的失败次数阈值',
 
     # 趋势设置
     'lookback_periods': "趋势计算回溯期数",

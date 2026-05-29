@@ -7,6 +7,8 @@ from models import PasswordHistory, LoginAttempt, PasswordResetToken
 from config import CURRENT_SETTINGS
 import secrets
 import string
+import random
+import io
 
 # 北京时间（UTC+8）— 返回 naive datetime，与 models.py 保持一致
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -169,6 +171,56 @@ def record_login_attempt(username, success, ip_address=None):
     db.session.commit()
 
 
+# ==================== 验证码功能 ====================
+
+def get_captcha_config():
+    """获取验证码配置"""
+    return CURRENT_SETTINGS.get('captcha', {
+        "enabled": True,
+        "failed_attempts_threshold": 2,
+    })
+
+def generate_captcha_value():
+    """生成验证码题目和答案"""
+    import random
+    ops = ['+', '-', '*']
+    op = random.choice(ops)
+    if op == '+':
+        a = random.randint(10, 50)
+        b = random.randint(1, 50)
+        answer = a + b
+    elif op == '-':
+        a = random.randint(10, 50)
+        b = random.randint(1, a)
+        answer = a - b
+    else:
+        a = random.randint(2, 9)
+        b = random.randint(2, 9)
+        answer = a * b
+    return f"{a} {op} {b} = ?", str(answer)
+
+def check_captcha(username):
+    """
+    检查用户是否需要验证码
+    返回 bool
+    """
+    config = get_captcha_config()
+    if not config.get('enabled', True):
+        return False
+    
+    threshold = config.get('failed_attempts_threshold', 2)
+    lockout_minutes = get_login_lockout_config().get('lockout_minutes', 15)
+    since = beijing_now() - timedelta(minutes=lockout_minutes)
+    
+    recent_failures = LoginAttempt.query.filter(
+        LoginAttempt.username == username,
+        LoginAttempt.success == False,
+        LoginAttempt.attempted_at >= since
+    ).count()
+    
+    return recent_failures >= threshold
+
+
 # ==================== 密码重置工具 ====================
 
 def send_password_reset_email(user, token):
@@ -277,14 +329,18 @@ def register():
             flash('用户名已被占用。', 'danger')
             return render_template('user/register.html')
         
-        if email and User.query.filter_by(email=email).first():
+        if not email:
+            flash('邮箱为必填项。', 'danger')
+            return render_template('user/register.html')
+        
+        if User.query.filter_by(email=email).first():
             flash('邮箱已被占用。', 'danger')
             return render_template('user/register.html')
         
         # 创建用户
         user = User(
             username=username,
-            email=email if email else None,
+            email=email,
             nickname=nickname if nickname else username,
         )
         user.set_password(password)
@@ -318,6 +374,15 @@ def login():
         
         # 获取客户端IP
         ip_address = request.remote_addr or request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+        
+        # 检查是否需要验证码
+        captcha_needed = check_captcha(username)
+        if captcha_needed:
+            captcha_input = request.form.get('captcha', '').strip()
+            captcha_answer = session.get('captcha_answer', '')
+            if not captcha_input or captcha_input != captcha_answer:
+                flash('验证码错误，请重新输入。', 'danger')
+                return render_template('user/login.html')
         
         # 检查是否被锁定
         is_locked, remaining_minutes = is_user_locked_out(username)
@@ -384,6 +449,79 @@ def logout():
     logout_user()
     flash('已退出登录。', 'info')
     return redirect(url_for('routes.index'))
+
+
+# ==================== 验证码路由 ====================
+
+@bp.route('/check_captcha_needed', methods=['POST'])
+def check_captcha_needed():
+    """API: 检查用户是否需要验证码"""
+    data = request.get_json()
+    username = data.get('username', '').strip() if data else ''
+    needs_captcha = check_captcha(username) if username else False
+    return jsonify({'needs_captcha': needs_captcha})
+
+@bp.route('/captcha_image')
+def captcha_image():
+    """生成验证码图片"""
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+    
+    question, answer = generate_captcha_value()
+    
+    # 存储答案到session
+    session['captcha_answer'] = answer
+    session['captcha_question'] = question
+    
+    # 生成图片
+    width, height = 160, 50
+    img = Image.new('RGB', (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    # 绘制干扰线
+    import random
+    for i in range(5):
+        x1 = random.randint(0, width)
+        y1 = random.randint(0, height)
+        x2 = random.randint(0, width)
+        y2 = random.randint(0, height)
+        draw.line([(x1, y1), (x2, y2)], fill=(200, 200, 200), width=1)
+    
+    # 绘制干扰点
+    for i in range(50):
+        x = random.randint(0, width)
+        y = random.randint(0, height)
+        draw.point((x, y), fill=(100, 100, 100))
+    
+    # 尝试加载字体
+    font_size = 22
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
+    
+    # 绘制题目文本
+    text = question.replace(" = ?", "")
+    text_color = (50, 50, 50)
+    
+    # 旋转并绘制每个字符
+    char_spacing = width // (len(text) + 1)
+    for i, char in enumerate(text):
+        char_img = Image.new('RGBA', (30, 30), (255, 255, 255, 0))
+        char_draw = ImageDraw.Draw(char_img)
+        char_draw.text((0, 0), char, fill=text_color, font=font)
+        char_img = char_img.rotate(random.randint(-15, 15), expand=1)
+        x = 10 + i * (char_spacing - 5)
+        y = random.randint(10, 18)
+        img.paste(char_img, (x, y), char_img)
+    
+    # 返回图片
+    img_io = io.BytesIO()
+    img.save(img_io, 'PNG')
+    img_io.seek(0)
+    
+    from flask import send_file
+    return send_file(img_io, mimetype='image/png')
 
 
 # ===== API 接口 =====
