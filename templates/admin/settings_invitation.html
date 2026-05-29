@@ -1,0 +1,138 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}邀请制设置{% endblock %}
+{% block admin_content %}
+<div class="container-fluid">
+    <h2 class="mb-4"><i class="bi bi-envelope-open"></i> 邀请制设置</h2>
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-gear"></i> 邀请制配置</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_routes.admin_settings_invitation') }}">
+                <!-- 启用邀请制 -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <h6><i class="bi bi-toggle-on"></i> {{ setting_labels.get('invitation_system_enabled', '启用邀请制注册') }}</h6>
+                        <p class="text-muted small mb-0">启用后，用户注册需提供有效邀请码才能完成注册</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="invitation_system_enabled"
+                                   name="invitation_system_enabled" value="true"
+                                   style="width: 3rem; height: 1.5rem; cursor: pointer;"
+                                   {% if invitation_system.get('enabled', False) %}checked{% endif %}>
+                            <label class="form-check-label ms-2 fw-bold" id="invitationEnabledLabel"
+                                   style="color: {% if invitation_system.get('enabled', False) %}green{% else %}red{% endif %};">
+                                {% if invitation_system.get('enabled', False) %}已启用{% else %}已禁用{% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- 默认邀请码配额 -->
+                <div class="row mb-3">
+                    <label for="invitation_system_default_quota" class="col-md-4 col-form-label">
+                        {{ setting_labels.get('invitation_system_default_quota', '默认邀请码数量') }}
+                        <i class="bi bi-question-circle text-muted" data-bs-toggle="tooltip"
+                           title="每个注册用户可生成的邀请码数量，最小值1"></i>
+                    </label>
+                    <div class="col-md-4">
+                        <input type="number" class="form-control" id="invitation_system_default_quota"
+                               name="invitation_system_default_quota"
+                               value="{{ invitation_system.get('default_quota', 5) }}"
+                               min="1" max="100" required>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="form-text text-muted">每个用户可生成的邀请码数量</span>
+                    </div>
+                </div>
+
+                <!-- 仅管理员可邀请 -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <h6><i class="bi bi-shield-lock"></i> {{ setting_labels.get('invitation_system_admin_only_invite', '仅管理员可邀请') }}</h6>
+                        <p class="text-muted small mb-0">启用后，只有管理员用户可生成邀请码，普通用户无法生成</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="invitation_system_admin_only_invite"
+                                   name="invitation_system_admin_only_invite" value="true"
+                                   style="width: 3rem; height: 1.5rem; cursor: pointer;"
+                                   {% if invitation_system.get('admin_only_invite', False) %}checked{% endif %}>
+                            <label class="form-check-label ms-2 fw-bold" id="adminOnlyLabel"
+                                   style="color: {% if invitation_system.get('admin_only_invite', False) %}green{% else %}gray{% endif %};">
+                                {% if invitation_system.get('admin_only_invite', False) %}仅管理员{% else %}所有人{% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row">
+                    <div class="col-md-12 text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> 保存设置
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 邀请码管理提示 -->
+    <div class="card shadow mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-info-circle"></i> 说明</h5>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li><strong>启用邀请制注册</strong>：开启后，注册页面将显示邀请码输入框，用户必须提供有效邀请码才能注册。</li>
+                <li><strong>默认邀请码数量</strong>：每个注册用户初始可生成的邀请码数量。管理员不受此限制。</li>
+                <li><strong>仅管理员可邀请</strong>：开启后，仅管理员用户可在后台生成邀请码，普通用户的"邀请管理"页面将禁用生成功能。</li>
+                <li><strong>邀请码配额</strong>：用户已生成的邀请码数量达到配额后，无法生成新的邀请码，除非有未使用的邀请码被消耗。</li>
+                <li><strong>管理员特权</strong>：管理员用户不受邀请码配额限制，可无限生成邀请码。</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 切换邀请制启用状态时更新标签颜色
+document.getElementById('invitation_system_enabled').addEventListener('change', function() {
+    const label = document.getElementById('invitationEnabledLabel');
+    if (this.checked) {
+        label.textContent = '已启用';
+        label.style.color = 'green';
+    } else {
+        label.textContent = '已禁用';
+        label.style.color = 'red';
+    }
+});
+
+// 切换仅管理员模式时更新标签
+document.getElementById('invitation_system_admin_only_invite').addEventListener('change', function() {
+    const label = document.getElementById('adminOnlyLabel');
+    if (this.checked) {
+        label.textContent = '仅管理员';
+        label.style.color = 'green';
+    } else {
+        label.textContent = '所有人';
+        label.style.color = 'gray';
+    }
+});
+
+// 初始化 tooltip
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(el) {
+        return new bootstrap.Tooltip(el);
+    });
+});
+</script>
+{% endblock %}

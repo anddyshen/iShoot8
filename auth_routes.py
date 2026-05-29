@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timezone, timedelta
 from models import db, User, UserFavorite, UserPurchasedTicket, SSQDraw, DLTDraw, NotificationLog
-from models import PasswordHistory, LoginAttempt, PasswordResetToken
+from models import PasswordHistory, LoginAttempt, PasswordResetToken, InvitationCode
 from config import CURRENT_SETTINGS
 import secrets
 import string
@@ -308,45 +308,82 @@ def register():
         # 验证
         if not username or len(username) < 3:
             flash('用户名至少3个字符。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         if not password:
             flash('密码不能为空。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         # 密码强度验证
         is_valid, errors = validate_password_strength(password)
         if not is_valid:
             for error in errors:
                 flash(error, 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         if password != confirm_password:
             flash('两次输入的密码不一致。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         if User.query.filter_by(username=username).first():
             flash('用户名已被占用。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         if not email:
             flash('邮箱为必填项。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
         
         if User.query.filter_by(email=email).first():
             flash('邮箱已被占用。', 'danger')
-            return render_template('user/register.html')
+            invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+            return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
+        
+        # 检查邀请制
+        invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+        if invitation_system.get('enabled', False):
+            invitation_code = request.form.get('invitation_code', '').strip()
+            if not invitation_code:
+                flash('系统已启用邀请制注册，请提供邀请码。', 'danger')
+                return render_template('user/register.html', invitation_system_enabled=True)
+            
+            # 验证邀请码
+            code = InvitationCode.query.filter_by(code=invitation_code, is_used=False).first()
+            if not code:
+                flash('邀请码无效或已被使用。', 'danger')
+                return render_template('user/register.html', invitation_system_enabled=True)
+            
+            if code.is_expired():
+                flash('邀请码已过期。', 'danger')
+                return render_template('user/register.html', invitation_system_enabled=True)
+            
+            # 验证通过，记录邀请关系
+            invited_by_id = code.creator_id
         
         # 创建用户
         user = User(
             username=username,
             email=email,
             nickname=nickname if nickname else username,
+            invitation_quota=invitation_system.get('default_quota', 5),
+            invited_by_id=invited_by_id if invitation_system.get('enabled', False) else None,
         )
         user.set_password(password)
         
         db.session.add(user)
         db.session.flush()  # 获取user.id
+        
+        # 如果使用了邀请码，标记为已使用
+        if invitation_system.get('enabled', False) and code:
+            code.is_used = True
+            code.used_by_id = user.id
+            code.used_by_username = username
+            code.used_at = beijing_now()
         
         # 保存密码历史
         save_password_history(user)
@@ -356,7 +393,8 @@ def register():
         flash('注册成功，请登录。', 'success')
         return redirect(url_for('auth_routes.login'))
     
-    return render_template('user/register.html')
+    invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+    return render_template('user/register.html', invitation_system_enabled=invitation_system.get('enabled', False))
 
 
 # ==================== 路由：登录 ====================
@@ -2016,3 +2054,116 @@ def api_clear_notifications():
     NotificationLog.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
     return jsonify({'message': '通知历史已清空'})
+
+
+# ==================== 邀请码管理 API ====================
+
+@bp.route('/api/invitation_codes', methods=['GET'])
+@login_required
+def api_get_invitation_codes():
+    """获取当前用户的邀请码列表"""
+    codes = InvitationCode.query.filter_by(creator_id=current_user.id).order_by(
+        InvitationCode.created_at.desc()
+    ).all()
+    
+    # 统计
+    total = len(codes)
+    used = sum(1 for c in codes if c.is_used)
+    available = total - used
+    quota = current_user.invitation_quota or 0
+    
+    return jsonify({
+        'codes': [c.to_dict() for c in codes],
+        'stats': {
+            'total': total,
+            'used': used,
+            'available': available,
+            'quota': quota,
+            'can_create': available < quota,
+        }
+    })
+
+
+@bp.route('/api/invitation_codes', methods=['POST'])
+@login_required
+def api_create_invitation_code():
+    """生成新的邀请码"""
+    invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+    
+    # 检查邀请制是否启用
+    if not invitation_system.get('enabled', False):
+        return jsonify({'error': '邀请制未启用'}), 400
+    
+    # 检查是否仅管理员可邀请
+    if invitation_system.get('admin_only_invite', False) and not current_user.is_admin:
+        return jsonify({'error': '仅管理员可生成邀请码'}), 403
+    
+    # 检查配额
+    used_codes_count = InvitationCode.query.filter_by(creator_id=current_user.id).count()
+    quota = current_user.invitation_quota or 0
+    
+    if used_codes_count >= quota and not current_user.is_admin:
+        return jsonify({'error': f'邀请码配额已用完（配额: {quota}）'}), 400
+    
+    # 生成邀请码
+    code_str = InvitationCode.generate_code()
+    
+    # 确保唯一性
+    while InvitationCode.query.filter_by(code=code_str).first():
+        code_str = InvitationCode.generate_code()
+    
+    invitation_code = InvitationCode(
+        code=code_str,
+        creator_id=current_user.id,
+    )
+    db.session.add(invitation_code)
+    db.session.commit()
+    
+    return jsonify({
+        'message': '邀请码生成成功',
+        'code': invitation_code.to_dict(),
+    })
+
+
+@bp.route('/api/invitation_codes/stats', methods=['GET'])
+@login_required
+def api_get_invitation_stats():
+    """获取当前用户的邀请统计"""
+    invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+    
+    # 我生成的邀请码
+    my_codes = InvitationCode.query.filter_by(creator_id=current_user.id).all()
+    total_created = len(my_codes)
+    used_codes = [c for c in my_codes if c.is_used]
+    total_used = len(used_codes)
+    
+    # 邀请注册的用户数
+    invited_users = User.query.filter_by(invited_by_id=current_user.id).count()
+    
+    # 计算可生成配额
+    quota = current_user.invitation_quota or 0
+    remaining_quota = max(0, quota - total_created) if not current_user.is_admin else -1
+    
+    # 被邀请的信息
+    invited_by = None
+    if current_user.invited_by_id:
+        inviter = db.session.get(User, current_user.invited_by_id)
+        if inviter:
+            invited_by = {
+                'username': inviter.username,
+                'nickname': inviter.nickname or inviter.username,
+            }
+    
+    return jsonify({
+        'stats': {
+            'total_created': total_created,
+            'total_used': total_used,
+            'invited_users': invited_users,
+            'quota': quota,
+            'remaining_quota': remaining_quota,
+            'is_admin': current_user.is_admin,
+            'invitation_system_enabled': invitation_system.get('enabled', False),
+            'admin_only_invite': invitation_system.get('admin_only_invite', False),
+        },
+        'invited_by': invited_by,
+    })

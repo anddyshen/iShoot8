@@ -178,6 +178,54 @@
         </div>
 
         <div class="card shadow mb-4">
+            <div class="card-header bg-purple text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h5 class="mb-0"><i class="bi bi-envelope-open"></i> 邀请管理</h5>
+            </div>
+            <div class="card-body">
+                <div id="invitationSection">
+                    <p class="text-muted"><i class="bi bi-info-circle"></i> 您可以通过邀请码邀请朋友注册。</p>
+                    
+                    <div id="invitationStats" class="mb-3">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0" id="statTotalCreated">0</div>
+                                    <small class="text-muted">已生成</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-success" id="statUsed">0</div>
+                                    <small class="text-muted">已使用</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-primary" id="statRemaining">0</div>
+                                    <small class="text-muted">可生成</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mb-3">
+                        <button class="btn btn-outline-primary" id="createInvitationBtn" onclick="createInvitationCode()">
+                            <i class="bi bi-plus-circle"></i> 生成邀请码
+                        </button>
+                    </div>
+
+                    <div id="invitedByInfo" class="alert alert-info small" style="display:none;">
+                        <i class="bi bi-person-plus"></i> 您由 <strong id="invitedByUsername"></strong> 邀请注册
+                    </div>
+
+                    <div id="invitationCodeList">
+                        <div style="text-align: center; padding: 20px; color: #999;">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
             <div class="card-header bg-secondary text-white">
                 <h5 class="mb-0"><i class="bi bi-robot"></i> AI 接口配置</h5>
             </div>
@@ -705,10 +753,174 @@ async function profileSaveSettings() {
   }
 }
 
-// 页面加载时读取 AI 配置和通知设置
+// ===== 邀请管理功能 =====
+async function loadInvitationData() {
+    try {
+        // 加载邀请统计数据
+        const statsResp = await fetch('/auth/api/invitation_codes/stats');
+        const statsData = await statsResp.json();
+        
+        if (statsResp.ok && statsData.stats) {
+            document.getElementById('statTotalCreated').textContent = statsData.stats.total_created || 0;
+            document.getElementById('statUsed').textContent = statsData.stats.total_used || 0;
+            
+            const remaining = statsData.stats.remaining_quota;
+            const remainingEl = document.getElementById('statRemaining');
+            if (remaining === -1) {
+                remainingEl.textContent = '∞';
+                remainingEl.style.color = '#667eea';
+            } else {
+                remainingEl.textContent = remaining;
+                if (remaining <= 0) {
+                    remainingEl.style.color = '#ff4d4f';
+                } else {
+                    remainingEl.style.color = '#52c41a';
+                }
+            }
+            
+            // 显示邀请人信息
+            if (statsData.invited_by) {
+                document.getElementById('invitedByInfo').style.display = 'block';
+                document.getElementById('invitedByUsername').textContent = statsData.invited_by.nickname || statsData.invited_by.username;
+            }
+            
+            // 禁用生成按钮
+            const createBtn = document.getElementById('createInvitationBtn');
+            if (statsData.stats.admin_only_invite && !statsData.stats.is_admin) {
+                createBtn.disabled = true;
+                createBtn.innerHTML = '<i class="bi bi-lock"></i> 仅管理员可生成邀请码';
+                createBtn.className = 'btn btn-outline-secondary';
+            } else if (remaining === 0 && remaining !== -1) {
+                createBtn.disabled = true;
+                createBtn.innerHTML = '<i class="bi bi-x-circle"></i> 邀请码配额已用尽';
+                createBtn.className = 'btn btn-outline-danger';
+            }
+        }
+        
+        // 加载邀请码列表
+        const codesResp = await fetch('/auth/api/invitation_codes');
+        const codesData = await codesResp.json();
+        
+        const listEl = document.getElementById('invitationCodeList');
+        if (codesResp.ok && codesData.codes && codesData.codes.length > 0) {
+            let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>邀请码</th><th>状态</th><th>使用人</th><th>生成时间</th></tr></thead><tbody>';
+            
+            codesData.codes.forEach(code => {
+                const statusHtml = code.is_used 
+                    ? '<span class="badge bg-secondary">已使用</span>'
+                    : (code.is_expired ? '<span class="badge bg-danger">已过期</span>' : '<span class="badge bg-success">有效</span>');
+                
+                const usedBy = code.is_used 
+                    ? (code.used_by_username || '未知') 
+                    : '-';
+                
+                const createdDate = code.created_at 
+                    ? new Date(code.created_at).toLocaleDateString('zh-CN') 
+                    : '-';
+                
+                html += `<tr>
+                    <td>
+                        <code style="font-size: 14px; letter-spacing: 1px;">${code.code}</code>
+                        <button class="btn btn-sm btn-outline-secondary ms-1 py-0" onclick="copyInvitationCode('${code.code}', this)" title="复制邀请码" style="font-size:12px;">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </td>
+                    <td>${statusHtml}</td>
+                    <td><small>${usedBy}</small></td>
+                    <td><small class="text-muted">${createdDate}</small></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            listEl.innerHTML = html;
+        } else {
+            listEl.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;"><i class="bi bi-inbox"></i><br>暂无邀请码</div>';
+        }
+    } catch (e) {
+        console.error('加载邀请数据失败', e);
+        document.getElementById('invitationCodeList').innerHTML = 
+            '<div style="text-align: center; padding: 20px; color: #ff4d4f;">加载失败，请刷新重试</div>';
+    }
+}
+
+async function createInvitationCode() {
+    const btn = document.getElementById('createInvitationBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 生成中...';
+    
+    try {
+        const resp = await fetch('/auth/api/invitation_codes', { method: 'POST' });
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            alert(`邀请码生成成功！\n\n${data.code.code}\n\n请将邀请码分享给朋友。`);
+            await loadInvitationData();
+        } else {
+            alert('生成失败：' + (data.error || '未知错误'));
+            await loadInvitationData();
+        }
+    } catch (e) {
+        alert('网络错误，请重试。');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle"></i> 生成邀请码';
+    }
+}
+
+// 复制邀请码到剪贴板
+function copyInvitationCode(code, btn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+            const icon = btn.querySelector('i');
+            const originalClass = icon.className;
+            icon.className = 'bi bi-check-lg';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-outline-success');
+            setTimeout(function() {
+                icon.className = originalClass;
+                btn.classList.remove('btn-outline-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        }).catch(function() {
+            // 回退方案
+            fallbackCopyCode(code, btn);
+        });
+    } else {
+        fallbackCopyCode(code, btn);
+    }
+}
+
+function fallbackCopyCode(code, btn) {
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        const icon = btn.querySelector('i');
+        const originalClass = icon.className;
+        icon.className = 'bi bi-check-lg';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-outline-success');
+        setTimeout(function() {
+            icon.className = originalClass;
+            btn.classList.remove('btn-outline-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    } catch (e) {
+        // 手动选择提示
+        prompt('请复制邀请码:', code);
+    }
+    document.body.removeChild(textarea);
+}
+
+// 页面加载时读取 AI 配置、通知设置和邀请数据
 document.addEventListener('DOMContentLoaded', function() {
     loadAiConfig();
     loadProfileNotifSettings();
+    loadInvitationData();
 });
 </script>
 {% endblock %}

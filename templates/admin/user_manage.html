@@ -43,6 +43,8 @@
                             <th>邮箱</th>
                             <th>管理员</th>
                             <th>状态</th>
+                            <th>邀请配额</th>
+                            <th>邀请人</th>
                             <th>注册时间</th>
                             <th>最后登录</th>
                             <th>操作</th>
@@ -67,6 +69,18 @@
                                 <span class="text-success"><i class="bi bi-check-circle"></i> 正常</span>
                                 {% else %}
                                 <span class="text-danger"><i class="bi bi-x-circle"></i> 已禁用</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set used_codes = user.created_invitation_codes.count() %}
+                                {{ used_codes }}/{{ user.invitation_quota or 5 }}
+                            </td>
+                            <td>
+                                {% if user.invited_by_id %}
+                                {% set inviter = users|selectattr("id", "equalto", user.invited_by_id)|first %}
+                                {% if inviter %}{{ inviter.username }}{% else %}-{% endif %}
+                                {% else %}
+                                -
                                 {% endif %}
                             </td>
                             <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '-' }}</td>

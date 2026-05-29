@@ -735,3 +735,34 @@ def admin_test_email():
         return {'message': f'测试邮件已成功发送至 {to_email}'}
     else:
         return {'error': f'发送失败: {message}'}, 500
+
+
+# ==================== 邀请制管理 ====================
+
+@bp.route('/settings/invitation', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_invitation():
+    """邀请制设置"""
+    invitation_system = CURRENT_SETTINGS.get('invitation_system', {})
+    
+    if request.method == 'POST':
+        try:
+            invitation_system['enabled'] = request.form.get('invitation_system_enabled') == 'true'
+            invitation_system['default_quota'] = int(request.form.get('invitation_system_default_quota', 5))
+            invitation_system['admin_only_invite'] = request.form.get('invitation_system_admin_only_invite') == 'true'
+            
+            # 确保配额至少为1
+            if invitation_system['default_quota'] < 1:
+                invitation_system['default_quota'] = 1
+            
+            CURRENT_SETTINGS['invitation_system'] = invitation_system
+            save_settings(CURRENT_SETTINGS)
+            flash('邀请制设置已更新！', 'success')
+        except (ValueError, TypeError) as e:
+            flash(f'设置保存失败: {str(e)}', 'danger')
+        
+        return redirect(url_for('admin_routes.admin_settings_invitation'))
+    
+    return render_template('admin/settings_invitation.html',
+                           invitation_system=invitation_system,
+                           setting_labels=SETTING_LABELS_CHINESE)

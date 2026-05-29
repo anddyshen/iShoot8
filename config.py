@@ -180,6 +180,18 @@ DEFAULT_SETTINGS = {
         "failed_attempts_threshold": 2,
     },
 
+    # 邀请制设置
+    "invitation_system": {
+        "enabled": False,              # 是否启用邀请制注册
+        "default_quota": 5,           # 默认每个用户可生成邀请码数量
+        "admin_only_invite": False,   # 仅管理员可邀请
+        "quota_rules": {              # 扩展条件（预留，当前不生效）
+            "min_days_since_registration": 0,  # 注册至少N天
+            "min_login_count": 0,             # 至少登录N次
+            "min_purchased_tickets": 0,       # 至少购买N注
+        },
+    },
+
     # 定时更新设置
     "scheduled_update_enabled": True,
     "scheduled_update_hour": 3,
@@ -367,6 +379,13 @@ SETTING_LABELS_CHINESE = {
     'captcha': '验证码设置',
     'captcha_enabled': '启用登录验证码',
     'captcha_failed_attempts_threshold': '触发验证码的失败次数阈值',
+
+    # 邀请制设置
+    'invitation_system': '邀请制设置',
+    'invitation_system_enabled': '启用邀请制注册',
+    'invitation_system_default_quota': '默认邀请码数量',
+    'invitation_system_admin_only_invite': '仅管理员可邀请',
+    'invitation_quota': '邀请码配额',
 
     # 趋势设置
     'lookback_periods': "趋势计算回溯期数",

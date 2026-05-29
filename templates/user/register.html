@@ -17,7 +17,18 @@
                                    placeholder="至少3个字符" required minlength="3" autocomplete="username">
                         </div>
                         <div class="form-text">用户名将用于登录，不可修改</div>
+</div>
+                    {% if invitation_system_enabled %}
+                    <div class="mb-3" id="invitationCodeGroup">
+                        <label for="invitation_code" class="form-label">邀请码 <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope-open"></i></span>
+                            <input type="text" class="form-control" id="invitation_code" name="invitation_code" 
+                                   placeholder="请输入邀请码" required>
+                        </div>
+                        <div class="form-text">系统已启用邀请制注册，需要有效邀请码才能注册</div>
                     </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label for="nickname" class="form-label">昵称</label>
                         <div class="input-group">
@@ -98,6 +109,15 @@ function checkPasswordStrength(password) {
         special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
     };
     
+    // 原始要求文本（用 data-text 保存，避免重复解析损坏）
+    const reqTexts = {
+        length: '至少8个字符',
+        upper: '包含至少一个大写字母',
+        lower: '包含至少一个小写字母',
+        digit: '包含至少一个数字',
+        special: '包含至少一个特殊字符（!@#$%^&* 等）',
+    };
+    
     // 更新UI指示
     const reqEls = {
         length: document.getElementById('req-length'),
@@ -109,12 +129,14 @@ function checkPasswordStrength(password) {
     
     for (const [key, el] of Object.entries(reqEls)) {
         if (!el) continue;
+        const text = reqTexts[key] || el.dataset.text || el.textContent.trim().replace(/[✓✗✅❌✔✖]\s*/, '').replace(/^[^]*?(?=[\u4e00a-zA-Z0-9])/, '').trim();
+        el.dataset.text = text;
         if (requirements[key]) {
             el.className = 'text-success';
-            el.innerHTML = '<i class="bi bi-check-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+            el.innerHTML = '<i class="bi bi-check-circle"></i> ' + text;
         } else {
             el.className = 'text-danger';
-            el.innerHTML = '<i class="bi bi-x-circle"></i> ' + el.textContent.replace(/^[^]*?(?=[^\d])/, '').trim() || el.textContent;
+            el.innerHTML = '<i class="bi bi-x-circle"></i> ' + text;
         }
     }
     

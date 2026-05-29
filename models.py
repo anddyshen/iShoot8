@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import desc
 import random
 import string
+import secrets
 
 # 北京时间（UTC+8）
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -280,6 +281,10 @@ class User(db.Model):
     preferences = db.Column(db.JSON, default=dict)
     ai_api_config = db.Column(db.JSON, default=dict)
     
+    # 邀请制相关字段
+    invitation_quota = db.Column(db.Integer, default=5)  # 可生成的邀请码数量（默认5个）
+    invited_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # 被谁邀请
+    
     def set_password(self, password):
         from werkzeug.security import generate_password_hash
         self.password_hash = generate_password_hash(password)
@@ -298,6 +303,8 @@ class User(db.Model):
             'is_admin': self.is_admin,
             'created_at': _format_bj_time(self.created_at),
             'last_login_at': _format_bj_time(self.last_login_at),
+            'invitation_quota': self.invitation_quota,
+            'invited_by_id': self.invited_by_id,
         }
     
     def __repr__(self):
@@ -396,6 +403,53 @@ class PasswordResetToken(db.Model):
     
     def __repr__(self):
         return f'<PasswordResetToken user_id={self.user_id} expires_at={self.expires_at}>'
+
+
+# ==================== 邀请制模型 ====================
+
+class InvitationCode(db.Model):
+    """邀请码表"""
+    __tablename__ = 'invitation_codes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(32), unique=True, nullable=False, index=True)  # 邀请码
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # 创建者
+    is_used = db.Column(db.Boolean, default=False)  # 是否已使用
+    used_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # 使用者的用户ID
+    used_by_username = db.Column(db.String(50), nullable=True)  # 使用者的用户名
+    used_at = db.Column(db.DateTime, nullable=True)  # 使用时间
+    created_at = db.Column(db.DateTime, default=beijing_now)  # 创建时间
+    expires_at = db.Column(db.DateTime, nullable=True)  # 过期时间（可选）
+    
+    creator = db.relationship('User', foreign_keys=[creator_id], backref=db.backref('created_invitation_codes', lazy='dynamic'))
+    used_by = db.relationship('User', foreign_keys=[used_by_id], backref=db.backref('used_invitation_code', uselist=False))
+    
+    def is_expired(self):
+        """检查邀请码是否过期"""
+        if self.expires_at is None:
+            return False
+        return beijing_now() > self.expires_at
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'code': self.code,
+            'creator_id': self.creator_id,
+            'is_used': self.is_used,
+            'used_by_id': self.used_by_id,
+            'used_by_username': self.used_by_username,
+            'used_at': _format_bj_time(self.used_at),
+            'created_at': _format_bj_time(self.created_at),
+            'expires_at': _format_bj_time(self.expires_at),
+        }
+    
+    @staticmethod
+    def generate_code():
+        """生成唯一的邀请码"""
+        return secrets.token_urlsafe(16)[:24]
+    
+    def __repr__(self):
+        return f'<InvitationCode {self.code} by user {self.creator_id} used={self.is_used}>'
 
 
 # 首次运行生成随机管理路由前缀

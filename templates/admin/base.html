@@ -41,6 +41,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin_routes.admin_settings_invitation' %}active{% endif %}" href="{{ url_for('admin_routes.admin_settings_invitation') }}">
+                            <i class="bi bi-envelope-open me-2"></i>
+                            邀请制设置
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin_routes.admin_data_update' %}active{% endif %}" href="{{ url_for('admin_routes.admin_data_update') }}">
                             <i class="bi bi-database-fill-up me-2"></i>
                             数据管理
