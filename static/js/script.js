@@ -298,6 +298,9 @@ document.getElementById('ssq_prediction_tab').addEventListener('click', function
     document.getElementById('dlt_filter_overview_card').style.display = 'none'; // Hide DLT overview when switching to SSQ
     loadOmittedBalls('ssq', currentSsqOmissionOffset); // Load data for SSQ when tab is clicked
     loadActiveRules('ssq', 'ssq_active_rules_display'); // Load active rules for SSQ
+    // Refresh smart filter stats for SSQ
+    var ssqPeriod = document.getElementById('ssq_smart_filter_period');
+    if (ssqPeriod) loadSmartFilterStats('ssq', ssqPeriod.value);
 });
 
 document.getElementById('dlt_prediction_tab').addEventListener('click', function(e) {
@@ -311,6 +314,9 @@ document.getElementById('dlt_prediction_tab').addEventListener('click', function
     document.getElementById('ssq_filter_overview_card').style.display = 'none'; // Hide SSQ overview when switching to DLT
     loadOmittedBalls('dlt', currentDltOmissionOffset); // Load data for DLT when tab is clicked
     loadActiveRules('dlt', 'dlt_active_rules_display'); // Load active rules for DLT
+    // Refresh smart filter stats for DLT
+    var dltPeriod = document.getElementById('dlt_smart_filter_period');
+    if (dltPeriod) loadSmartFilterStats('dlt', dltPeriod.value);
 });
 
 // Event Listeners for omission navigation buttons
@@ -1773,9 +1779,9 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
             }
         });
         
-        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比、跨度、同尾号、邻号、AC值）=====
+        // ===== 自动选择排名前2的选项（分区原则、连号原则、重号原则、遗漏号原则、奇偶比、跨度、同尾号、邻号、AC值、号码总和）=====
         // 对于span（radio单选项），只选择排名第1的即可
-        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even', 'same_tail', 'neighbor', 'ac_value'];
+        const autoSelectRules = ['zone_ratio', 'consecutive', 'repeat', 'omission_pattern', 'odd_even', 'sum', 'same_tail', 'neighbor', 'ac_value'];
         const autoSelectSingleRules = ['span'];
         
         // checkbox多选规则
@@ -1862,6 +1868,41 @@ async function loadSmartFilterStats(lotteryType, lookbackPeriod) {
                 }
             }
         });
+        
+        // sum（号码总和）规则 - checkbox多选，取排名前2，值需要映射到范围
+        if (data['sum'] && data['sum'].length > 0) {
+            const topValues = data['sum'].slice(0, 2);
+            const groupId = lotteryType + '_smart_sum';
+            const group = document.getElementById(groupId);
+            if (group) {
+                group.querySelectorAll('.form-check-input:not(.smart-filter-disabled)').forEach(function(cb) {
+                    cb.checked = false;
+                });
+                topValues.forEach(function(item) {
+                    var sumVal = parseInt(item.rule_value);
+                    var optionValue = null;
+                    if (sumVal < 70) {
+                        optionValue = 'lt_70';
+                    } else if (sumVal >= 70 && sumVal <= 90) {
+                        optionValue = '71-90';
+                    } else if (sumVal >= 91 && sumVal <= 110) {
+                        optionValue = '91-110';
+                    } else if (sumVal >= 111 && sumVal <= 120) {
+                        optionValue = '111-120';
+                    } else if (sumVal >= 121 && sumVal <= 140) {
+                        optionValue = '121-140';
+                    } else if (sumVal > 140) {
+                        optionValue = 'gt_140';
+                    }
+                    if (optionValue) {
+                        var checkbox = group.querySelector('.form-check-input[value="' + optionValue + '"]');
+                        if (checkbox) {
+                            checkbox.checked = true;
+                        }
+                    }
+                });
+            }
+        }
         // ===== 结束自动选择逻辑 =====
         
     } catch (error) {
