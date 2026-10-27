@@ -130,6 +130,12 @@ class KL8Draw(db.Model):
     def get_bottom_balls(self):
         return [b for b in self.get_winning_balls_list() if b > 40]
 
+    def get_red_balls_list(self):
+        return self.get_winning_balls_list()
+
+    def get_blue_balls_list(self):
+        return []
+
     def __repr__(self):
         return f"<KL8Draw {self.issue} - {self.draw_date}>"
 
@@ -164,6 +170,12 @@ class SevenXCDraw(db.Model):
     def get_all_balls_list(self):
         return self.get_front_numbers_list() + [self.back_number]
 
+    def get_red_balls_list(self):
+        return self.get_front_numbers_list()
+
+    def get_blue_balls_list(self):
+        return [self.back_number] if self.back_number is not None else []
+
     def __repr__(self):
         return f"<SevenXCDraw {self.issue} - {self.draw_date}>"
 
@@ -196,6 +208,12 @@ class SevenLCDraw(db.Model):
 
     def get_basic_balls_list(self):
         return sorted([int(x) for x in self.basic_balls.split(',') if x])
+
+    def get_red_balls_list(self):
+        return self.get_basic_balls_list()
+
+    def get_blue_balls_list(self):
+        return [self.special_ball] if self.special_ball is not None else []
 
     def __repr__(self):
         return f"<SevenLCDraw {self.issue} - {self.draw_date}>"

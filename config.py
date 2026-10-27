@@ -599,5 +599,79 @@ PRIZE_RULES = {
             {'level': '七等奖', 'match_red': 3, 'match_blue': 0, 'amount': 5,
              'amount_pool_ge_8e8': 7},
         ]
+    },
+    'kl8': {
+        'red_range': 80,
+        'blue_range': 0,
+        'standard_red': 10,
+        'standard_blue': 0,
+        'prizes': [
+            {'level': '选十中10', 'amount': '浮动', 'max_single': 5000000},
+            {'level': '选十中9', 'amount': 8000},
+            {'level': '选十中8', 'amount': 800},
+            {'level': '选十中7', 'amount': 80},
+            {'level': '选十中6', 'amount': 5},
+            {'level': '选十中0', 'amount': 2},
+            {'level': '选九中9', 'amount': 300000},
+            {'level': '选九中8', 'amount': 2000},
+            {'level': '选九中7', 'amount': 200},
+            {'level': '选九中6', 'amount': 20},
+            {'level': '选九中5', 'amount': 5},
+            {'level': '选九中0', 'amount': 2},
+            {'level': '选八中8', 'amount': 50000},
+            {'level': '选八中7', 'amount': 800},
+            {'level': '选八中6', 'amount': 88},
+            {'level': '选八中5', 'amount': 10},
+            {'level': '选八中4', 'amount': 3},
+            {'level': '选八中0', 'amount': 2},
+            {'level': '选七中7', 'amount': 10000},
+            {'level': '选七中6', 'amount': 288},
+            {'level': '选七中5', 'amount': 28},
+            {'level': '选七中4', 'amount': 4},
+            {'level': '选七中0', 'amount': 2},
+            {'level': '选六中6', 'amount': 3000},
+            {'level': '选六中5', 'amount': 30},
+            {'level': '选六中4', 'amount': 10},
+            {'level': '选六中3', 'amount': 3},
+            {'level': '选五中5', 'amount': 1000},
+            {'level': '选五中4', 'amount': 21},
+            {'level': '选五中3', 'amount': 3},
+            {'level': '选四中4', 'amount': 100},
+            {'level': '选四中3', 'amount': 5},
+            {'level': '选四中2', 'amount': 3},
+            {'level': '选三中3', 'amount': 53},
+            {'level': '选三中2', 'amount': 2},
+            {'level': '选二中2', 'amount': 19},
+            {'level': '选一中1', 'amount': 4.6},
+        ]
+    },
+    '7xc': {
+        'red_range': 9, # 0-9
+        'blue_range': 14, # 0-14
+        'standard_red': 6,
+        'standard_blue': 1,
+        'prizes': [
+            {'level': '一等奖', 'amount': '浮动', 'max_single': 5000000},
+            {'level': '二等奖', 'amount': '浮动', 'max_single': 500000},
+            {'level': '三等奖', 'amount': 3000},
+            {'level': '四等奖', 'amount': 500},
+            {'level': '五等奖', 'amount': 30},
+            {'level': '六等奖', 'amount': 5},
+        ]
+    },
+    '7lc': {
+        'red_range': 30, # 1-30
+        'blue_range': 30, # 1-30
+        'standard_red': 7,
+        'standard_blue': 1,
+        'prizes': [
+            {'level': '一等奖', 'amount': '浮动', 'max_single': 5000000},
+            {'level': '二等奖', 'amount': '浮动', 'max_single': 500000},
+            {'level': '三等奖', 'amount': '浮动', 'max_single': 10000},
+            {'level': '四等奖', 'amount': 200},
+            {'level': '五等奖', 'amount': 50},
+            {'level': '六等奖', 'amount': 10},
+            {'level': '七等奖', 'amount': 5},
+        ]
     }
 }

@@ -920,3 +920,37 @@ button:not(.collapsed) .collapsed-show {
 }
 
 
+
+/* 快乐8选号球与触控自适应 */
+.ball.kl8-top-ball {
+    border-color: #f5c2c7;
+    background-color: #fff8f8;
+    color: #b02a37;
+}
+.ball.kl8-bottom-ball {
+    border-color: #b6d4fe;
+    background-color: #f0f7ff;
+    color: #084298;
+}
+.ball.kl8-top-ball:hover {
+    background-color: #f8d7da;
+}
+.ball.kl8-bottom-ball:hover {
+    background-color: #cfe2ff;
+}
+.ball.selected-red {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+    border-color: #dc3545 !important;
+    font-weight: bold;
+}
+.ball.selected-blue {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+    border-color: #0d6efd !important;
+    font-weight: bold;
+}
+.sxc-back-ball-btn.active {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}

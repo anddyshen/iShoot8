@@ -4,7 +4,7 @@ import math
 from collections import Counter, OrderedDict
 import random
 from config import PRIZE_RULES, CURRENT_SETTINGS, PER_BET_PRICE, PER_BET_ADD_PRICE, FUYUN_PRIZE_ENABLE_THRESHOLD, FUYUN_PRIZE_DISABLE_THRESHOLD, DLT_POOL_LINKAGE_THRESHOLD # 导入中奖规则和当前设置
-from models import SSQDraw, DLTDraw, db # 新增导入
+from models import SSQDraw, DLTDraw, KL8Draw, SevenXCDraw, SevenLCDraw, db # 新增导入
 
 # 版本号，每次生成文件时更新
 __version__ = "2.0.0" # 更新版本号 - 2026年新奖金规则
@@ -582,27 +582,206 @@ def combinations(n, k):
     return res
 
 # --- 计算复式投注花费 ---
+
+def calculate_kl8_prize(user_balls, draw_balls, play_type=None):
+    """
+    快乐8对奖计算：
+    user_balls: 用户选号列表 (1-80)
+    draw_balls: 当期开奖号码列表 (20个球, 1-80)
+    play_type: 玩法(选1-选10)，如果不传则根据 len(user_balls) 决定 (不超过10)
+    返回: OrderedDict( { '奖级名称': {'count': count, 'amount': amount} } )
+    """
+    user_set = set(user_balls)
+    draw_set = set(draw_balls)
+    n = len(user_set)
+    k = play_type or min(n, 10)
+    if k < 1:
+        return OrderedDict()
+
+    # 官方固定奖金对照表
+    kl8_rules = {
+        10: {10: ('选十中10', 5000000), 9: ('选十中9', 8000), 8: ('选十中8', 800), 7: ('选十中7', 80), 6: ('选十中6', 5), 0: ('选十中0', 2)},
+        9: {9: ('选九中9', 300000), 8: ('选九中8', 2000), 7: ('选九中7', 200), 6: ('选九中6', 20), 5: ('选九中5', 5), 0: ('选九中0', 2)},
+        8: {8: ('选八中8', 50000), 7: ('选八中7', 800), 6: ('选八中6', 88), 5: ('选八中5', 10), 4: ('选八中4', 3), 0: ('选八中0', 2)},
+        7: {7: ('选七中7', 10000), 6: ('选七中6', 288), 5: ('选七中5', 28), 4: ('选七中4', 4), 0: ('选七中0', 2)},
+        6: {6: ('选六中6', 3000), 5: ('选六中5', 30), 4: ('选六中4', 10), 3: ('选六中3', 3)},
+        5: {5: ('选五中5', 1000), 4: ('选五中4', 21), 3: ('选五中3', 3)},
+        4: {4: ('选四中4', 100), 3: ('选四中3', 5), 2: ('选四中2', 3)},
+        3: {3: ('选三中3', 53), 2: ('选三中2', 2)},
+        2: {2: ('选二中2', 19)},
+        1: {1: ('选一中1', 4.6)}
+    }
+
+    rule = kl8_rules.get(k, {})
+    matched_set = user_set.intersection(draw_set)
+    m = len(matched_set) # 命中的球数
+    unm = n - m # 未命中的球数
+
+    prize_details = OrderedDict()
+    
+    # 如果是单注 (选球数等于玩法球数 k)
+    if n == k:
+        if m in rule:
+            lvl_name, amt = rule[m]
+            prize_details[lvl_name] = {'count': 1, 'amount': amt}
+    else:
+        # 复式投注：用户选了 n 个球 (n > k)，投注 C(n, k) 注
+        for r, (lvl_name, amt) in rule.items():
+            if r <= m and (k - r) <= unm:
+                comb_count = combinations(m, r) * combinations(unm, k - r)
+                if comb_count > 0:
+                    if lvl_name not in prize_details:
+                        prize_details[lvl_name] = {'count': 0, 'amount': 0}
+                    prize_details[lvl_name]['count'] += comb_count
+                    prize_details[lvl_name]['amount'] += comb_count * amt
+
+    return prize_details
+
+def calculate_7xc_prize(user_front, user_back, draw_front, draw_back):
+    """
+    七星彩对奖计算（2020新规）：
+    user_front: 用户前区6位数字列表 [d0, d1, d2, d3, d4, d5]
+    user_back: 用户后区数字 (0-14)
+    draw_front: 开奖前区6位数字列表
+    draw_back: 开奖后区数字
+    返回: OrderedDict( { '奖级名称': {'count': count, 'amount': amount} } )
+    """
+    prize_details = OrderedDict()
+    if len(user_front) != 6 or len(draw_front) != 6:
+        return prize_details
+
+    try:
+        back_matched = (int(user_back) == int(draw_back))
+    except (ValueError, TypeError):
+        back_matched = False
+    
+    # 计算前区连续匹配最大长度
+    try:
+        is_match = [1 if int(user_front[i]) == int(draw_front[i]) else 0 for i in range(6)]
+    except (ValueError, TypeError):
+        return prize_details
+
+    max_consec = 0
+    cur_consec = 0
+    for match in is_match:
+        if match == 1:
+            cur_consec += 1
+            if cur_consec > max_consec:
+                max_consec = cur_consec
+        else:
+            cur_consec = 0
+            
+    level_name = None
+    amount = 0
+    
+    if max_consec == 6 and back_matched:
+        level_name = '一等奖'
+        amount = 5000000
+    elif max_consec == 6 and not back_matched:
+        level_name = '二等奖'
+        amount = 500000
+    elif max_consec == 5 and back_matched:
+        level_name = '三等奖'
+        amount = 3000
+    elif (max_consec == 5 and not back_matched) or (max_consec == 4 and back_matched):
+        level_name = '四等奖'
+        amount = 500
+    elif (max_consec == 4 and not back_matched) or (max_consec == 3 and back_matched):
+        level_name = '五等奖'
+        amount = 30
+    elif (max_consec == 3 and not back_matched) or (max_consec == 2 and back_matched) or (max_consec == 1 and back_matched) or (max_consec == 0 and back_matched):
+        level_name = '六等奖'
+        amount = 5
+        
+    if level_name:
+        prize_details[level_name] = {'count': 1, 'amount': amount}
+        
+    return prize_details
+
+def calculate_7lc_prize(user_basic, draw_basic, draw_special):
+    """
+    七乐彩对奖计算（30选7+1特别号）：
+    user_basic: 用户选号列表 (1-30)
+    draw_basic: 开奖基本号 (7个球, 1-30)
+    draw_special: 开奖特别号 (1个球, 1-30)
+    返回: OrderedDict( { '奖级名称': {'count': count, 'amount': amount} } )
+    """
+    user_set = set(user_basic)
+    draw_set = set(draw_basic)
+    n = len(user_set)
+    if n < 7:
+        return OrderedDict()
+
+    lc_rules = {
+        (7, 0): ('一等奖', 5000000),
+        (6, 1): ('二等奖', 500000),
+        (6, 0): ('三等奖', 10000),
+        (5, 1): ('四等奖', 200),
+        (5, 0): ('五等奖', 50),
+        (4, 1): ('六等奖', 10),
+        (4, 0): ('七等奖', 5)
+    }
+
+    matched_basic = len(user_set.intersection(draw_set))
+    try:
+        has_special = 1 if int(draw_special) in user_set else 0
+    except (ValueError, TypeError):
+        has_special = 0
+    unmatched_non_special = n - matched_basic - has_special
+
+    prize_details = OrderedDict()
+
+    if n == 7:
+        key = (matched_basic, has_special if matched_basic in (4, 5, 6) else 0)
+        if matched_basic == 7:
+            key = (7, 0)
+        if key in lc_rules:
+            lvl_name, amt = lc_rules[key]
+            prize_details[lvl_name] = {'count': 1, 'amount': amt}
+    else:
+        # 复式投注：从 user_set 中选 7 个球的全部组合
+        for (req_b, req_s), (lvl_name, amt) in lc_rules.items():
+            if req_b <= matched_basic and req_s <= has_special:
+                needed_other = 7 - req_b - req_s
+                if 0 <= needed_other <= unmatched_non_special:
+                    c_basic = combinations(matched_basic, req_b)
+                    c_special = combinations(has_special, req_s)
+                    c_other = combinations(unmatched_non_special, needed_other)
+                    comb_count = c_basic * c_special * c_other
+                    if comb_count > 0:
+                        if lvl_name not in prize_details:
+                            prize_details[lvl_name] = {'count': 0, 'amount': 0}
+                        prize_details[lvl_name]['count'] += comb_count
+                        prize_details[lvl_name]['amount'] += comb_count * amt
+
+    return prize_details
+
 def calculate_combination_cost(user_red_balls_count, user_blue_balls_count, lottery_type, is_addition=False):
     """
-    根据用户选择的红蓝球数量，计算复式投注的总注数和花费。
-    user_red_balls_count: 用户选择的红球数量
-    user_blue_balls_count: 用户选择的蓝球数量
-    lottery_type: 'ssq' 或 'dlt'
-    is_addition: 是否追加投注（仅大乐透有效，仅浮动奖可追加）
-    返回: {'total_bets': int, 'total_cost': float}
+    根据用户选择的号码计算复式投注的总注数和花费。
     """
     if lottery_type == 'ssq':
-        # 双色球标准：6红1蓝
         red_bets = combinations(user_red_balls_count, 6)
         blue_bets = combinations(user_blue_balls_count, 1)
+        total_bets = red_bets * blue_bets
     elif lottery_type == 'dlt':
-        # 大乐透标准：5红2蓝
         red_bets = combinations(user_red_balls_count, 5)
         blue_bets = combinations(user_blue_balls_count, 2)
+        total_bets = red_bets * blue_bets
+    elif lottery_type == 'kl8':
+        if user_red_balls_count <= 10:
+            total_bets = 1
+        else:
+            total_bets = combinations(user_red_balls_count, 10)
+    elif lottery_type == '7xc':
+        total_bets = 1
+    elif lottery_type == '7lc':
+        if user_red_balls_count >= 7:
+            total_bets = combinations(user_red_balls_count, 7)
+        else:
+            total_bets = 1
     else:
-        return {'total_bets': 0, 'total_cost': 0}
-    
-    total_bets = red_bets * blue_bets
+        return {'total_bets': 0, 'total_cost': 0, 'base_cost': 0, 'add_cost': 0}
     # 计算基础花费
     base_cost = total_bets * PER_BET_PRICE
     # 追加投注只在浮动奖有效，但价格按每注+1元计算
@@ -669,6 +848,16 @@ def calculate_prize_details(user_red_balls, user_blue_balls, draw_red_balls, dra
     fuyun_prize_active: 福运奖是否启用（仅双色球）
     返回: { 'prize_level': {'count': count, 'amount': amount}, ... }
     """
+    if lottery_type == 'kl8':
+        return calculate_kl8_prize(user_red_balls, draw_red_balls)
+    elif lottery_type == '7xc':
+        user_back = user_blue_balls[0] if user_blue_balls else 0
+        draw_back = draw_blue_balls[0] if draw_blue_balls else 0
+        return calculate_7xc_prize(user_red_balls, user_back, draw_red_balls, draw_back)
+    elif lottery_type == '7lc':
+        draw_special = draw_blue_balls[0] if draw_blue_balls else 0
+        return calculate_7lc_prize(user_red_balls, draw_red_balls, draw_special)
+
     rules = PRIZE_RULES.get(lottery_type)
     if not rules:
         return {}

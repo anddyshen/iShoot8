@@ -600,14 +600,11 @@ def api_prize_check_next_prediction():
 
 @bp.route('/api/prize_check/latest_draws', methods=['GET'])
 def api_prize_check_latest_draws():
-    """
-    获取指定彩票类型的最新开奖号码及每个号码的遗漏期数。
-    支持 offset 参数用于前一期/后一期导航。
-    """
     lottery_type = request.args.get('lottery_type')
     offset_str = request.args.get('offset', '0')
 
-    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+    valid_types = ['ssq', 'dlt', 'kl8', '7xc', '7lc']
+    if not lottery_type or lottery_type not in valid_types:
         return jsonify({'error': 'Invalid or missing lottery_type'}), 400
 
     try:
@@ -617,9 +614,23 @@ def api_prize_check_latest_draws():
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid offset parameter, must be a non-negative integer.'}), 400
 
-    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
-    red_ball_range = 33 if lottery_type == 'ssq' else 35
-    blue_ball_range = 16 if lottery_type == 'ssq' else 12
+    model_map = {
+        'ssq': SSQDraw,
+        'dlt': DLTDraw,
+        'kl8': KL8Draw,
+        '7xc': SevenXCDraw,
+        '7lc': SevenLCDraw
+    }
+    model_class = model_map[lottery_type]
+    
+    ball_ranges = {
+        'ssq': (33, 16),
+        'dlt': (35, 12),
+        'kl8': (80, 0),
+        '7xc': (9, 14),
+        '7lc': (30, 30)
+    }
+    red_ball_range, blue_ball_range = ball_ranges[lottery_type]
 
     all_draws = model_class.query.order_by(model_class.issue.desc()).all()
     if not all_draws:
@@ -629,51 +640,33 @@ def api_prize_check_latest_draws():
     if offset > max_offset:
         offset = max_offset
 
-    # 获取当前显示期数的开奖数据
     current_draw = all_draws[offset]
     display_red_balls = current_draw.get_red_balls_list()
     display_blue_balls = current_draw.get_blue_balls_list()
 
-    # 计算遗漏数据（从当前期往后计算）
     draws_for_omission = all_draws[offset:]
 
-    # 计算红球遗漏
-    red_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, red_ball_range, 'red')
-    red_omissions = {item['ball']: item['current_omission'] for item in red_stats_list}
+    red_omissions = {}
+    blue_omissions = {}
+    if red_ball_range > 0 and hasattr(current_draw, 'get_red_balls_list'):
+        try:
+            red_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, red_ball_range, 'red')
+            red_omissions = {item['ball']: item['current_omission'] for item in red_stats_list}
+        except Exception:
+            red_omissions = {}
 
-    # 计算蓝球遗漏
-    blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, blue_ball_range, 'blue')
-    blue_omissions = {item['ball']: item['current_omission'] for item in blue_stats_list}
+    if blue_ball_range > 0 and hasattr(current_draw, 'get_blue_balls_list'):
+        try:
+            blue_stats_list, _ = calculate_frequency_and_omissions_for_balls(draws_for_omission, blue_ball_range, 'blue')
+            blue_omissions = {item['ball']: item['current_omission'] for item in blue_stats_list}
+        except Exception:
+            blue_omissions = {}
 
-    # 为当前开奖号码构建带遗漏的数据
-    red_balls_with_omission = []
-    for ball in display_red_balls:
-        red_balls_with_omission.append({
-            'ball': ball,
-            'omission': red_omissions.get(ball, 0)
-        })
+    red_balls_with_omission = [{'ball': b, 'omission': red_omissions.get(b, 0)} for b in display_red_balls]
+    blue_balls_with_omission = [{'ball': b, 'omission': blue_omissions.get(b, 0)} for b in display_blue_balls]
 
-    blue_balls_with_omission = []
-    for ball in display_blue_balls:
-        blue_balls_with_omission.append({
-            'ball': ball,
-            'omission': blue_omissions.get(ball, 0)
-        })
-
-    # 构建所有号码的遗漏数据（用于号码选择器显示）
-    all_red_omissions = []
-    for ball_num in range(1, red_ball_range + 1):
-        all_red_omissions.append({
-            'ball': ball_num,
-            'omission': red_omissions.get(ball_num, 0)
-        })
-
-    all_blue_omissions = []
-    for ball_num in range(1, blue_ball_range + 1):
-        all_blue_omissions.append({
-            'ball': ball_num,
-            'omission': blue_omissions.get(ball_num, 0)
-        })
+    all_red_omissions = [{'ball': b, 'omission': red_omissions.get(b, 0)} for b in range(1, red_ball_range + 1)] if red_ball_range > 0 else []
+    all_blue_omissions = [{'ball': b, 'omission': blue_omissions.get(b, 0)} for b in range(1, blue_ball_range + 1)] if blue_ball_range > 0 else []
 
     return jsonify({
         'issue': current_draw.issue,
@@ -684,8 +677,8 @@ def api_prize_check_latest_draws():
         'blue_balls_with_omission': blue_balls_with_omission,
         'all_red_omissions': all_red_omissions,
         'all_blue_omissions': all_blue_omissions,
-        'max_offset': max_offset,
-        'current_offset': offset
+        'current_offset': offset,
+        'max_offset': max_offset
     })
 
 
@@ -693,103 +686,98 @@ def api_prize_check_latest_draws():
 def api_check_prizes():
     data = request.get_json()
     lottery_type = data.get('lottery_type')
-    combinations = data.get('combinations') # [{red_balls: '1,2,3', blue_balls: '1'}, ...]
+    combinations = data.get('combinations')
     
-    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+    valid_types = ['ssq', 'dlt', 'kl8', '7xc', '7lc']
+    if not lottery_type or lottery_type not in valid_types:
         return jsonify({'error': 'Invalid or missing lottery_type'}), 400
 
     if not isinstance(combinations, list) or not combinations:
         return jsonify({'error': 'Missing or invalid combinations data'}), 400
 
-    # 获取追加投注选项（仅大乐透有效）
     is_addition = data.get('is_addition', False)
-
     check_range_val = data.get('check_range', CURRENT_SETTINGS.get('prize_check_range', 10))
     try:
         check_range = int(check_range_val)
-        if check_range < 0: # 允许0表示所有历史数据
+        if check_range < 0:
             raise ValueError("Check range cannot be negative.")
     except (ValueError, TypeError):
-        check_range = CURRENT_SETTINGS.get('prize_check_range', 10) # Fallback to default if conversion fails
-        current_app.logger.warning(f"API call: Invalid check_range '{check_range_val}', falling back to default {check_range}.")
+        check_range = CURRENT_SETTINGS.get('prize_check_range', 10)
 
-    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    model_map = {
+        'ssq': SSQDraw,
+        'dlt': DLTDraw,
+        'kl8': KL8Draw,
+        '7xc': SevenXCDraw,
+        '7lc': SevenLCDraw
+    }
+    model_class = model_map[lottery_type]
     
-    # 获取最近 N 期开奖数据，如果 check_range 为 0，则获取所有
-    if check_range == 0: # 0 表示全部期数
+    if check_range == 0:
         recent_draws = model_class.query.order_by(model_class.issue.desc()).all()
     else:
         recent_draws = model_class.query.order_by(model_class.issue.desc()).limit(check_range).all()
     
-    # 实际检查的期数
     actual_checked_draws_count = len(recent_draws)
-
     if not recent_draws:
         return jsonify({'error': '未找到历史开奖数据'}), 404
 
-    # 获取最新一期用于判断福运奖状态和奖池金额
     latest_draw = recent_draws[0] if recent_draws else None
-    pool_amount = latest_draw.prize_pool if latest_draw else None
+    pool_amount = getattr(latest_draw, 'prize_pool', None)
     
-    # 判断福运奖是否启用（双色球）
     fuyun_prize_active = False
     if lottery_type == 'ssq' and latest_draw:
-        fuyun_prize_active = latest_draw.fuyun_prize_active if hasattr(latest_draw, 'fuyun_prize_active') else False
+        fuyun_prize_active = getattr(latest_draw, 'fuyun_prize_active', False)
 
     all_results = []
     for combo in combinations:
-        user_red_balls_str = combo.get('red_balls')
-        user_blue_balls_str = combo.get('blue_balls')
-
-        if not user_red_balls_str or not user_blue_balls_str:
-            return jsonify({'error': 'Each combination must contain red_balls and blue_balls'}), 400
+        user_red_balls_str = combo.get('red_balls', '')
+        user_blue_balls_str = combo.get('blue_balls', '')
 
         try:
             user_red_balls = format_lottery_numbers(user_red_balls_str)
             user_blue_balls = format_lottery_numbers(user_blue_balls_str)
 
-            # 添加更严格的号码验证
             if lottery_type == 'ssq':
-                if not (len(user_red_balls) >= 6 and len(user_red_balls) <= 16 and 
-                        all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
-                    raise ValueError("SSQ red balls must be 6-16 unique numbers between 1 and 33.")
-                if not (len(user_blue_balls) >= 1 and len(user_blue_balls) <= 16 and 
-                        all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
-                    raise ValueError("SSQ blue balls must be 1-16 unique numbers between 1 and 16.")
+                if not (6 <= len(user_red_balls) <= 16 and all(1 <= b <= 33 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("双色球红球必须是 6-16 个 1-33 的不重复数字")
+                if not (1 <= len(user_blue_balls) <= 16 and all(1 <= b <= 16 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                    raise ValueError("双色球蓝球必须是 1-16 个 1-16 的不重复数字")
             elif lottery_type == 'dlt':
-                if not (len(user_red_balls) >= 5 and len(user_red_balls) <= 16 and 
-                        all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
-                    raise ValueError("DLT red balls must be 5-16 unique numbers between 1 and 35.")
-                if not (len(user_blue_balls) >= 2 and len(user_blue_balls) <= 12 and 
-                        all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
-                    raise ValueError("DLT blue balls must be 2-12 unique numbers between 1 and 12.")
+                if not (5 <= len(user_red_balls) <= 16 and all(1 <= b <= 35 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("大乐透前区必须是 5-16 个 1-35 的不重复数字")
+                if not (2 <= len(user_blue_balls) <= 12 and all(1 <= b <= 12 for b in user_blue_balls) and len(set(user_blue_balls)) == len(user_blue_balls)):
+                    raise ValueError("大乐透后区必须是 2-12 个 1-12 的不重复数字")
+            elif lottery_type == 'kl8':
+                if not (1 <= len(user_red_balls) <= 80 and all(1 <= b <= 80 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("快乐8号码必须是 1-80 的不重复数字")
+            elif lottery_type == '7xc':
+                if len(user_red_balls) != 6 or not all(0 <= b <= 9 for b in user_red_balls):
+                    raise ValueError("七星彩前区必须是 6 个 0-9 的定位数字")
+                if len(user_blue_balls) != 1 or not all(0 <= b <= 14 for b in user_blue_balls):
+                    raise ValueError("七星彩后区必须是 1 个 0-14 的数字")
+            elif lottery_type == '7lc':
+                if not (7 <= len(user_red_balls) <= 20 and all(1 <= b <= 30 for b in user_red_balls) and len(set(user_red_balls)) == len(user_red_balls)):
+                    raise ValueError("七乐彩号码必须是 7-20 个 1-30 的不重复数字")
 
         except ValueError as e:
-            return jsonify({'error': f'Invalid lottery balls format or range: {e}'}), 400
+            return jsonify({'error': f'号码格式错误: {e}'}), 400
         except Exception as e:
-            current_app.logger.error(f"Error processing combination: {combo}. Error: {e}")
-            return jsonify({'error': 'Error processing lottery combination.'}), 500
+            current_app.logger.error(f"Error processing combo {combo}: {e}")
+            return jsonify({'error': '处理彩票号码时出错'}), 500
 
-        # 计算该组合的投注花费（支持追加投注）
         cost_details = calculate_combination_cost(len(user_red_balls), len(user_blue_balls), lottery_type, is_addition)
 
         matches = []
         total_winning_bets_for_combo = 0
-        total_winning_amount_for_combo = 0.0 # 使用浮点数进行金额计算
+        total_winning_amount_for_combo = 0.0
 
         for draw in recent_draws:
             draw_red_balls = draw.get_red_balls_list()
             draw_blue_balls = draw.get_blue_balls_list()
+            draw_pool_amount = getattr(draw, 'prize_pool', pool_amount)
+            draw_fuyun_active = getattr(draw, 'fuyun_prize_active', fuyun_prize_active) if lottery_type == 'ssq' else False
 
-            # 获取该期奖池金额（大乐透用于固定奖联动判断）
-            draw_pool_amount = draw.prize_pool if hasattr(draw, 'prize_pool') else pool_amount
-            
-            # 获取该期福运奖状态（双色球）
-            draw_fuyun_active = False
-            if lottery_type == 'ssq':
-                draw_fuyun_active = draw.fuyun_prize_active if hasattr(draw, 'fuyun_prize_active') else fuyun_prize_active
-
-            # 使用新的 calculate_prize_details 获取所有奖项的中奖注数
             prize_details_for_draw = calculate_prize_details(
                 user_red_balls, user_blue_balls,
                 draw_red_balls, draw_blue_balls,
@@ -800,70 +788,57 @@ def api_check_prizes():
                 draw_date=draw.draw_date
             )
             
-            if prize_details_for_draw: # 如果有任何奖项中奖
-                # 遍历所有中奖的奖项和注数
+            if prize_details_for_draw:
                 for prize_level, info in prize_details_for_draw.items():
                     prize_count = info['count']
                     if prize_count > 0:
-                        # 获取该奖项的详细信息
-                        prize_rule = next((p for p in PRIZE_RULES[lottery_type]['prizes'] if p['level'] == prize_level), None)
-                        if prize_rule:
-                            current_prize_amount_numeric = 0 # 用于计算总金额的数字
-                            prize_amount_display = "" # 用于前端显示的字符串
+                        rule_list = PRIZE_RULES.get(lottery_type, {}).get('prizes', [])
+                        prize_rule = next((p for p in rule_list if p['level'] == prize_level), None)
+                        current_prize_amount_numeric = info['amount'] / prize_count if prize_count > 0 else 0
+                        prize_amount_display = f"{current_prize_amount_numeric:,.0f}"
 
-                            if prize_rule['amount'] == '浮动':
-                                # 根据实际开奖数据获取浮动奖金
-                                if prize_level == '一等奖':
-                                    current_prize_amount_numeric = draw.first_prize_amount
-                                elif prize_level == '二等奖':
-                                    current_prize_amount_numeric = draw.second_prize_amount
-                                # 追加投注额外增加
-                                if is_addition and lottery_type == 'dlt':
-                                    add_amount = prize_rule.get('max_single_add', 0)
-                                    if current_prize_amount_numeric:
-                                        current_prize_amount_numeric = min(current_prize_amount_numeric + add_amount, add_amount)
-                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}" if current_prize_amount_numeric else "浮动"
+                        if prize_rule and prize_rule.get('amount') == '浮动':
+                            if hasattr(draw, 'first_prize_amount') and prize_level in ['一等奖', '选十中10'] and draw.first_prize_amount:
+                                current_prize_amount_numeric = draw.first_prize_amount
+                            elif hasattr(draw, 'second_prize_amount') and prize_level == '二等奖' and draw.second_prize_amount:
+                                current_prize_amount_numeric = draw.second_prize_amount
                             else:
-                                current_prize_amount_numeric = info['amount'] / prize_count if prize_count > 0 else 0
-                                prize_amount_display = f"{current_prize_amount_numeric:,.0f}"
+                                current_prize_amount_numeric = prize_rule.get('max_single', 5000000)
+                            prize_amount_display = f"{current_prize_amount_numeric:,.0f}"
 
-                            # 累加总中奖注数和总中奖金额
-                            total_winning_bets_for_combo += prize_count
-                            total_winning_amount_for_combo += prize_count * current_prize_amount_numeric
-                            
-                            matches.append({
-                                'issue': draw.issue,
-                                'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
-                                'prize_level': prize_level,
-                                'prize_count': prize_count, # 中奖注数
-                                'prize_amount': prize_amount_display, # 用于显示的格式化字符串
-                                'draw_red_balls': draw.get_red_balls_list(),
-                                'draw_blue_balls': draw.get_blue_balls_list()
-                            })
-        
-        # 计算总花费 (单次投注花费 * 实际检查的期数)
+                        total_winning_bets_for_combo += prize_count
+                        total_winning_amount_for_combo += prize_count * current_prize_amount_numeric
+                        
+                        matches.append({
+                            'issue': draw.issue,
+                            'draw_date': draw.draw_date.strftime('%Y-%m-%d'),
+                            'prize_level': prize_level,
+                            'prize_count': prize_count,
+                            'prize_amount': prize_amount_display,
+                            'draw_red_balls': draw_red_balls,
+                            'draw_blue_balls': draw_blue_balls
+                        })
+
         total_cost_for_range = cost_details['total_cost'] * actual_checked_draws_count
-        
-        # 计算回报率
         return_rate = 0.0
         if total_cost_for_range > 0:
             return_rate = (total_winning_amount_for_combo / total_cost_for_range) * 100
-        
+
         all_results.append({
             'input_red_balls': user_red_balls_str,
             'input_blue_balls': user_blue_balls_str,
-            'total_bets_per_draw': cost_details['total_bets'], # 单次投注总注数
-            'cost_per_draw': cost_details['total_cost'], # 单次投注花费
-            'base_cost_per_draw': cost_details['base_cost'], # 基础投注花费
-            'add_cost_per_draw': cost_details.get('add_cost', 0), # 追加投注花费
-            'total_winning_bets': total_winning_bets_for_combo, # 总中奖注数
-            'total_winning_amount': total_winning_amount_for_combo, # 总中奖金额
-            'actual_checked_draws_count': actual_checked_draws_count, # 实际检查的期数
-            'total_cost_for_range': total_cost_for_range, # 在此范围内的总花费
-            'return_rate': round(return_rate, 1), # 新增：回报率，保留1位小数
+            'total_bets_per_draw': cost_details['total_bets'],
+            'cost_per_draw': cost_details['total_cost'],
+            'base_cost_per_draw': cost_details.get('base_cost', cost_details['total_cost']),
+            'add_cost_per_draw': cost_details.get('add_cost', 0),
+            'total_winning_bets': total_winning_bets_for_combo,
+            'total_winning_amount': total_winning_amount_for_combo,
+            'actual_checked_draws_count': actual_checked_draws_count,
+            'total_cost_for_range': total_cost_for_range,
+            'return_rate': round(return_rate, 1),
             'matches': matches,
-            'is_addition': is_addition, # 返回追加投注状态
-            'fuyun_prize_active': fuyun_prize_active  # 返回福运奖状态
+            'is_addition': is_addition,
+            'fuyun_prize_active': fuyun_prize_active
         })
     
     return jsonify({'results': all_results, 'fuyun_prize_active': fuyun_prize_active, 'is_addition': is_addition})
