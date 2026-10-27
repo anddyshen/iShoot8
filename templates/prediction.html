@@ -1360,4 +1360,125 @@
         </div>
     </div>
 </div>
+
+<!-- ==================== 移动端吸底悬浮操作条 (第三阶段适配) ==================== -->
+<div class="filter-sticky-bar d-md-none" id="mobileFilterStickyBar">
+    <div class="d-flex align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-1 text-truncate" style="max-width: 36%;">
+            <span class="badge rounded-pill" id="mobile_sticky_lottery_badge" style="background:#dc3545; color:white; font-size: 0.72rem;">双色球</span>
+            <span class="small text-secondary fw-semibold text-truncate" id="mobile_sticky_status" style="font-size: 0.74rem;">智能选号</span>
+        </div>
+        <div class="d-flex align-items-center gap-1 flex-fill justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" id="mobile_sticky_clear_btn" title="清除号码" style="font-size: 0.75rem;">
+                <i class="bi bi-trash"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-dark py-1 px-2" id="mobile_sticky_copy_btn" title="复制号码" style="font-size: 0.75rem;">
+                <i class="bi bi-clipboard"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-success py-1 px-2" id="mobile_sticky_rule_btn" style="font-size: 0.75rem;">
+                <i class="bi bi-sliders me-1"></i>规则
+            </button>
+            <button type="button" class="btn btn-sm btn-primary py-1 px-2 shadow-sm" id="mobile_sticky_smart_btn" style="font-size: 0.75rem;">
+                <i class="bi bi-magic me-1"></i>智能筛选
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 手机端为 body 增加下间距防吸底条遮挡
+    if (window.innerWidth <= 768) {
+        document.body.classList.add('has-sticky-bar');
+    }
+
+    const ssqTab = document.getElementById('ssq_prediction_tab');
+    const dltTab = document.getElementById('dlt_prediction_tab');
+    const stickyBadge = document.getElementById('mobile_sticky_lottery_badge');
+    
+    function getCurrentLottery() {
+        const dltSection = document.getElementById('dlt_prediction_section');
+        return (dltSection && dltSection.style.display !== 'none') ? 'dlt' : 'ssq';
+    }
+
+    function updateStickyBadge() {
+        const type = getCurrentLottery();
+        if (type === 'ssq') {
+            stickyBadge.style.background = '#dc3545';
+            stickyBadge.textContent = '双色球';
+        } else {
+            stickyBadge.style.background = '#0d6efd';
+            stickyBadge.textContent = '大乐透';
+        }
+    }
+
+    if (ssqTab) ssqTab.addEventListener('click', function() { setTimeout(updateStickyBadge, 100); });
+    if (dltTab) dltTab.addEventListener('click', function() { setTimeout(updateStickyBadge, 100); });
+
+    // 智能筛选代理触发
+    const stickySmartBtn = document.getElementById('mobile_sticky_smart_btn');
+    if (stickySmartBtn) {
+        stickySmartBtn.addEventListener('click', function() {
+            const type = getCurrentLottery();
+            const btnId = type === 'ssq' ? 'generate_ssq_smart_filter' : 'generate_dlt_smart_filter';
+            const targetBtn = document.getElementById(btnId);
+            if (targetBtn) {
+                targetBtn.click();
+                const outputId = type === 'ssq' ? 'ssq_smart_filter_output' : 'dlt_smart_filter_output';
+                const outputEl = document.getElementById(outputId);
+                if (outputEl) {
+                    setTimeout(() => {
+                        outputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 300);
+                }
+            }
+        });
+    }
+
+    // 规则筛选代理触发
+    const stickyRuleBtn = document.getElementById('mobile_sticky_rule_btn');
+    if (stickyRuleBtn) {
+        stickyRuleBtn.addEventListener('click', function() {
+            const type = getCurrentLottery();
+            const btnId = type === 'ssq' ? 'generate_ssq_prediction' : 'generate_dlt_prediction';
+            const targetBtn = document.getElementById(btnId);
+            if (targetBtn) {
+                targetBtn.click();
+                const outputId = type === 'ssq' ? 'ssq_predicted_numbers_output' : 'dlt_predicted_numbers_output';
+                const outputEl = document.getElementById(outputId);
+                if (outputEl) {
+                    setTimeout(() => {
+                        outputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 300);
+                }
+            }
+        });
+    }
+
+    // 清除号码代理触发
+    const stickyClearBtn = document.getElementById('mobile_sticky_clear_btn');
+    if (stickyClearBtn) {
+        stickyClearBtn.addEventListener('click', function() {
+            const type = getCurrentLottery();
+            const btnId = type === 'ssq' ? 'clear_ssq_smart_numbers' : 'clear_dlt_smart_numbers';
+            const targetBtn = document.getElementById(btnId);
+            if (targetBtn) targetBtn.click();
+        });
+    }
+
+    // 复制号码代理触发
+    const stickyCopyBtn = document.getElementById('mobile_sticky_copy_btn');
+    if (stickyCopyBtn) {
+        stickyCopyBtn.addEventListener('click', function() {
+            const type = getCurrentLottery();
+            const btnId = type === 'ssq' ? 'copy_all_ssq_smart_numbers' : 'copy_all_dlt_smart_numbers';
+            const targetBtn = document.getElementById(btnId);
+            if (targetBtn) targetBtn.click();
+        });
+    }
+});
+</script>
 {% endblock %}

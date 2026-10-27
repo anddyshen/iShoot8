@@ -1584,59 +1584,129 @@
             data.results.forEach((result, index) => {
                 const userRedArr = result.input_red_balls.split(',').map(Number);
                 const userBlueArr = result.input_blue_balls.split(',').map(Number);
-                html += `<h5>号码组合 ${index + 1}:</h5>`;
-                html += `<p>红球: ${renderBalls(userRedArr, 'red')}</p>`;
-                html += `<p>蓝球: ${renderBalls(userBlueArr, 'blue')}</p>`;
-
-                // 2026新规则显示：追加投注和福运奖
-                if (lotteryType === 'ssq' && result.fuyun_prize_active) {
-                    html += `<p><span class="badge bg-info">福运奖已启用</span></p>`;
-                }
-                if (lotteryType === 'dlt' && result.is_addition) {
-                    html += `<p><span class="badge bg-warning text-dark">追加投注</span></p>`;
-                }
-
-                html += `<p><strong>单次投注花费:</strong> ${result.cost_per_draw.toLocaleString()} 元 (共 ${result.total_bets_per_draw.toLocaleString()} 注)`;
-                if (result.add_cost_per_draw > 0) {
-                    html += ` (基础: ${result.base_cost_per_draw.toLocaleString()} 元 + 追加: ${result.add_cost_per_draw.toLocaleString()} 元)`;
-                }
-                html += `</p>`;
-
-                if (result.total_winning_bets > 0) {
-                    html += `<p class="text-success"><strong>总中奖:</strong> 共中 ${result.total_winning_bets.toLocaleString()} 注, 总奖金 ${result.total_winning_amount.toLocaleString()} 元</p>`;
+                const netProfit = (result.total_winning_amount || 0) - (result.total_cost_for_range || 0);
+                const isProfitable = netProfit > 0;
+                const isBreakEven = netProfit === 0 && (result.total_cost_for_range || 0) > 0;
+                
+                let roiBadgeHtml = '';
+                if (isProfitable) {
+                    roiBadgeHtml = `<span class="roi-badge roi-badge-profit"><i class="bi bi-arrow-up-right me-1"></i>盈利 +${netProfit.toLocaleString()}元</span>`;
+                } else if (isBreakEven) {
+                    roiBadgeHtml = `<span class="roi-badge roi-badge-even"><i class="bi bi-dash me-1"></i>保本 0元</span>`;
                 } else {
-                    html += `<p class="text-danger"><strong>总中奖:</strong> 未中奖</p>`;
+                    roiBadgeHtml = `<span class="roi-badge roi-badge-loss"><i class="bi bi-arrow-down-right me-1"></i>亏损 ${Math.abs(netProfit).toLocaleString()}元</span>`;
                 }
 
-                const returnRateClass = result.return_rate >= 100 ? 'text-success' : (result.return_rate > 0 ? 'text-warning' : 'text-danger');
-                html += `<p><strong>统计范围:</strong> 实际核对 ${result.actual_checked_draws_count.toLocaleString()} 期, <strong>总花费:</strong> ${result.total_cost_for_range.toLocaleString()} 元, <strong>回报率:</strong> <span class="${returnRateClass}">${result.return_rate}%</span></p>`;
+                html += `
+                <div class="prize-roi-card shadow-sm mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary fw-semibold">组合 #${index + 1}</span>
+                            <span class="small text-secondary fw-medium">核对 ${result.actual_checked_draws_count.toLocaleString()} 期</span>
+                        </div>
+                        <div>${roiBadgeHtml}</div>
+                    </div>
+                    <div class="card-body p-3">
+                        <!-- 号码展示行 -->
+                        <div class="p-2 bg-body-tertiary rounded-3 text-center mb-3">
+                            <div class="d-flex flex-nowrap justify-content-center align-items-center gap-1 overflow-x-auto py-1">
+                                ${renderBalls(userRedArr, 'red')}
+                                <span class="mx-1 text-muted">|</span>
+                                ${renderBalls(userBlueArr, 'blue')}
+                            </div>
+                        </div>
+
+                        <!-- 2026规则标记 -->
+                        ${(lotteryType === 'ssq' && result.fuyun_prize_active) || (lotteryType === 'dlt' && result.is_addition) ? `
+                        <div class="d-flex gap-2 mb-2">
+                            ${(lotteryType === 'ssq' && result.fuyun_prize_active) ? '<span class="badge bg-info-subtle text-info border border-info-subtle"><i class="bi bi-star-fill me-1"></i>福运奖已生效</span>' : ''}
+                            ${(lotteryType === 'dlt' && result.is_addition) ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-plus-circle me-1"></i>追加投注</span>' : ''}
+                        </div>
+                        ` : ''}
+
+                        <!-- 3列 ROI 核心指标卡 -->
+                        <div class="roi-stat-grid">
+                            <div class="roi-stat-box">
+                                <div class="stat-label">总投入花费</div>
+                                <div class="stat-value text-secondary">${result.total_cost_for_range.toLocaleString()}<small class="fs-8 fw-normal ms-1">元</small></div>
+                            </div>
+                            <div class="roi-stat-box">
+                                <div class="stat-label">累计中奖金额</div>
+                                <div class="stat-value ${result.total_winning_amount > 0 ? 'text-success' : 'text-muted'}">${result.total_winning_amount.toLocaleString()}<small class="fs-8 fw-normal ms-1">元</small></div>
+                            </div>
+                            <div class="roi-stat-box">
+                                <div class="stat-label">投资回报率 (ROI)</div>
+                                <div class="stat-value ${result.return_rate >= 100 ? 'text-success' : (result.return_rate > 0 ? 'text-warning' : 'text-danger')}">${result.return_rate}%</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center small text-secondary px-1 mb-2">
+                            <span>单期: ${result.total_bets_per_draw}注 / ${result.cost_per_draw}元</span>
+                            <span>共中奖: <strong class="${result.total_winning_bets > 0 ? 'text-success' : 'text-muted'}">${result.total_winning_bets} 注</strong></span>
+                        </div>
+
+                        <!-- 中奖历史记录列表 -->
+                `;
 
                 if (result.matches.length > 0) {
                     const hasMore = result.matches.length > MAX_DISPLAY_MATCHES;
                     const totalExtra = result.matches.length - MAX_DISPLAY_MATCHES;
-                    let titleHtml = `<strong>中奖记录:</strong>`;
-                    html += `<p>${titleHtml}</p>`;
-                    html += `<ul id="match-list-${lotteryType}-${index}" class="match-list">`;
+                    html += `
+                        <div class="border-top pt-2 mt-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold small"><i class="bi bi-award text-warning me-1"></i>中奖记录 (${result.matches.length} 次):</span>
+                            </div>
+                            <ul id="match-list-${lotteryType}-${index}" class="list-unstyled mb-2 small">
+                    `;
                     result.matches.forEach((match, matchIndex) => {
                         const hiddenClass = matchIndex >= MAX_DISPLAY_MATCHES ? 'hidden-matches' : '';
-                        html += `<li class="${hiddenClass}">第 ${match.issue} 期 (${match.draw_date}): <strong>${match.prize_level}</strong>, 中 ${match.prize_count.toLocaleString()} 注, 奖金: ${match.prize_amount} 元`;
-                        if (match.draw_red_balls && match.draw_blue_balls) {
-                            html += `<br><span style="font-size:0.9em;color:#666;">当期号码: `;
-                            html += `红球: ${renderMatchedBalls(match.draw_red_balls, userRedArr, 'red')} `;
-                            html += `蓝球: ${renderMatchedBalls(match.draw_blue_balls, userBlueArr, 'blue')}`;
-                            html += `</span>`;
-                        }
-                        html += `</li>`;
+                        html += `
+                            <li class="${hiddenClass} p-2 mb-1 rounded bg-body-tertiary border">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold text-danger">${match.prize_level}</span>
+                                    <span class="badge bg-success-subtle text-success">${match.prize_count}注 · ${match.prize_amount}元</span>
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    第 ${match.issue} 期 (${match.draw_date})
+                                </div>
+                                ${match.draw_red_balls && match.draw_blue_balls ? `
+                                    <div class="mt-1 d-flex flex-nowrap align-items-center gap-1 overflow-x-auto py-1">
+                                        <span class="fs-8 text-muted me-1">当期:</span>
+                                        ${renderMatchedBalls(match.draw_red_balls, userRedArr, 'red')}
+                                        <span class="mx-1 text-muted">|</span>
+                                        ${renderMatchedBalls(match.draw_blue_balls, userBlueArr, 'blue')}
+                                    </div>
+                                ` : ''}
+                            </li>
+                        `;
                     });
-                    html += '</ul>';
+                    html += `</ul>`;
                     if (hasMore) {
-                        html += `<button class="btn btn-sm btn-outline-info mt-2 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}">显示更多记录 (${totalExtra} 条)</button>`;
-                        html += ` <button class="btn btn-sm btn-outline-secondary mt-2 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;">收起</button>`;
+                        html += `
+                            <div class="text-center">
+                                <button class="btn btn-sm btn-outline-primary py-1 px-3 show-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="font-size:0.75rem;">
+                                    展开全部中奖记录 (剩余 ${totalExtra} 条) <i class="bi bi-chevron-down"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary py-1 px-3 hide-more-matches-btn" data-target-id="match-list-${lotteryType}-${index}" style="display:none;font-size:0.75rem;">
+                                    收起记录 <i class="bi bi-chevron-up"></i>
+                                </button>
+                            </div>
+                        `;
                     }
+                    html += `</div>`;
+                } else {
+                    html += `
+                        <div class="p-2 text-center text-muted small bg-body-tertiary rounded mt-2">
+                            <i class="bi bi-info-circle me-1"></i>核对期数内未命中奖项
+                        </div>
+                    `;
                 }
-                html += '<hr>';
-            });
 
+                html += `
+                    </div>
+                </div>
+                `;
+            });
             prizeResultsDiv.innerHTML = html;
 
             // 绑定显示更多/收起按钮事件
