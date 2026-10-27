@@ -487,11 +487,31 @@ def get_aggregated_stats(draws_list, lottery_type, config_settings):
         blue_ball_range = 16
         red_size_midpoint = config_settings.get('ssq_red_size_midpoint', 17)
         blue_size_midpoint = config_settings.get('ssq_blue_size_midpoint', 9)
-    else: # dlt
+    elif lottery_type == 'dlt':
         red_ball_range = 35
         blue_ball_range = 12
         red_size_midpoint = config_settings.get('dlt_front_size_midpoint', 18)
         blue_size_midpoint = config_settings.get('dlt_back_size_midpoint', 7)
+    elif lottery_type == 'kl8':
+        red_ball_range = 80
+        blue_ball_range = 0
+        red_size_midpoint = 40
+        blue_size_midpoint = 0
+    elif lottery_type == '7xc':
+        red_ball_range = 9
+        blue_ball_range = 14
+        red_size_midpoint = 4
+        blue_size_midpoint = 7
+    elif lottery_type == '7lc':
+        red_ball_range = 30
+        blue_ball_range = 30
+        red_size_midpoint = 15
+        blue_size_midpoint = 15
+    else:
+        red_ball_range = 33
+        blue_ball_range = 16
+        red_size_midpoint = 17
+        blue_size_midpoint = 9
 
     # 遍历所有开奖数据进行单期计算和聚合
     for i, draw in enumerate(draws_list):

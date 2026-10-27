@@ -150,14 +150,14 @@ def statistics():
         stats_range = CURRENT_SETTINGS['history_stats_range_default']
 
     # 构建查询
-    if lottery_type == 'ssq':
-        model_class = SSQDraw
-        red_ball_range = 33
-        blue_ball_range = 16
-    else: # default to dlt
-        model_class = DLTDraw
-        red_ball_range = 35
-        blue_ball_range = 12
+    model_map = {
+        'ssq': (SSQDraw, 33, 16),
+        'dlt': (DLTDraw, 35, 12),
+        'kl8': (KL8Draw, 80, 0),
+        '7xc': (SevenXCDraw, 9, 14),
+        '7lc': (SevenLCDraw, 30, 30)
+    }
+    model_class, red_ball_range, blue_ball_range = model_map.get(lottery_type, (SSQDraw, 33, 16))
 
     # --- 统计数据查询与计算 ---
     stats_query = model_class.query
@@ -177,12 +177,12 @@ def statistics():
 
     return render_template('statistics.html',
                            lottery_type=lottery_type,
+                           blue_ball_range=blue_ball_range,
+                           red_ball_range=red_ball_range,
                            start_date=start_date_str,
                            end_date=end_date_str,
                            stats_range=stats_range,
                            stats_range_options=CURRENT_SETTINGS['history_stats_range_options'],
-                           red_ball_range=red_ball_range,
-                           blue_ball_range=blue_ball_range,
                            aggregated_stats=aggregated_stats,
                            stat_explanations=STAT_EXPLANATIONS
                            )

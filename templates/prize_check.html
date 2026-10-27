@@ -1312,64 +1312,92 @@
 
     // ========== 最新开奖号码显示逻辑 ==========
     // 存储每个彩票类型的当前偏移量
-    const drawOffsets = { ssq: 0, dlt: 0 };
+    const drawOffsets = { ssq: 0, dlt: 0, kl8: 0, '7xc': 0, '7lc': 0 };
     // 存储每个彩票类型的最大偏移量
-    const maxDrawOffsets = { ssq: 0, dlt: 0 };
+    const maxDrawOffsets = { ssq: 0, dlt: 0, kl8: 0, '7xc': 0, '7lc': 0 };
     // 存储每个彩票类型当前显示的开奖号码（用于"复制最新开奖号码"按钮）
     const currentDrawBalls = { ssq: { red: [], blue: [] }, dlt: { red: [], blue: [] } };
 
     /**
      * 获取并显示最新开奖号码（只显示号码球，不显示遗漏）
      */
-    async function loadLatestDraw(lotteryType) {
-        const offset = drawOffsets[lotteryType];
+    async function loadLatestDraw(lotteryType, offset = null) {
+        if (offset !== null) {
+            drawOffsets[lotteryType] = offset;
+        }
+        const curOffset = (drawOffsets && drawOffsets[lotteryType] !== undefined) ? drawOffsets[lotteryType] : 0;
+
         const contentDiv = document.getElementById(`${lotteryType}_latest_draw_content`);
+        const ballsContainer = document.getElementById(`${lotteryType}_display_balls`);
         const titleSpan = document.getElementById(`${lotteryType}_draw_title`);
         const prevBtn = document.getElementById(`${lotteryType}_prev_draw_btn`);
         const nextBtn = document.getElementById(`${lotteryType}_next_draw_btn`);
         const currentBtn = document.getElementById(`${lotteryType}_current_draw_btn`);
 
-        contentDiv.innerHTML = '<p class="text-muted">加载中...</p>';
+        if (contentDiv) contentDiv.innerHTML = '<p class="text-muted">加载中...</p>';
+        if (ballsContainer) ballsContainer.innerHTML = '<span class="text-muted small">加载中...</span>';
 
         try {
-            const response = await fetch(`/api/prize_check/latest_draws?lottery_type=${lotteryType}&offset=${offset}`);
+            const response = await fetch(`/api/prize_check/latest_draws?lottery_type=${lotteryType}&offset=${curOffset}`);
             const data = await response.json();
 
             if (data.error) {
-                contentDiv.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
+                if (contentDiv) contentDiv.innerHTML = `<p class="text-danger">加载失败: ${data.error}</p>`;
                 return;
             }
 
-            // 更新标题
-            titleSpan.textContent = `第 ${data.issue} 期 (${data.draw_date})`;
+            if (maxDrawOffsets) maxDrawOffsets[lotteryType] = data.max_offset;
+            if (currentDrawBalls) currentDrawBalls[lotteryType] = { red: data.red_balls, blue: data.blue_balls };
 
-            // 更新当前按钮文本
-            currentBtn.textContent = `第 ${data.issue} 期`;
+            // 1. 更新顶部标题与按钮状态
+            if (titleSpan) titleSpan.textContent = `第 ${data.issue} 期 (${data.draw_date})`;
+            if (currentBtn) currentBtn.textContent = `第 ${data.issue} 期`;
+            if (prevBtn) prevBtn.disabled = (curOffset >= data.max_offset);
+            if (nextBtn) nextBtn.disabled = (curOffset <= 0);
 
-            // 更新最大偏移量
-            maxDrawOffsets[lotteryType] = data.max_offset;
+            // 2. 双色球和大乐透渲染 (contentDiv)
+            if (contentDiv) {
+                let html = '<div class="balls-container">';
+                html += renderBalls(data.red_balls, 'red');
+                html += '<span class="separator">+</span>';
+                html += renderBalls(data.blue_balls, 'blue');
+                html += '</div>';
+                contentDiv.innerHTML = html;
+            }
 
-            // 更新按钮状态
-            prevBtn.disabled = (offset >= data.max_offset);
-            nextBtn.disabled = (offset <= 0);
+            // 3. 快乐8、七星彩、七乐彩渲染 (ballsContainer & issueEl & dateEl)
+            const issueEl = document.getElementById(`${lotteryType}_display_issue`);
+            const dateEl = document.getElementById(`${lotteryType}_display_date`);
+            if (issueEl) issueEl.textContent = data.issue;
+            if (dateEl) dateEl.textContent = data.draw_date;
 
-            // 渲染号码（只显示号码球，不显示遗漏）
-            let html = '<div class="balls-container">';
-            html += renderBalls(data.red_balls, 'red');
-            html += '<span class="separator">+</span>';
-            html += renderBalls(data.blue_balls, 'blue');
-            html += '</div>';
-            contentDiv.innerHTML = html;
+            if (ballsContainer) {
+                let html = '';
+                if (lotteryType === 'kl8') {
+                    html = data.red_balls.map(b => {
+                        const bg = b <= 40 ? 'bg-danger' : 'bg-primary';
+                        return `<span class="badge ${bg} p-1 rounded-circle" style="width: 26px; height: 26px; line-height: 18px; font-size: 0.75rem;">${String(b).padStart(2, '0')}</span>`;
+                    }).join('');
+                } else if (lotteryType === '7xc') {
+                    html = data.red_balls.map(b => `<span class="badge bg-warning text-dark fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${b}</span>`).join('') +
+                           `<span class="mx-1 text-muted fw-bold">+</span>` +
+                           data.blue_balls.map(b => `<span class="badge bg-primary fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${b}</span>`).join('');
+                } else if (lotteryType === '7lc') {
+                    html = data.red_balls.map(b => `<span class="badge bg-danger fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${String(b).padStart(2, '0')}</span>`).join('') +
+                           `<span class="mx-1 text-muted fw-bold">+</span>` +
+                           data.blue_balls.map(b => `<span class="badge bg-primary fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${String(b).padStart(2, '0')}</span>`).join('');
+                }
+                ballsContainer.innerHTML = html;
+            }
 
-            // 存储当前显示的开奖号码，供"复制最新开奖号码"按钮使用
-            currentDrawBalls[lotteryType] = { red: data.red_balls, blue: data.blue_balls };
-
-            // 更新号码选择器的遗漏期数显示和当期开奖号码高亮
-            updateSelectorOmissions(lotteryType, data.all_red_omissions, data.all_blue_omissions, data.red_balls, data.blue_balls);
+            // 4. 更新选球网格的遗漏数字与当期命中高亮
+            if (typeof updateSelectorOmissions === 'function') {
+                updateSelectorOmissions(lotteryType, data.all_red_omissions, data.all_blue_omissions, data.red_balls, data.blue_balls);
+            }
 
         } catch (error) {
-            console.error('Error loading latest draw:', error);
-            contentDiv.innerHTML = '<p class="text-danger">加载最新开奖号码失败。</p>';
+            console.error(`加载 ${lotteryType} 开奖数据失败:`, error);
+            if (contentDiv) contentDiv.innerHTML = '<p class="text-danger">加载失败，请刷新重试</p>';
         }
     }
 
@@ -2894,59 +2922,7 @@
 
     document.getElementById('7lc_run_check_btn')?.addEventListener('click', () => checkPrizes('7lc'));
 
-    // ==================== 统一扩展最新开奖加载函数 ====================
-    async function loadLatestDraw(lotteryType, offset = 0) {
-        try {
-            const response = await fetch(`/api/prize_check/latest_draws?lottery_type=${lotteryType}&offset=${offset}`);
-            const data = await response.json();
-            if (data.error) {
-                console.error('加载开奖数据失败:', data.error);
-                return;
-            }
-
-            drawOffsets[lotteryType] = data.current_offset;
-            maxDrawOffsets[lotteryType] = data.max_offset;
-            currentDrawBalls[lotteryType] = { red: data.red_balls, blue: data.blue_balls };
-
-            // 渲染期号和时间
-            const issueEl = document.getElementById(`${lotteryType}_display_issue`);
-            const dateEl = document.getElementById(`${lotteryType}_display_date`);
-            if (issueEl) issueEl.textContent = data.issue;
-            if (dateEl) dateEl.textContent = data.draw_date;
-
-            // 渲染球
-            const ballsContainer = document.getElementById(`${lotteryType}_display_balls`);
-            if (ballsContainer) {
-                let html = '';
-                if (lotteryType === 'kl8') {
-                    html = data.red_balls.map(b => {
-                        const bg = b <= 40 ? 'bg-danger' : 'bg-primary';
-                        return `<span class="badge ${bg} p-1 rounded-circle" style="width: 26px; height: 26px; line-height: 18px; font-size: 0.75rem;">${String(b).padStart(2, '0')}</span>`;
-                    }).join('');
-                } else if (lotteryType === '7xc') {
-                    html = data.red_balls.map(b => `<span class="badge bg-warning text-dark fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${b}</span>`).join('') +
-                           `<span class="mx-1 text-muted fw-bold">+</span>` +
-                           data.blue_balls.map(b => `<span class="badge bg-primary fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${b}</span>`).join('');
-                } else if (lotteryType === '7lc') {
-                    html = data.red_balls.map(b => `<span class="badge bg-danger fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${String(b).padStart(2, '0')}</span>`).join('') +
-                           `<span class="mx-1 text-muted fw-bold">+</span>` +
-                           data.blue_balls.map(b => `<span class="badge bg-primary fs-6 rounded-circle p-2" style="width: 32px; height: 32px; line-height: 16px;">${String(b).padStart(2, '0')}</span>`).join('');
-                } else {
-                    html = renderBalls(data.red_balls, 'red') + renderBalls(data.blue_balls, 'blue');
-                }
-                ballsContainer.innerHTML = html;
-            }
-
-            // 更新翻页按钮状态
-            const prevBtn = document.getElementById(`${lotteryType}_prev_draw_btn`);
-            const nextBtn = document.getElementById(`${lotteryType}_next_draw_btn`);
-            if (prevBtn) prevBtn.disabled = (data.current_offset >= data.max_offset);
-            if (nextBtn) nextBtn.disabled = (data.current_offset <= 0);
-
-        } catch (e) {
-            console.error(`加载 ${lotteryType} 最新开奖出错:`, e);
-        }
-    }
+    
 
     // 绑定新彩种复制当期开奖事件
     document.getElementById('kl8_copy_latest_draw')?.addEventListener('click', function() {

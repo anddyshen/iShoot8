@@ -6,12 +6,32 @@
 
 {% block content %}
 <h1 class="mb-4">统计数据</h1>
-<div class="mb-3">
-    <a href="{{ url_for('routes.statistics', lottery_type='ssq', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == 'ssq' %}btn-danger{% else %}btn-outline-danger{% endif %}">双色球</a>
-    <a href="{{ url_for('routes.statistics', lottery_type='dlt', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == 'dlt' %}btn-primary{% else %}btn-outline-primary{% endif %}">大乐透</a>
-    <a href="{{ url_for('routes.history', lottery_type=lottery_type, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-outline-info ms-3">查看历史数据</a>
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-2 p-md-3">
+        <div class="lottery-stats-tabs d-flex flex-wrap gap-2 align-items-center">
+            <a href="{{ url_for('routes.statistics', lottery_type='ssq', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == 'ssq' %}btn-danger active{% else %}btn-outline-danger{% endif %} rounded-pill px-3 py-2 fw-medium">
+                <i class="bi bi-circle-fill text-danger me-1"></i>双色球
+            </a>
+            <a href="{{ url_for('routes.statistics', lottery_type='dlt', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == 'dlt' %}btn-primary active{% else %}btn-outline-primary{% endif %} rounded-pill px-3 py-2 fw-medium">
+                <i class="bi bi-circle-fill text-primary me-1"></i>超级大乐透
+            </a>
+            <a href="{{ url_for('routes.statistics', lottery_type='kl8', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == 'kl8' %}btn-warning text-dark active{% else %}btn-outline-warning text-dark{% endif %} rounded-pill px-3 py-2 fw-medium">
+                <i class="bi bi-grid-3x3-gap-fill text-warning me-1"></i>福彩快乐8
+            </a>
+            <a href="{{ url_for('routes.statistics', lottery_type='7xc', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == '7xc' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-3 py-2 fw-medium">
+                <i class="bi bi-stars text-success me-1"></i>体彩七星彩
+            </a>
+            <a href="{{ url_for('routes.statistics', lottery_type='7lc', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), stats_range=stats_range) }}" class="btn {% if lottery_type == '7lc' %}btn-info text-dark active{% else %}btn-outline-info text-dark{% endif %} rounded-pill px-3 py-2 fw-medium">
+                <i class="bi bi-gem text-info me-1"></i>福彩七乐彩
+            </a>
+            <a href="{{ url_for('routes.history', lottery_type=lottery_type, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-outline-secondary ms-auto rounded-pill px-3 py-2 btn-sm">
+                <i class="bi bi-clock-history me-1"></i>查看开奖历史
+            </a>
+        </div>
+    </div>
 </div>
 
+{% if blue_ball_range is not defined or blue_ball_range > 0 %}
 <div class="card mb-4">
     <div class="card-header">筛选统计范围</div>
     <div class="card-body">
@@ -356,6 +376,7 @@
                 {% endwith %}
 
             </div>
+{% endif %}
         </div>
     </div>
 </div>
