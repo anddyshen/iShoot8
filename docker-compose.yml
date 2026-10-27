@@ -6,8 +6,8 @@ services:
     container_name: ishoot-app
     restart: unless-stopped
     ports:
-      # 群晖等 NAS 宿主机默认 5000 端口通常被 DSM 占用，故宿主机映射推荐使用 5005 或 8080
-      - "5005:5000"
+      # 宿主机端口与容器端口均统一使用 6666，避开群晖等系统的 5000 端口
+      - "6666:6666"
     volumes:
       # 持久化数据目录（SQLite数据库与系统配置）
       - ./instance:/app/instance
@@ -21,7 +21,7 @@ services:
       - ADMIN_ROUTE_PREFIX=admin_xyz12
       - TZ=Asia/Shanghai
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:6666/"]
       interval: 30s
       timeout: 10s
       retries: 3
