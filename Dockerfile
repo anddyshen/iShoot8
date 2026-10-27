@@ -4,10 +4,11 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
-# 设置环境变量：禁止生成 pyc，无缓冲输出，固定中国时区
+# 设置环境变量：禁止生成 pyc，无缓冲输出，固定中国时区，避免交互警告
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TZ=Asia/Shanghai
+    TZ=Asia/Shanghai \
+    DEBIAN_FRONTEND=noninteractive
 
 # 替换为国内镜像源加速 apt 下载
 RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
@@ -23,9 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制并安装 Python 依赖（使用清华镜像源加速）
+# 复制并安装 Python 依赖（使用清华镜像源加速，并关闭 pip 版本更新提示输出）
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制项目代码
 COPY . /app/

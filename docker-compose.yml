@@ -3,10 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ishoot:2.0.0
     container_name: ishoot-app
     restart: unless-stopped
     ports:
-      # 外部访问端口为 8888（注：6666 为 Chrome/Edge 浏览器黑名单端口 ERR_UNSAFE_PORT，故使用 8888）
+      # 外部访问端口为 8888
       - "8888:8888"
     volumes:
       # 持久化数据目录（SQLite数据库与系统配置）
