@@ -3,7 +3,7 @@
 <html lang="zh-CN" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>{{ site_name }} - {% block title %}{% endblock %}</title>
     <meta name="keywords" content="双色球预测, 大乐透预测, 彩票号码预测, 彩票分析, 历史开奖数据, 彩票统计, 智能选号, 复式投注, 中奖查询, 彩票工具，双色球开奖,超级大乐透,彩票开奖查询，福彩3D，七乐彩，快乐8，胜负彩，任九，竞彩足球,排列3,双色球缩水工具，彩票号码缩减算法，大乐透杀号选号,算法选号软件,福彩3D算法杀号,快乐8号码缩水,彩票号码筛选器,大乐透遗漏筛选,双色球热冷号筛选,投注组合筛选,竞彩篮球号码筛选,排列5组合筛选">
     <meta name="description" content="提供双色球和大乐透的智能号码科学缩号筛选、历史数据查询、统计分析和中奖核对工具，助您理性投注。">
@@ -217,8 +217,39 @@
         {% block content %}{% endblock %}
     </main>
 
+    <!-- 移动端底部 App 风格快捷导航栏 (Mobile Bottom Bar) -->
+    <nav class="mobile-bottom-nav d-lg-none" aria-label="移动端快速导航">
+        <a href="{{ url_for('routes.index') }}" class="bottom-nav-item {% if request.endpoint == 'routes.index' %}active{% endif %}">
+            <i class="bi bi-house-door{% if request.endpoint == 'routes.index' %}-fill{% endif %}"></i>
+            <span>首页</span>
+        </a>
+        <a href="{{ url_for('routes.history') }}" class="bottom-nav-item {% if request.endpoint == 'routes.history' %}active{% endif %}">
+            <i class="bi bi-calendar3"></i>
+            <span>历史</span>
+        </a>
+        <a href="{{ url_for('routes.prediction') }}" class="bottom-nav-item {% if request.endpoint == 'routes.prediction' %}active{% endif %}">
+            <i class="bi bi-funnel{% if request.endpoint == 'routes.prediction' %}-fill{% endif %}"></i>
+            <span>筛选</span>
+        </a>
+        <a href="{{ url_for('routes.prize_check') }}" class="bottom-nav-item {% if request.endpoint == 'routes.prize_check' %}active{% endif %}">
+            <i class="bi bi-award{% if request.endpoint == 'routes.prize_check' %}-fill{% endif %}"></i>
+            <span>对奖</span>
+        </a>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('auth_routes.profile') }}" class="bottom-nav-item {% if request.endpoint and 'auth_routes' in request.endpoint %}active{% endif %}">
+            <i class="bi bi-person-circle"></i>
+            <span>我的</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('auth_routes.login') }}" class="bottom-nav-item {% if request.endpoint == 'auth_routes.login' %}active{% endif %}">
+            <i class="bi bi-box-arrow-in-right"></i>
+            <span>登录</span>
+        </a>
+        {% endif %}
+    </nav>
+
     <!-- 现代页脚 -->
-    <footer class="ishoot-footer">
+    <footer class="ishoot-footer mb-5 mb-lg-0">
         <div class="container text-center">
             <div class="mb-2">
                 <span class="fw-bold text-dark-emphasis">{{ site_name }}</span> · 智能彩票数据分析与预测系统

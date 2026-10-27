@@ -98,10 +98,11 @@
 
                     <!-- 开奖号码球展示区 -->
                     <div class="p-3 bg-body-tertiary rounded-3 mb-3 text-center">
-                        <div class="d-flex flex-wrap justify-content-center align-items-center gap-1 mb-2">
-                            <span class="badge text-secondary-emphasis small me-1">前区红球</span>
+                        <div class="d-flex flex-nowrap justify-content-center align-items-center gap-1 mb-2 overflow-x-auto py-1">
+                            <span class="badge text-secondary-emphasis small me-1 d-none d-sm-inline">红球</span>
                             {{ display_balls(latest_ssq.get_red_balls_list(), 'red', ssq_red_consecutive_map) }}
-                            <span class="badge text-secondary-emphasis small ms-2 me-1">蓝球</span>
+                            <span class="badge text-secondary-emphasis small ms-1 me-1 d-none d-sm-inline">蓝球</span>
+                            <span class="mx-1 text-muted d-sm-none">|</span>
                             {{ display_balls(latest_ssq.get_blue_balls_list(), 'blue', ssq_blue_consecutive_map) }}
                         </div>
                         <div class="small text-secondary">
@@ -198,10 +199,11 @@
 
                     <!-- 开奖号码球展示区 -->
                     <div class="p-3 bg-body-tertiary rounded-3 mb-3 text-center">
-                        <div class="d-flex flex-wrap justify-content-center align-items-center gap-1 mb-2">
-                            <span class="badge text-secondary-emphasis small me-1">前区红球</span>
+                        <div class="d-flex flex-nowrap justify-content-center align-items-center gap-1 mb-2 overflow-x-auto py-1">
+                            <span class="badge text-secondary-emphasis small me-1 d-none d-sm-inline">前区</span>
                             {{ display_balls(latest_dlt.get_red_balls_list(), 'red', dlt_red_consecutive_map) }}
-                            <span class="badge text-secondary-emphasis small ms-2 me-1">后区蓝球</span>
+                            <span class="badge text-secondary-emphasis small ms-1 me-1 d-none d-sm-inline">后区</span>
+                            <span class="mx-1 text-muted d-sm-none">|</span>
                             {{ display_balls(latest_dlt.get_blue_balls_list(), 'blue', dlt_blue_consecutive_map) }}
                         </div>
                         <div class="small text-secondary">

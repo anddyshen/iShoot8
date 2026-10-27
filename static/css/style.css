@@ -546,3 +546,158 @@ body {
     box-shadow: var(--card-shadow);
 }
 
+/* ==========================================================================
+   第一阶段：移动端竖屏 (Mobile Portrait) 底座响应式设计系统
+   ========================================================================== */
+
+/* 防止全局横向溢出与 iOS 弹性滑动穿透 */
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端底部 App 风格快捷导航栏 */
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--navbar-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--navbar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1030;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    color: var(--navbar-text);
+    text-decoration: none;
+    opacity: 0.65;
+    font-size: 0.72rem;
+    font-weight: 500;
+    gap: 2px;
+    transition: var(--transition-base);
+    padding-top: 4px;
+}
+
+.bottom-nav-item i {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.bottom-nav-item:hover,
+.bottom-nav-item:focus {
+    color: var(--navbar-text);
+    opacity: 0.9;
+}
+
+.bottom-nav-item.active {
+    opacity: 1;
+    color: #1677ff !important;
+    font-weight: 700;
+}
+
+.bottom-nav-item.active i {
+    transform: translateY(-2px);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-bs-theme="dark"] .bottom-nav-item.active {
+    color: #4096ff !important;
+}
+
+/* 针对手机竖屏（宽度 ≤ 768px）的精细化排版微调 */
+@media (max-width: 768px) {
+    /* 预留底部导航栏的安全高度，防止页面内容或页脚被遮挡 */
+    body {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* 容器内边距微调，腾出宝贵的屏幕宽度 */
+    .container, .container-fluid {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* 顶部导航栏紧凑化 */
+    .ishoot-navbar {
+        padding-top: 0.45rem;
+        padding-bottom: 0.45rem;
+    }
+    
+    .ishoot-brand {
+        font-size: 1.2rem;
+    }
+
+    .brand-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 0.95rem;
+    }
+
+    /* 弹性号码球：微缩为 29px，间距缩减，确保 7~8 个球能够在单行整齐展示 */
+    .lottery-ball {
+        width: 29px !important;
+        height: 29px !important;
+        font-size: 0.82rem !important;
+        margin: 2px 1.5px !important;
+    }
+
+    /* 卡片内外间距优化 */
+    .card-body {
+        padding: 1rem !important;
+    }
+
+    .card-header {
+        padding: 0.75rem 1rem !important;
+    }
+
+    /* 首页顶部 Hero 区域在手机竖屏上的紧凑化排版 */
+    .hero-banner .card-body {
+        padding: 1.25rem 1rem !important;
+    }
+
+    .hero-banner h1.display-6 {
+        font-size: 1.35rem !important;
+        line-height: 1.3;
+    }
+
+    .hero-banner p.lead {
+        font-size: 0.85rem !important;
+        margin-bottom: 1rem !important;
+    }
+}
+
+/* 针对小屏手机（宽度 ≤ 380px，如 iPhone SE / 小型 Android 机）进一步自适应 */
+@media (max-width: 380px) {
+    .lottery-ball {
+        width: 26px !important;
+        height: 26px !important;
+        font-size: 0.75rem !important;
+        margin: 1.5px 1px !important;
+    }
+
+    .bottom-nav-item span {
+        font-size: 0.68rem;
+    }
+
+    .bottom-nav-item i {
+        font-size: 1.15rem;
+    }
+}
+
+
