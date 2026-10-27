@@ -682,6 +682,30 @@ html, body {
     }
 }
 
+/* 移动端折叠按钮状态切换文字 (无需额外JS) */
+a.collapsed .collapsed-hide,
+button.collapsed .collapsed-hide {
+    display: none !important;
+}
+a:not(.collapsed) .collapsed-show,
+button:not(.collapsed) .collapsed-show {
+    display: none !important;
+}
+
+/* 历史开奖移动端卡片瀑布流增强 */
+.history-mobile-card {
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-mobile-card:active {
+    transform: scale(0.99);
+}
+
+[data-bs-theme="dark"] .history-mobile-card {
+    border-color: rgba(51, 65, 85, 0.6) !important;
+}
+
 /* 针对小屏手机（宽度 ≤ 380px，如 iPhone SE / 小型 Android 机）进一步自适应 */
 @media (max-width: 380px) {
     .lottery-ball {

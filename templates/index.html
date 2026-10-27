@@ -6,8 +6,8 @@
 {% block title %}首页 - 智能彩票数据分析与预测系统{% endblock %}
 
 {% block content %}
-<!-- ==================== 顶部 Hero 仪表盘 Banner ==================== -->
-<div class="row mb-4">
+<!-- ==================== 顶部 Hero 仪表盘 Banner (桌面端展示) ==================== -->
+<div class="row mb-4 d-none d-lg-block">
     <div class="col-12">
         <div class="card border-0 shadow-sm overflow-hidden hero-banner">
             <div class="card-body p-4 p-lg-5 position-relative">
@@ -72,6 +72,58 @@
     </div>
 </div>
 
+<!-- ==================== 移动端精简快捷磁贴 (手机竖屏直达) ==================== -->
+<div class="d-lg-none mb-3">
+    <!-- 紧凑状态提示条 -->
+    <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 bg-body shadow-sm border mb-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                <i class="bi bi-broadcast me-1"></i>今日提醒
+            </span>
+            <span class="small fw-semibold text-secondary" style="font-size: 0.78rem;">双色球(二四日) · 大乐透(一三六)</span>
+        </div>
+        <a href="{{ url_for('routes.history') }}" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" style="font-size: 0.78rem;">
+            历史 <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- 4 个轻量圆角触控磁贴 -->
+    <div class="row g-2 text-center">
+        <div class="col-3">
+            <a href="{{ url_for('routes.prediction') }}" class="card border-0 shadow-sm p-2 text-decoration-none text-body rounded-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary mb-1" style="width: 32px; height: 32px;">
+                    <i class="bi bi-funnel-fill fs-6"></i>
+                </div>
+                <span class="fw-medium text-nowrap" style="font-size: 0.75rem;">智能筛选</span>
+            </a>
+        </div>
+        <div class="col-3">
+            <a href="{{ url_for('routes.prize_check') }}" class="card border-0 shadow-sm p-2 text-decoration-none text-body rounded-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                <div class="d-flex align-items-center justify-content-center rounded-circle bg-danger-subtle text-danger mb-1" style="width: 32px; height: 32px;">
+                    <i class="bi bi-award-fill fs-6"></i>
+                </div>
+                <span class="fw-medium text-nowrap" style="font-size: 0.75rem;">对奖ROI</span>
+            </a>
+        </div>
+        <div class="col-3">
+            <a href="{{ url_for('routes.statistics') }}" class="card border-0 shadow-sm p-2 text-decoration-none text-body rounded-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                <div class="d-flex align-items-center justify-content-center rounded-circle bg-success-subtle text-success mb-1" style="width: 32px; height: 32px;">
+                    <i class="bi bi-graph-up-arrow fs-6"></i>
+                </div>
+                <span class="fw-medium text-nowrap" style="font-size: 0.75rem;">走势图表</span>
+            </a>
+        </div>
+        <div class="col-3">
+            <a href="{{ url_for('routes.history') }}" class="card border-0 shadow-sm p-2 text-decoration-none text-body rounded-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                <div class="d-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle text-secondary mb-1" style="width: 32px; height: 32px;">
+                    <i class="bi bi-clock-history fs-6"></i>
+                </div>
+                <span class="fw-medium text-nowrap" style="font-size: 0.75rem;">历史开奖</span>
+            </a>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== 双色彩票最新开奖动态看板 ==================== -->
 <div class="row g-4 mb-4">
     <!-- 双色球卡片 -->
@@ -126,8 +178,8 @@
                         </div>
                     </div>
 
-                    <!-- 奖级详情简报 -->
-                    <div class="table-responsive small mb-3">
+                    <!-- 奖级详情简报 (桌面端表格) -->
+                    <div class="table-responsive small mb-3 d-none d-md-block">
                         <table class="table table-sm table-bordered text-center align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
@@ -154,6 +206,37 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- 移动端紧凑一等奖卡片与可折叠二三等奖明细 (手机端直达) -->
+                    <div class="d-md-none mb-3">
+                        <div class="p-2 px-3 rounded-3 bg-danger-subtle border border-danger-subtle d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-danger">一等奖</span>
+                                <span class="fw-bold text-danger">{{ latest_ssq.first_prize_count or 0 }} 注</span>
+                            </div>
+                            <span class="fw-bold text-danger">{{ "{:,.0f}".format(latest_ssq.first_prize_amount or 0) }} 元</span>
+                        </div>
+                        
+                        <div class="collapse" id="collapseSsqDetail">
+                            <div class="p-2 rounded-3 bg-body-tertiary border small mb-2">
+                                <div class="d-flex justify-content-between py-1 border-bottom">
+                                    <span class="text-secondary">二等奖:</span>
+                                    <span>{{ latest_ssq.second_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_ssq.second_prize_amount or 0) }} 元</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1">
+                                    <span class="text-secondary">三等奖:</span>
+                                    <span>{{ latest_ssq.third_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_ssq.third_prize_amount or 0) }} 元</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <a class="text-secondary small text-decoration-none collapsed" data-bs-toggle="collapse" href="#collapseSsqDetail" role="button" aria-expanded="false" style="font-size: 0.75rem;">
+                                <span class="collapsed-show">查看二/三等奖明细 <i class="bi bi-chevron-down"></i></span>
+                                <span class="collapsed-hide">收起明细 <i class="bi bi-chevron-up"></i></span>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- 操作按钮组 -->
@@ -227,8 +310,8 @@
                         </div>
                     </div>
 
-                    <!-- 奖级详情简报 -->
-                    <div class="table-responsive small mb-3">
+                    <!-- 奖级详情简报 (桌面端表格) -->
+                    <div class="table-responsive small mb-3 d-none d-md-block">
                         <table class="table table-sm table-bordered text-center align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
@@ -271,6 +354,43 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- 移动端紧凑一等奖卡片与可折叠二三等奖明细 (手机端直达) -->
+                    <div class="d-md-none mb-3">
+                        <div class="p-2 px-3 rounded-3 bg-primary-subtle border border-primary-subtle d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary">一等奖</span>
+                                <span class="fw-bold text-primary">{{ latest_dlt.first_prize_count or 0 }} 注</span>
+                            </div>
+                            <span class="fw-bold text-primary">{{ "{:,.0f}".format(latest_dlt.first_prize_amount or 0) }} 元</span>
+                        </div>
+                        
+                        <div class="collapse" id="collapseDltDetail">
+                            <div class="p-2 rounded-3 bg-body-tertiary border small mb-2">
+                                {% if latest_dlt.additional_first_prize_count %}
+                                <div class="d-flex justify-content-between py-1 border-bottom">
+                                    <span class="text-secondary">追加一等奖:</span>
+                                    <span>{{ latest_dlt.additional_first_prize_count }} 注 · +{{ "{:,.0f}".format(latest_dlt.additional_first_prize_amount or 0) }} 元</span>
+                                </div>
+                                {% endif %}
+                                <div class="d-flex justify-content-between py-1 border-bottom">
+                                    <span class="text-secondary">二等奖:</span>
+                                    <span>{{ latest_dlt.second_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_dlt.second_prize_amount or 0) }} 元</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1">
+                                    <span class="text-secondary">三等奖:</span>
+                                    <span>{{ latest_dlt.third_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_dlt.third_prize_amount or 0) }} 元</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <a class="text-secondary small text-decoration-none collapsed" data-bs-toggle="collapse" href="#collapseDltDetail" role="button" aria-expanded="false" style="font-size: 0.75rem;">
+                                <span class="collapsed-show">查看二/三等奖明细 <i class="bi bi-chevron-down"></i></span>
+                                <span class="collapsed-hide">收起明细 <i class="bi bi-chevron-up"></i></span>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- 操作按钮组 -->
