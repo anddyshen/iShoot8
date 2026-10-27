@@ -33,12 +33,12 @@ COPY . /app/
 # 创建持久化与上传目录
 RUN mkdir -p /app/instance /app/uploads /app/backups
 
-# 暴露端口 6666
-EXPOSE 6666
+# 暴露端口 8888
+EXPOSE 8888
 
 # 声明持久化卷
 VOLUME ["/app/instance", "/app/uploads", "/app/backups"]
 
-# 使用 Gunicorn 启动并监听 6666 端口
+# 使用 Gunicorn 启动并监听 8888 端口
 # 单 worker + 多线程：保障 SQLite 数据库安全，并避免 APScheduler 重复执行
-CMD ["gunicorn", "--bind", "0.0.0.0:6666", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]
