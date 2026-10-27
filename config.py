@@ -14,6 +14,9 @@ PER_BET_ADD_PRICE = 1 # 大乐透追加投注价格（每注+1元）
 # 数据源URL
 SSQ_URL = "https://data.17500.cn/ssq_desc.txt"
 DLT_URL = "https://data.17500.cn/dlt_desc.txt"
+KL8_URL = "https://data.17500.cn/kl8_desc.txt"
+SEVEN_XC_URL = "https://data.17500.cn/7xc_desc.txt"
+SEVEN_LC_URL = "https://data.17500.cn/7lc_desc.txt"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36"
 
 # 数据库配置

@@ -91,6 +91,115 @@ class DLTDraw(LotteryDraw):
     reserve5 = db.Column(db.String(100))
 
 
+
+class KL8Draw(db.Model):
+    __tablename__ = 'kl8_draws'
+
+    id = db.Column(db.Integer, primary_key=True)
+    issue = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    draw_date = db.Column(db.Date, nullable=False, index=True)
+    winning_balls = db.Column(db.String(100), nullable=False) # 20个号码，逗号分隔
+    sales_amount = db.Column(db.BigInteger) # 全国销售额
+    prize_pool = db.Column(db.BigInteger) # 奖池累计
+    
+    # 统计衍生字段
+    sum_val = db.Column(db.Integer) # 和值
+    odd_count = db.Column(db.Integer) # 奇数个数
+    even_count = db.Column(db.Integer) # 偶数个数
+    top_count = db.Column(db.Integer) # 1-40 上盘号码个数
+    bottom_count = db.Column(db.Integer) # 41-80 下盘号码个数
+
+    # 选十主流奖项
+    first_prize_count = db.Column(db.Integer) # 选十中十注数（一等奖 500 万）
+    first_prize_amount = db.Column(db.BigInteger) # 选十中十单注奖金
+    pick10_hit9_count = db.Column(db.Integer) # 选十中九注数
+    pick10_hit9_amount = db.Column(db.BigInteger)
+    pick10_hit8_count = db.Column(db.Integer)
+    pick10_hit8_amount = db.Column(db.BigInteger)
+    pick10_hit7_count = db.Column(db.Integer)
+    pick10_hit7_amount = db.Column(db.BigInteger)
+    pick10_hit0_count = db.Column(db.Integer) # 选十中0注数 (保本奖)
+    pick10_hit0_amount = db.Column(db.BigInteger)
+
+    def get_winning_balls_list(self):
+        return sorted([int(x) for x in self.winning_balls.split(',') if x])
+
+    def get_top_balls(self):
+        return [b for b in self.get_winning_balls_list() if b <= 40]
+
+    def get_bottom_balls(self):
+        return [b for b in self.get_winning_balls_list() if b > 40]
+
+    def __repr__(self):
+        return f"<KL8Draw {self.issue} - {self.draw_date}>"
+
+
+class SevenXCDraw(db.Model):
+    __tablename__ = 'seven_xc_draws'
+
+    id = db.Column(db.Integer, primary_key=True)
+    issue = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    draw_date = db.Column(db.Date, nullable=False, index=True)
+    front_numbers = db.Column(db.String(30), nullable=False) # 前6位数字，逗号分隔，如 "9,9,7,5,0,4"
+    back_number = db.Column(db.Integer, nullable=False) # 第7位号码，0~14
+    sales_amount = db.Column(db.BigInteger)
+    prize_pool = db.Column(db.BigInteger)
+    
+    first_prize_count = db.Column(db.Integer)
+    first_prize_amount = db.Column(db.BigInteger)
+    second_prize_count = db.Column(db.Integer)
+    second_prize_amount = db.Column(db.BigInteger)
+    third_prize_count = db.Column(db.Integer)
+    third_prize_amount = db.Column(db.BigInteger)
+    fourth_prize_count = db.Column(db.Integer)
+    fourth_prize_amount = db.Column(db.BigInteger)
+    fifth_prize_count = db.Column(db.Integer)
+    fifth_prize_amount = db.Column(db.BigInteger)
+    sixth_prize_count = db.Column(db.Integer)
+    sixth_prize_amount = db.Column(db.BigInteger)
+
+    def get_front_numbers_list(self):
+        return [int(x) for x in self.front_numbers.split(',') if x]
+
+    def get_all_balls_list(self):
+        return self.get_front_numbers_list() + [self.back_number]
+
+    def __repr__(self):
+        return f"<SevenXCDraw {self.issue} - {self.draw_date}>"
+
+
+class SevenLCDraw(db.Model):
+    __tablename__ = 'seven_lc_draws'
+
+    id = db.Column(db.Integer, primary_key=True)
+    issue = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    draw_date = db.Column(db.Date, nullable=False, index=True)
+    basic_balls = db.Column(db.String(50), nullable=False) # 7个基本号，如 "06,08,12,18,20,29,30"
+    special_ball = db.Column(db.Integer, nullable=False) # 特别号，如 21
+    sales_amount = db.Column(db.BigInteger)
+    prize_pool = db.Column(db.BigInteger)
+
+    first_prize_count = db.Column(db.Integer)
+    first_prize_amount = db.Column(db.BigInteger)
+    second_prize_count = db.Column(db.Integer)
+    second_prize_amount = db.Column(db.BigInteger)
+    third_prize_count = db.Column(db.Integer)
+    third_prize_amount = db.Column(db.BigInteger)
+    fourth_prize_count = db.Column(db.Integer)
+    fourth_prize_amount = db.Column(db.BigInteger)
+    fifth_prize_count = db.Column(db.Integer)
+    fifth_prize_amount = db.Column(db.BigInteger)
+    sixth_prize_count = db.Column(db.Integer)
+    sixth_prize_amount = db.Column(db.BigInteger)
+    seventh_prize_count = db.Column(db.Integer)
+    seventh_prize_amount = db.Column(db.BigInteger)
+
+    def get_basic_balls_list(self):
+        return sorted([int(x) for x in self.basic_balls.split(',') if x])
+
+    def __repr__(self):
+        return f"<SevenLCDraw {self.issue} - {self.draw_date}>"
+
 class News(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)

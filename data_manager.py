@@ -2,8 +2,8 @@
 import requests
 from datetime import datetime, date
 from flask import current_app
-from models import db, SSQDraw, DLTDraw
-from config import SSQ_URL, DLT_URL, USER_AGENT
+from models import db, SSQDraw, DLTDraw, KL8Draw, SevenXCDraw, SevenLCDraw
+from config import SSQ_URL, DLT_URL, KL8_URL, SEVEN_XC_URL, SEVEN_LC_URL, USER_AGENT
 from utils import calculate_all_trend_data, update_fuyun_prize_status # 导入趋势计算函数和福运奖状态更新函数
 
 # 版本号，每次生成文件时更新
@@ -163,6 +163,12 @@ def save_draw_data(draw_objects, lottery_type):
             existing_draw = SSQDraw.query.filter_by(issue=draw.issue).first()
         elif lottery_type == 'dlt':
             existing_draw = DLTDraw.query.filter_by(issue=draw.issue).first()
+        elif lottery_type == 'kl8':
+            existing_draw = KL8Draw.query.filter_by(issue=draw.issue).first()
+        elif lottery_type == '7xc':
+            existing_draw = SevenXCDraw.query.filter_by(issue=draw.issue).first()
+        elif lottery_type == '7lc':
+            existing_draw = SevenLCDraw.query.filter_by(issue=draw.issue).first()
 
         if not existing_draw:
             db.session.add(draw)
@@ -307,3 +313,223 @@ def validate_dlt_format(data_string):
         return True, ""
     except (ValueError, IndexError):
         return False, "大乐透数据格式错误，请检查数字和日期格式。"
+
+
+def clean_amount(val_str):
+    """清理金额字符串中的逗号和小数点，返回整型"""
+    if not val_str:
+        return 0
+    try:
+        cleaned = str(val_str).replace(',', '').strip()
+        return int(float(cleaned))
+    except (ValueError, TypeError):
+        return 0
+
+def parse_kl8_data(raw_data, app):
+    """解析快乐8原始数据 (80选20)"""
+    draws = []
+    if not raw_data:
+        return draws
+    lines = raw_data.strip().split('\n')
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 24:
+            continue
+        try:
+            issue = parts[0]
+            draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
+            # 20 个开奖号码
+            raw_balls = sorted([int(p) for p in parts[2:22]])
+            winning_balls = ','.join([f"{b:02d}" for b in raw_balls])
+            
+            # 计算衍生统计数据
+            sum_val = sum(raw_balls)
+            odd_count = sum(1 for b in raw_balls if b % 2 != 0)
+            even_count = 20 - odd_count
+            top_count = sum(1 for b in raw_balls if b <= 40)
+            bottom_count = 20 - top_count
+
+            sales_amount = clean_amount(parts[22])
+            prize_pool = clean_amount(parts[23])
+
+            # 选十主要奖项 (若字段足够)
+            first_prize_count = clean_amount(parts[24]) if len(parts) > 24 else 0
+            first_prize_amount = clean_amount(parts[25]) if len(parts) > 25 else 0
+            pick10_hit9_count = clean_amount(parts[26]) if len(parts) > 26 else 0
+            pick10_hit9_amount = clean_amount(parts[27]) if len(parts) > 27 else 0
+            pick10_hit8_count = clean_amount(parts[28]) if len(parts) > 28 else 0
+            pick10_hit8_amount = clean_amount(parts[29]) if len(parts) > 29 else 0
+            pick10_hit7_count = clean_amount(parts[30]) if len(parts) > 30 else 0
+            pick10_hit7_amount = clean_amount(parts[31]) if len(parts) > 31 else 0
+            pick10_hit0_count = clean_amount(parts[36]) if len(parts) > 36 else 0
+            pick10_hit0_amount = clean_amount(parts[37]) if len(parts) > 37 else 0
+
+            draws.append(KL8Draw(
+                issue=issue,
+                draw_date=draw_date,
+                winning_balls=winning_balls,
+                sales_amount=sales_amount,
+                prize_pool=prize_pool,
+                sum_val=sum_val,
+                odd_count=odd_count,
+                even_count=even_count,
+                top_count=top_count,
+                bottom_count=bottom_count,
+                first_prize_count=first_prize_count,
+                first_prize_amount=first_prize_amount,
+                pick10_hit9_count=pick10_hit9_count,
+                pick10_hit9_amount=pick10_hit9_amount,
+                pick10_hit8_count=pick10_hit8_count,
+                pick10_hit8_amount=pick10_hit8_amount,
+                pick10_hit7_count=pick10_hit7_count,
+                pick10_hit7_amount=pick10_hit7_amount,
+                pick10_hit0_count=pick10_hit0_count,
+                pick10_hit0_amount=pick10_hit0_amount
+            ))
+        except (ValueError, IndexError) as e:
+            app.logger.error(f"Error parsing KL8 line '{line}': {e}")
+    return draws
+
+def parse_7xc_data(raw_data, app):
+    """解析七星彩原始数据 (前6位0-9 + 后区1位0-14)"""
+    draws = []
+    if not raw_data:
+        return draws
+    lines = raw_data.strip().split('\n')
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 13:
+            continue
+        try:
+            issue = parts[0]
+            draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
+            front_numbers = ','.join([str(int(p)) for p in parts[2:8]])
+            back_number = int(parts[8])
+            sales_amount = clean_amount(parts[9])
+            prize_pool = clean_amount(parts[10])
+
+            first_prize_count = clean_amount(parts[11]) if len(parts) > 11 else 0
+            first_prize_amount = clean_amount(parts[12]) if len(parts) > 12 else 0
+            second_prize_count = clean_amount(parts[13]) if len(parts) > 13 else 0
+            second_prize_amount = clean_amount(parts[14]) if len(parts) > 14 else 0
+            third_prize_count = clean_amount(parts[15]) if len(parts) > 15 else 0
+            third_prize_amount = clean_amount(parts[16]) if len(parts) > 16 else 0
+            fourth_prize_count = clean_amount(parts[17]) if len(parts) > 17 else 0
+            fourth_prize_amount = clean_amount(parts[18]) if len(parts) > 18 else 0
+            fifth_prize_count = clean_amount(parts[19]) if len(parts) > 19 else 0
+            fifth_prize_amount = clean_amount(parts[20]) if len(parts) > 20 else 0
+            sixth_prize_count = clean_amount(parts[21]) if len(parts) > 21 else 0
+            sixth_prize_amount = clean_amount(parts[22]) if len(parts) > 22 else 0
+
+            draws.append(SevenXCDraw(
+                issue=issue,
+                draw_date=draw_date,
+                front_numbers=front_numbers,
+                back_number=back_number,
+                sales_amount=sales_amount,
+                prize_pool=prize_pool,
+                first_prize_count=first_prize_count,
+                first_prize_amount=first_prize_amount,
+                second_prize_count=second_prize_count,
+                second_prize_amount=second_prize_amount,
+                third_prize_count=third_prize_count,
+                third_prize_amount=third_prize_amount,
+                fourth_prize_count=fourth_prize_count,
+                fourth_prize_amount=fourth_prize_amount,
+                fifth_prize_count=fifth_prize_count,
+                fifth_prize_amount=fifth_prize_amount,
+                sixth_prize_count=sixth_prize_count,
+                sixth_prize_amount=sixth_prize_amount
+            ))
+        except (ValueError, IndexError) as e:
+            app.logger.error(f"Error parsing 7XC line '{line}': {e}")
+    return draws
+
+def parse_7lc_data(raw_data, app):
+    """解析七乐彩原始数据 (30选7基本号 + 1特别号)"""
+    draws = []
+    if not raw_data:
+        return draws
+    lines = raw_data.strip().split('\n')
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 14:
+            continue
+        try:
+            issue = parts[0]
+            draw_date = datetime.strptime(parts[1], '%Y-%m-%d').date()
+            raw_basic = sorted([int(p) for p in parts[2:9]])
+            basic_balls = ','.join([f"{b:02d}" for b in raw_basic])
+            special_ball = int(parts[9])
+
+            sales_amount = clean_amount(parts[10])
+            prize_pool = clean_amount(parts[11])
+
+            first_prize_count = clean_amount(parts[12]) if len(parts) > 12 else 0
+            first_prize_amount = clean_amount(parts[13]) if len(parts) > 13 else 0
+            second_prize_count = clean_amount(parts[14]) if len(parts) > 14 else 0
+            second_prize_amount = clean_amount(parts[15]) if len(parts) > 15 else 0
+            third_prize_count = clean_amount(parts[16]) if len(parts) > 16 else 0
+            third_prize_amount = clean_amount(parts[17]) if len(parts) > 17 else 0
+            fourth_prize_count = clean_amount(parts[18]) if len(parts) > 18 else 0
+            fourth_prize_amount = clean_amount(parts[19]) if len(parts) > 19 else 0
+            fifth_prize_count = clean_amount(parts[20]) if len(parts) > 20 else 0
+            fifth_prize_amount = clean_amount(parts[21]) if len(parts) > 21 else 0
+            sixth_prize_count = clean_amount(parts[22]) if len(parts) > 22 else 0
+            sixth_prize_amount = clean_amount(parts[23]) if len(parts) > 23 else 0
+            seventh_prize_count = clean_amount(parts[24]) if len(parts) > 24 else 0
+            seventh_prize_amount = clean_amount(parts[25]) if len(parts) > 25 else 0
+
+            draws.append(SevenLCDraw(
+                issue=issue,
+                draw_date=draw_date,
+                basic_balls=basic_balls,
+                special_ball=special_ball,
+                sales_amount=sales_amount,
+                prize_pool=prize_pool,
+                first_prize_count=first_prize_count,
+                first_prize_amount=first_prize_amount,
+                second_prize_count=second_prize_count,
+                second_prize_amount=second_prize_amount,
+                third_prize_count=third_prize_count,
+                third_prize_amount=third_prize_amount,
+                fourth_prize_count=fourth_prize_count,
+                fourth_prize_amount=fourth_prize_amount,
+                fifth_prize_count=fifth_prize_count,
+                fifth_prize_amount=fifth_prize_amount,
+                sixth_prize_count=sixth_prize_count,
+                sixth_prize_amount=sixth_prize_amount,
+                seventh_prize_count=seventh_prize_count,
+                seventh_prize_amount=seventh_prize_amount
+            ))
+        except (ValueError, IndexError) as e:
+            app.logger.error(f"Error parsing 7LC line '{line}': {e}")
+    return draws
+
+
+def update_single_lottery(lottery_type, app):
+    '''更新指定单彩种的数据 (ssq, dlt, kl8, 7xc, 7lc)'''
+    with app.app_context():
+        if lottery_type == 'ssq':
+            raw = fetch_raw_data(SSQ_URL, app)
+            draws = parse_ssq_data(raw, app)
+            return save_draw_data(draws, 'ssq')
+        elif lottery_type == 'dlt':
+            raw = fetch_raw_data(DLT_URL, app)
+            draws = parse_dlt_data(raw, app)
+            return save_draw_data(draws, 'dlt')
+        elif lottery_type == 'kl8':
+            raw = fetch_raw_data(KL8_URL, app)
+            draws = parse_kl8_data(raw, app)
+            return save_draw_data(draws, 'kl8')
+        elif lottery_type == '7xc':
+            raw = fetch_raw_data(SEVEN_XC_URL, app)
+            draws = parse_7xc_data(raw, app)
+            return save_draw_data(draws, '7xc')
+        elif lottery_type == '7lc':
+            raw = fetch_raw_data(SEVEN_LC_URL, app)
+            draws = parse_7lc_data(raw, app)
+            return save_draw_data(draws, '7lc')
+        else:
+            app.logger.error(f"Unknown lottery type: {lottery_type}")
+            return 0
