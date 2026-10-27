@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify, current_app
 from datetime import datetime, date
-from models import SSQDraw, DLTDraw, News, db
+from models import SSQDraw, DLTDraw, KL8Draw, SevenXCDraw, SevenLCDraw, News, db
 from data_manager import get_latest_draws
 import threading
 import uuid
@@ -26,6 +26,9 @@ bp = Blueprint('routes', __name__)
 def index():
     latest_ssq = get_latest_draws(SSQDraw, 1)
     latest_dlt = get_latest_draws(DLTDraw, 1)
+    latest_kl8 = get_latest_draws(KL8Draw, 1)
+    latest_7xc = get_latest_draws(SevenXCDraw, 1)
+    latest_7lc = get_latest_draws(SevenLCDraw, 1)
     homepage_news = News.query.filter_by(is_homepage_display=True, is_public=True).order_by(News.created_at.desc()).limit(3).all()
 
     ssq_red_consecutive_map = {}
@@ -43,6 +46,9 @@ def index():
     return render_template('index.html',
                            latest_ssq=latest_ssq[0] if latest_ssq else None,
                            latest_dlt=latest_dlt[0] if latest_dlt else None,
+                           latest_kl8=latest_kl8[0] if latest_kl8 else None,
+                           latest_7xc=latest_7xc[0] if latest_7xc else None,
+                           latest_7lc=latest_7lc[0] if latest_7lc else None,
                            homepage_news=homepage_news,
                            ssq_red_consecutive_map=ssq_red_consecutive_map,
                            ssq_blue_consecutive_map=ssq_blue_consecutive_map,
@@ -52,7 +58,8 @@ def index():
 @bp.route('/history')
 def history():
     lottery_type = request.args.get('lottery_type', 'ssq')
-    if lottery_type not in ['ssq', 'dlt']:
+    valid_lottery_types = ['ssq', 'dlt', 'kl8', '7xc', '7lc']
+    if lottery_type not in valid_lottery_types:
         flash('无效的彩票类型。', 'danger')
         return redirect(url_for('routes.index'))
 
@@ -83,10 +90,14 @@ def history():
             flash('结束日期格式不正确。', 'warning')
 
     # 构建查询
-    if lottery_type == 'ssq':
-        model_class = SSQDraw
-    else: # default to dlt
-        model_class = DLTDraw
+    lottery_models = {
+        'ssq': SSQDraw,
+        'dlt': DLTDraw,
+        'kl8': KL8Draw,
+        '7xc': SevenXCDraw,
+        '7lc': SevenLCDraw
+    }
+    model_class = lottery_models.get(lottery_type, SSQDraw)
 
     # --- 历史开奖数据分页查询 ---
     query = model_class.query
@@ -109,7 +120,8 @@ def history():
 @bp.route('/statistics')
 def statistics():
     lottery_type = request.args.get('lottery_type', 'ssq')
-    if lottery_type not in ['ssq', 'dlt']:
+    valid_lottery_types = ['ssq', 'dlt', 'kl8', '7xc', '7lc']
+    if lottery_type not in valid_lottery_types:
         flash('无效的彩票类型。', 'danger')
         return redirect(url_for('routes.index'))
 

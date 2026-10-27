@@ -1,7 +1,7 @@
 <!-- templates/index.html -->
 <!-- 版本: 2.0.0 - 现代轻科技仪表盘重构 -->
 {% extends "base.html" %}
-{% from "components/lottery_balls.html" import display_balls %}
+{% from "components/lottery_balls.html" import display_balls, display_kl8_balls, display_7xc_balls, display_7lc_balls %}
 
 {% block title %}首页 - 智能彩票数据分析与预测系统{% endblock %}
 
@@ -54,10 +54,30 @@
                                     <span class="text-success fw-medium"><i class="bi bi-dot"></i>定时自动同步</span>
                                 </div>
                             </div>
-                            <div class="p-2 rounded-3 bg-body border">
+                            <div class="p-2 rounded-3 bg-body border mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="badge bg-primary">大乐透</span>
                                     <span class="small text-secondary">每周一、三、六</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small text-muted">
+                                    <span>开奖时间: 21:25</span>
+                                    <span class="text-success fw-medium"><i class="bi bi-dot"></i>定时自动同步</span>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-3 bg-body border mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge bg-warning text-dark">快乐8</span>
+                                    <span class="small text-secondary">每天 21:15 开奖</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small text-muted">
+                                    <span>80选20</span>
+                                    <span class="text-success fw-medium"><i class="bi bi-dot"></i>定时自动同步</span>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge bg-success">七星彩</span>
+                                    <span class="small text-secondary">每周二、五、日</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center small text-muted">
                                     <span>开奖时间: 21:25</span>
@@ -459,5 +479,192 @@
             </div>
         </div>
     {% endif %}
+
+    <!-- 快乐8卡片 -->
+    <div class="col-lg-12">
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="card-header bg-warning text-dark py-3 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-5 fw-bold"><i class="bi bi-dice-5 me-1"></i>福彩快乐8 (KL8)</span>
+                    <span class="badge bg-white text-dark fw-semibold">最新开奖 · 每日开奖</span>
+                </div>
+                {% if latest_kl8 %}
+                <span class="small fw-semibold">
+                    <i class="bi bi-calendar-check me-1"></i>{{ latest_kl8.draw_date.strftime('%Y-%m-%d') }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="card-body p-4">
+                {% if latest_kl8 %}
+                    <div class="d-flex justify-content-between align-items-baseline mb-3">
+                        <h4 class="fw-bold mb-0 text-dark">第 {{ latest_kl8.issue }} 期</h4>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-warning-subtle text-dark border border-warning">和值: {{ latest_kl8.sum_val }}</span>
+                            <span class="badge bg-info-subtle text-dark border border-info">奇偶: {{ latest_kl8.odd_count }}:{{ latest_kl8.even_count }}</span>
+                            <span class="badge bg-success-subtle text-dark border border-success">上下盘: {{ latest_kl8.top_count }}:{{ latest_kl8.bottom_count }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 20个开奖号码球展示区 -->
+                    <div class="p-3 bg-body-tertiary rounded-3 mb-3 text-center">
+                        {{ display_kl8_balls(latest_kl8.get_winning_balls_list()) }}
+                        <div class="small text-secondary mt-2">
+                            <i class="bi bi-info-circle me-1"></i>共开出 20 个号码（01~40 为上盘红色，41~80 为下盘蓝色）
+                        </div>
+                    </div>
+
+                    <!-- 奖池与选十头奖 -->
+                    <div class="row g-2 text-center mb-3">
+                        <div class="col-4">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">当前奖池累计</div>
+                                <div class="fw-bold text-primary fs-6">{{ "{:,.0f}".format(latest_kl8.prize_pool or 0) }} <small class="fw-normal text-muted">元</small></div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">选十中十头奖</div>
+                                <div class="fw-bold text-danger fs-6">{{ latest_kl8.first_prize_count or 0 }} 注 · 500万</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">全国销售额</div>
+                                <div class="fw-bold fs-6">{{ "{:,.0f}".format(latest_kl8.sales_amount or 0) }} <small class="fw-normal text-muted">元</small></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按钮组 -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('routes.history', lottery_type='kl8') }}" class="btn btn-outline-warning text-dark btn-sm flex-fill">
+                            <i class="bi bi-clock-history me-1"></i> 查看快乐8历史开奖
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">暂无快乐8开奖数据</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 七星彩卡片 -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+            <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-5 fw-bold">体彩七星彩 (7XC)</span>
+                    <span class="badge bg-white text-success fw-semibold">最新开奖</span>
+                </div>
+                {% if latest_7xc %}
+                <span class="small opacity-75">
+                    <i class="bi bi-calendar-check me-1"></i>{{ latest_7xc.draw_date.strftime('%Y-%m-%d') }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="card-body p-4">
+                {% if latest_7xc %}
+                    <div class="d-flex justify-content-between align-items-baseline mb-3">
+                        <h4 class="fw-bold mb-0 text-success-emphasis">第 {{ latest_7xc.issue }} 期</h4>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">6+1 定位排布</span>
+                    </div>
+
+                    <!-- 开奖号码球展示区 -->
+                    <div class="p-3 bg-body-tertiary rounded-3 mb-3 text-center">
+                        {{ display_7xc_balls(latest_7xc.get_front_numbers_list(), latest_7xc.back_number) }}
+                        <div class="small text-secondary mt-2">
+                            前 6 位为 0~9 位置排列号码，第 7 位为后区号码 (0~14)
+                        </div>
+                    </div>
+
+                    <!-- 奖池与一等奖 -->
+                    <div class="row g-2 text-center mb-3">
+                        <div class="col-6">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">当前奖池累计</div>
+                                <div class="fw-bold text-success fs-6">{{ "{:,.0f}".format(latest_7xc.prize_pool or 0) }} <small class="fw-normal text-muted">元</small></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">一等奖中奖</div>
+                                <div class="fw-bold text-danger fs-6">{{ latest_7xc.first_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_7xc.first_prize_amount or 0) }} 元</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按钮组 -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('routes.history', lottery_type='7xc') }}" class="btn btn-outline-success btn-sm flex-fill">
+                            <i class="bi bi-clock-history me-1"></i> 查看七星彩历史开奖
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">暂无七星彩开奖数据</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 七乐彩卡片 -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+            <div class="card-header bg-info text-dark py-3 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-5 fw-bold">福彩七乐彩 (7LC)</span>
+                    <span class="badge bg-white text-dark fw-semibold">最新开奖</span>
+                </div>
+                {% if latest_7lc %}
+                <span class="small fw-semibold">
+                    <i class="bi bi-calendar-check me-1"></i>{{ latest_7lc.draw_date.strftime('%Y-%m-%d') }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="card-body p-4">
+                {% if latest_7lc %}
+                    <div class="d-flex justify-content-between align-items-baseline mb-3">
+                        <h4 class="fw-bold mb-0 text-info-emphasis">第 {{ latest_7lc.issue }} 期</h4>
+                        <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">30 选 7 + 1 特别号</span>
+                    </div>
+
+                    <!-- 开奖号码球展示区 -->
+                    <div class="p-3 bg-body-tertiary rounded-3 mb-3 text-center">
+                        {{ display_7lc_balls(latest_7lc.get_basic_balls_list(), latest_7lc.special_ball) }}
+                        <div class="small text-secondary mt-2">
+                            7 个基本红球 + 1 个特别号（01~30）
+                        </div>
+                    </div>
+
+                    <!-- 奖池与一等奖 -->
+                    <div class="row g-2 text-center mb-3">
+                        <div class="col-6">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">当前奖池累计</div>
+                                <div class="fw-bold text-info fs-6">{{ "{:,.0f}".format(latest_7lc.prize_pool or 0) }} <small class="fw-normal text-muted">元</small></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 rounded-3 bg-body border">
+                                <div class="small text-secondary">一等奖中奖</div>
+                                <div class="fw-bold text-danger fs-6">{{ latest_7lc.first_prize_count or 0 }} 注 · {{ "{:,.0f}".format(latest_7lc.first_prize_amount or 0) }} 元</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按钮组 -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('routes.history', lottery_type='7lc') }}" class="btn btn-outline-info text-dark btn-sm flex-fill">
+                            <i class="bi bi-clock-history me-1"></i> 查看七乐彩历史开奖
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">暂无七乐彩开奖数据</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

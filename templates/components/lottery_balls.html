@@ -1,5 +1,5 @@
 <!-- templates/components/lottery_balls.html -->
-<!-- 版本: 1.0.0 -->
+<!-- 版本: 2.1.0 - 新增快乐8、七星彩、七乐彩专用球号宏 -->
 {% macro display_balls(balls, ball_type, consecutive_map={}) %}
     {% set sorted_balls = balls | map('int') | sort | list %}
     {% for ball in sorted_balls %}
@@ -11,4 +11,48 @@
             {{ '%02d' | format(ball) }}
         </span>
     {% endfor %}
+{% endmacro %}
+
+{# 快乐8：20个开奖球 (01~80)，按10个一行优雅排布，1~40上盘红，41~80下盘蓝 #}
+{% macro display_kl8_balls(balls) %}
+    {% set sorted_balls = balls | map('int') | sort | list %}
+    <div class="kl8-balls-container d-flex flex-wrap justify-content-center gap-1">
+        {% for ball in sorted_balls %}
+            {% set ball_type = 'red' if ball <= 40 else 'blue' %}
+            <span class="lottery-ball ball-{{ ball_type }} kl8-ball" data-number="{{ ball }}" data-type="{{ ball_type }}" title="{% if ball <= 40 %}上盘: {{ ball }}{% else %}下盘: {{ ball }}{% endif %}">
+                {{ '%02d' | format(ball) }}
+            </span>
+        {% endfor %}
+    </div>
+{% endmacro %}
+
+{# 七星彩：前6位位置排列球 (0~9) + 第7位后区球 (0~14) #}
+{% macro display_7xc_balls(front_numbers, back_number) %}
+    <div class="d-flex flex-nowrap align-items-center justify-content-center gap-1 overflow-x-auto py-1">
+        {% for num in front_numbers %}
+            <span class="lottery-ball ball-red qxc-ball" data-index="{{ loop.index }}" title="第{{ loop.index }}位: {{ num }}">
+                {{ num }}
+            </span>
+        {% endfor %}
+        <span class="mx-1 text-muted fw-bold">|</span>
+        <span class="lottery-ball ball-blue qxc-ball-back" title="后区: {{ back_number }}">
+            {{ '%02d' | format(back_number | int) if (back_number | int) >= 10 else back_number }}
+        </span>
+    </div>
+{% endmacro %}
+
+{# 七乐彩：7个基本红球 (01~30) + 1个特别球 #}
+{% macro display_7lc_balls(basic_balls, special_ball) %}
+    {% set sorted_balls = basic_balls | map('int') | sort | list %}
+    <div class="d-flex flex-nowrap align-items-center justify-content-center gap-1 overflow-x-auto py-1">
+        {% for ball in sorted_balls %}
+            <span class="lottery-ball ball-red" data-number="{{ ball }}" data-type="red">
+                {{ '%02d' | format(ball) }}
+            </span>
+        {% endfor %}
+        <span class="mx-1 text-muted fw-bold">|</span>
+        <span class="lottery-ball ball-blue" data-number="{{ special_ball }}" data-type="special" title="特别号码: {{ special_ball }}">
+            {{ '%02d' | format(special_ball | int) }}
+        </span>
+    </div>
 {% endmacro %}

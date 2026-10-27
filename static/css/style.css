@@ -875,6 +875,37 @@ button:not(.collapsed) .collapsed-show {
     border: 1px solid rgba(234, 179, 8, 0.3);
 }
 
+/* 快乐8专属 20 开奖球紧凑排布样式 */
+.kl8-balls-container {
+    max-width: 580px;
+    margin: 0 auto;
+}
+
+.kl8-ball {
+    width: 27px !important;
+    height: 27px !important;
+    font-size: 0.78rem !important;
+    margin: 1.5px 1px !important;
+}
+
+@media (max-width: 768px) {
+    .kl8-ball {
+        width: 25px !important;
+        height: 25px !important;
+        font-size: 0.72rem !important;
+        margin: 1.5px 1px !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .kl8-ball {
+        width: 23px !important;
+        height: 23px !important;
+        font-size: 0.68rem !important;
+        margin: 1px 0.5px !important;
+    }
+}
+
 /* 针对小屏手机（宽度 ≤ 380px，如 iPhone SE / 小型 Android 机）进一步自适应 */
 @media (max-width: 380px) {
     .ball-selector-grid .ball {
