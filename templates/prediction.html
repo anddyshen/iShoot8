@@ -130,9 +130,26 @@
     本页面提供的号码预测仅供娱乐参考，不构成任何投注建议。
 </div>
 
-<div class="mb-3 lottery-section-tabs">
-    <a href="#" class="btn btn-danger active me-2" id="ssq_prediction_tab">双色球筛选</a>
-    <a href="#" class="btn btn-primary" id="dlt_prediction_tab">大乐透筛选</a>
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-2 p-md-3">
+        <div class="lottery-prediction-tabs d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-danger active px-3 py-2 fw-medium rounded-pill" id="ssq_prediction_tab" data-lottery="ssq">
+                <i class="bi bi-circle-fill text-danger me-1"></i>双色球筛选
+            </button>
+            <button type="button" class="btn btn-outline-primary px-3 py-2 fw-medium rounded-pill" id="dlt_prediction_tab" data-lottery="dlt">
+                <i class="bi bi-circle-fill text-primary me-1"></i>超级大乐透筛选
+            </button>
+            <button type="button" class="btn btn-outline-warning text-dark px-3 py-2 fw-medium rounded-pill" id="kl8_prediction_tab" data-lottery="kl8">
+                <i class="bi bi-grid-3x3-gap-fill text-warning me-1"></i>福彩快乐8缩水
+            </button>
+            <button type="button" class="btn btn-outline-success px-3 py-2 fw-medium rounded-pill" id="7xc_prediction_tab" data-lottery="7xc">
+                <i class="bi bi-stars text-success me-1"></i>体彩七星彩缩水
+            </button>
+            <button type="button" class="btn btn-outline-info text-dark px-3 py-2 fw-medium rounded-pill" id="7lc_prediction_tab" data-lottery="7lc">
+                <i class="bi bi-gem text-info me-1"></i>福彩七乐彩缩水
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- ==================== 双色球筛选 ==================== -->
@@ -1384,6 +1401,340 @@
         </div>
     </div>
 </div>
+
+<!-- ==================== 福彩快乐8缩水筛选 ==================== -->
+<div id="kl8_prediction_section" class="lottery-section" style="display: none;">
+    <h2 class="mb-3"><span class="badge bg-warning text-dark me-2">福彩</span>快乐8智能选号与指标缩水</h2>
+
+    <!-- 近期开奖参考 -->
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-secondary">
+            <i class="bi bi-clock-history text-warning me-1"></i> 近期开奖参考 (最新5期)
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>期号</th>
+                            <th>开奖日期</th>
+                            <th>中奖号码 (20球)</th>
+                            <th>和值</th>
+                            <th>盘比</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if latest_kl8_draws %}
+                        {% for draw in latest_kl8_draws %}
+                        <tr>
+                            <td class="fw-bold">{{ draw.issue }}</td>
+                            <td>{{ draw.draw_date.strftime('%m-%d') }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for b in draw.get_winning_balls_list() %}
+                                    <span class="badge {% if b <= 40 %}bg-danger{% else %}bg-primary{% endif %} p-1 rounded-circle" style="width: 22px; height: 22px; line-height: 14px; font-size: 0.7rem;">{{ '%02d' | format(b) }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td><span class="badge bg-secondary">{{ draw.sum_value }}</span></td>
+                            <td><span class="badge bg-light text-dark border">{{ draw.top_count }}:{{ draw.bottom_count }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-2">暂无历史数据</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水条件设置卡片 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold"><i class="bi bi-funnel text-warning me-1"></i> 快乐8核心缩水条件设置</div>
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">和值范围（默认 320 ~ 520）：</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" id="kl8_min_sum" value="320" placeholder="最小值">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control" id="kl8_max_sum" value="520" placeholder="最大值">
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">奇偶比限制：</label>
+                    <select class="form-select form-select-sm" id="kl8_odd_even_select">
+                        <option value="5:5,4:6,6:4" selected>常见比例 (5:5, 4:6, 6:4)</option>
+                        <option value="5:5">极度均衡 (5:5)</option>
+                        <option value="">不限奇偶比</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">上下盘比（01-40 : 41-80）：</label>
+                    <select class="form-select form-select-sm" id="kl8_pan_select">
+                        <option value="5:5,6:4,4:6" selected>常见盘比 (5:5, 6:4, 4:6)</option>
+                        <option value="5:5">上下均衡 (5:5)</option>
+                        <option value="">不限盘比</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-danger">必选胆码（逗号分隔，如 08,18）：</label>
+                    <input type="text" class="form-control form-control-sm" id="kl8_dan_balls" placeholder="选填，如: 08, 18">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-secondary">排除杀码（逗号分隔，如 04,14）：</label>
+                    <input type="text" class="form-control form-control-sm" id="kl8_kill_balls" placeholder="选填，如: 04, 14">
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3 pt-2 border-top align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label small mb-0 fw-medium">生成注数：</label>
+                    <select class="form-select form-select-sm" id="kl8_generate_count" style="width: 90px;">
+                        <option value="3">3 注</option>
+                        <option value="5" selected>5 注</option>
+                        <option value="10">10 注</option>
+                        <option value="20">20 注</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-warning text-dark fw-bold px-4" id="generate_kl8_smart_filter">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> 开始智能缩水
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="clear_kl8_smart_filter">清空结果</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水生成输出区 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-success"><i class="bi bi-check2-circle me-1"></i> 缩水精选号码输出</div>
+        <div class="card-body p-2 p-md-3">
+            <div id="kl8_smart_filter_output">
+                <p class="text-muted small">点击【开始智能缩水】生成符合指标的快乐8号码</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 体彩七星彩缩水筛选 ==================== -->
+<div id="7xc_prediction_section" class="lottery-section" style="display: none;">
+    <h2 class="mb-3"><span class="badge bg-success me-2">体彩</span>七星彩定位指标缩水</h2>
+
+    <!-- 近期开奖参考 -->
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-secondary">
+            <i class="bi bi-clock-history text-success me-1"></i> 近期开奖参考 (最新5期)
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>期号</th>
+                            <th>开奖日期</th>
+                            <th>前区定位 (6位)</th>
+                            <th>后区</th>
+                            <th>前区和值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if latest_7xc_draws %}
+                        {% for draw in latest_7xc_draws %}
+                        <tr>
+                            <td class="fw-bold">{{ draw.issue }}</td>
+                            <td>{{ draw.draw_date.strftime('%m-%d') }}</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    {% for d in draw.get_front_numbers_list() %}
+                                    <span class="badge bg-warning text-dark rounded-circle p-1" style="width: 24px; height: 24px; line-height: 16px;">{{ d }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td><span class="badge bg-primary rounded-circle p-1" style="width: 24px; height: 24px; line-height: 16px;">{{ draw.back_number }}</span></td>
+                            <td><span class="badge bg-secondary">{{ draw.front_sum }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-2">暂无历史数据</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水条件设置卡片 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold"><i class="bi bi-funnel text-success me-1"></i> 七星彩定位缩水条件设置</div>
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">前区和值范围（默认 18 ~ 38）：</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" id="7xc_min_sum" value="18" placeholder="最小值">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control" id="7xc_max_sum" value="38" placeholder="最大值">
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">前区奇偶比：</label>
+                    <select class="form-select form-select-sm" id="7xc_odd_even_select">
+                        <option value="3:3,4:2,2:4" selected>常见比例 (3:3, 4:2, 2:4)</option>
+                        <option value="3:3">极度均衡 (3:3)</option>
+                        <option value="">不限奇偶比</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">前区大小比（0-4小，5-9大）：</label>
+                    <select class="form-select form-select-sm" id="7xc_size_select">
+                        <option value="3:3,4:2,2:4" selected>常见比例 (3:3, 4:2, 2:4)</option>
+                        <option value="3:3">大小均衡 (3:3)</option>
+                        <option value="">不限大小比</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3 pt-2 border-top align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label small mb-0 fw-medium">生成注数：</label>
+                    <select class="form-select form-select-sm" id="7xc_generate_count" style="width: 90px;">
+                        <option value="3">3 注</option>
+                        <option value="5" selected>5 注</option>
+                        <option value="10">10 注</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-success fw-bold px-4" id="generate_7xc_smart_filter">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> 开始智能缩水
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="clear_7xc_smart_filter">清空结果</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水生成输出区 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-success"><i class="bi bi-check2-circle me-1"></i> 缩水精选号码输出</div>
+        <div class="card-body p-2 p-md-3">
+            <div id="7xc_smart_filter_output">
+                <p class="text-muted small">点击【开始智能缩水】生成符合指标的七星彩号码</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 福彩七乐彩缩水筛选 ==================== -->
+<div id="7lc_prediction_section" class="lottery-section" style="display: none;">
+    <h2 class="mb-3"><span class="badge bg-info text-dark me-2">福彩</span>七乐彩指标缩水</h2>
+
+    <!-- 近期开奖参考 -->
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-secondary">
+            <i class="bi bi-clock-history text-info me-1"></i> 近期开奖参考 (最新5期)
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>期号</th>
+                            <th>开奖日期</th>
+                            <th>基本号码 (7球)</th>
+                            <th>特别号</th>
+                            <th>和值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if latest_7lc_draws %}
+                        {% for draw in latest_7lc_draws %}
+                        <tr>
+                            <td class="fw-bold">{{ draw.issue }}</td>
+                            <td>{{ draw.draw_date.strftime('%m-%d') }}</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    {% for b in draw.get_basic_balls_list() %}
+                                    <span class="badge bg-danger rounded-circle p-1" style="width: 24px; height: 24px; line-height: 16px;">{{ '%02d' | format(b) }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td><span class="badge bg-primary rounded-circle p-1" style="width: 24px; height: 24px; line-height: 16px;">{{ '%02d' | format(draw.special_ball) }}</span></td>
+                            <td><span class="badge bg-secondary">{{ draw.sum_value }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-2">暂无历史数据</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水条件设置卡片 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold"><i class="bi bi-funnel text-info me-1"></i> 七乐彩指标缩水条件设置</div>
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">和值范围（默认 75 ~ 145）：</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" id="7lc_min_sum" value="75" placeholder="最小值">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control" id="7lc_max_sum" value="145" placeholder="最大值">
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">奇偶比限制：</label>
+                    <select class="form-select form-select-sm" id="7lc_odd_even_select">
+                        <option value="4:3,3:4,5:2,2:5" selected>常见比例 (4:3, 3:4, 5:2, 2:5)</option>
+                        <option value="4:3,3:4">中度均衡 (4:3, 3:4)</option>
+                        <option value="">不限奇偶比</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold">大小比（01-15小，16-30大）：</label>
+                    <select class="form-select form-select-sm" id="7lc_size_select">
+                        <option value="4:3,3:4" selected>常见比例 (4:3, 3:4)</option>
+                        <option value="">不限大小比</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-danger">必选胆码（逗号分隔，如 07,17）：</label>
+                    <input type="text" class="form-control form-control-sm" id="7lc_dan_balls" placeholder="选填，如: 07, 17">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-secondary">排除杀码（逗号分隔，如 02,12）：</label>
+                    <input type="text" class="form-control form-control-sm" id="7lc_kill_balls" placeholder="选填，如: 02, 12">
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3 pt-2 border-top align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label small mb-0 fw-medium">生成注数：</label>
+                    <select class="form-select form-select-sm" id="7lc_generate_count" style="width: 90px;">
+                        <option value="3">3 注</option>
+                        <option value="5" selected>5 注</option>
+                        <option value="10">10 注</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-info text-dark fw-bold px-4" id="generate_7lc_smart_filter">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> 开始智能缩水
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="clear_7lc_smart_filter">清空结果</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩水生成输出区 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white py-2 fw-bold text-success"><i class="bi bi-check2-circle me-1"></i> 缩水精选号码输出</div>
+        <div class="card-body p-2 p-md-3">
+            <div id="7lc_smart_filter_output">
+                <p class="text-muted small">点击【开始智能缩水】生成符合指标的七乐彩号码</p>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 
@@ -1481,4 +1832,274 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const predTabs = {
+        'ssq': document.getElementById('ssq_prediction_tab'),
+        'dlt': document.getElementById('dlt_prediction_tab'),
+        'kl8': document.getElementById('kl8_prediction_tab'),
+        '7xc': document.getElementById('7xc_prediction_tab'),
+        '7lc': document.getElementById('7lc_prediction_tab')
+    };
+
+    const predSections = {
+        'ssq': document.getElementById('ssq_prediction_section'),
+        'dlt': document.getElementById('dlt_prediction_section'),
+        'kl8': document.getElementById('kl8_prediction_section'),
+        '7xc': document.getElementById('7xc_prediction_section'),
+        '7lc': document.getElementById('7lc_prediction_section')
+    };
+
+    function switchPredTab(lotteryType) {
+        Object.keys(predTabs).forEach(type => {
+            if (predTabs[type]) predTabs[type].classList.toggle('active', type === lotteryType);
+            if (predSections[type]) predSections[type].style.display = (type === lotteryType ? 'block' : 'none');
+        });
+
+        const badge = document.getElementById('mobile_sticky_lottery_badge');
+        if (badge) {
+            const colors = { ssq: '#dc3545', dlt: '#0d6efd', kl8: '#ffc107', '7xc': '#198754', '7lc': '#0dcaf0' };
+            const names = { ssq: '双色球', dlt: '大乐透', kl8: '快乐8', '7xc': '七星彩', '7lc': '七乐彩' };
+            badge.style.background = colors[lotteryType] || '#6c757d';
+            badge.textContent = names[lotteryType] || lotteryType;
+            if (lotteryType === 'kl8' || lotteryType === '7lc') {
+                badge.style.color = '#000';
+            } else {
+                badge.style.color = '#fff';
+            }
+        }
+    }
+
+    Object.keys(predTabs).forEach(type => {
+        if (predTabs[type]) {
+            predTabs[type].addEventListener('click', function(e) {
+                e.preventDefault();
+                switchPredTab(type);
+            });
+        }
+    });
+
+    // 快乐8 缩水请求与渲染
+    document.getElementById('generate_kl8_smart_filter')?.addEventListener('click', async function() {
+        const outputDiv = document.getElementById('kl8_smart_filter_output');
+        outputDiv.innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span> 正在智能缩水快乐8号码...</p>';
+        
+        const count = parseInt(document.getElementById('kl8_generate_count').value) || 5;
+        const minSum = parseInt(document.getElementById('kl8_min_sum').value) || 320;
+        const maxSum = parseInt(document.getElementById('kl8_max_sum').value) || 520;
+        const oe = document.getElementById('kl8_odd_even_select').value;
+        const pan = document.getElementById('kl8_pan_select').value;
+        const danStr = document.getElementById('kl8_dan_balls').value;
+        const killStr = document.getElementById('kl8_kill_balls').value;
+        
+        const dan = danStr ? danStr.split(/[,，\s]+/).map(Number).filter(n => n > 0 && n <= 80) : [];
+        const kill = killStr ? killStr.split(/[,，\s]+/).map(Number).filter(n => n > 0 && n <= 80) : [];
+
+        try {
+            const res = await fetch('/api/prediction/smart_filter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lottery_type: 'kl8',
+                    count: count,
+                    options: {
+                        min_sum: minSum,
+                        max_sum: maxSum,
+                        allowed_odd_even: oe ? oe.split(',') : [],
+                        allowed_pan: pan ? pan.split(',') : [],
+                        dan_balls: dan,
+                        kill_balls: kill
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.error) {
+                outputDiv.innerHTML = `<p class="text-danger">缩水失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '<div class="row g-2">';
+            data.numbers.forEach((item, idx) => {
+                const balls = item.red_balls;
+                const stats = item.stats;
+                const ballsHtml = balls.map(b => {
+                    const bg = b <= 40 ? 'bg-danger' : 'bg-primary';
+                    return `<span class="badge ${bg} p-2 rounded-circle fs-6" style="width: 32px; height: 32px; line-height: 16px; display: inline-flex; align-items: center; justify-content: center;">${String(b).padStart(2, '0')}</span>`;
+                }).join(' ');
+
+                html += `
+                <div class="col-12 col-md-6">
+                    <div class="p-3 bg-light rounded border shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-warning text-dark fw-bold">精选 #${idx + 1}</span>
+                            <span class="small text-muted">选十单注 (2元)</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mb-2">${ballsHtml}</div>
+                        <div class="d-flex flex-wrap gap-1 small text-secondary">
+                            <span class="badge bg-secondary">和值: ${stats.red_sum}</span>
+                            <span class="badge bg-secondary">奇偶: ${stats.red_odd_even_ratio}</span>
+                            <span class="badge bg-secondary">盘比: ${stats.kl8_pan_ratio}</span>
+                            <span class="badge bg-secondary">跨度: ${stats.red_span}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            outputDiv.innerHTML = html;
+        } catch (e) {
+            outputDiv.innerHTML = `<p class="text-danger">请求出错: ${e.message}</p>`;
+        }
+    });
+
+    // 七星彩 缩水请求与渲染
+    document.getElementById('generate_7xc_smart_filter')?.addEventListener('click', async function() {
+        const outputDiv = document.getElementById('7xc_smart_filter_output');
+        outputDiv.innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span> 正在智能缩水七星彩号码...</p>';
+        
+        const count = parseInt(document.getElementById('7xc_generate_count').value) || 5;
+        const minSum = parseInt(document.getElementById('7xc_min_sum').value) || 18;
+        const maxSum = parseInt(document.getElementById('7xc_max_sum').value) || 38;
+        const oe = document.getElementById('7xc_odd_even_select').value;
+        const sz = document.getElementById('7xc_size_select').value;
+
+        try {
+            const res = await fetch('/api/prediction/smart_filter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lottery_type: '7xc',
+                    count: count,
+                    options: {
+                        min_sum: minSum,
+                        max_sum: maxSum,
+                        allowed_odd_even: oe ? oe.split(',') : [],
+                        allowed_size: sz ? sz.split(',') : []
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.error) {
+                outputDiv.innerHTML = `<p class="text-danger">缩水失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '<div class="row g-2">';
+            data.numbers.forEach((item, idx) => {
+                const front = item.red_balls;
+                const back = item.blue_balls[0];
+                const stats = item.stats;
+
+                const frontHtml = front.map(d => `<span class="badge bg-warning text-dark fs-5 rounded-circle p-2" style="width: 36px; height: 36px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center;">${d}</span>`).join(' ');
+                const backHtml = `<span class="badge bg-primary fs-5 rounded-circle p-2" style="width: 36px; height: 36px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center;">${back}</span>`;
+
+                html += `
+                <div class="col-12 col-md-6">
+                    <div class="p-3 bg-light rounded border shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-success fw-bold">精选 #${idx + 1}</span>
+                            <span class="small text-muted">单注 (2元)</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="d-flex gap-1">${frontHtml}</div>
+                            <span class="fw-bold text-muted">+</span>
+                            <div>${backHtml}</div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 small text-secondary">
+                            <span class="badge bg-secondary">前区和值: ${stats.front_sum}</span>
+                            <span class="badge bg-secondary">奇偶比: ${stats.red_odd_even_ratio}</span>
+                            <span class="badge bg-secondary">大小比: ${stats.red_size_ratio}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            outputDiv.innerHTML = html;
+        } catch (e) {
+            outputDiv.innerHTML = `<p class="text-danger">请求出错: ${e.message}</p>`;
+        }
+    });
+
+    // 七乐彩 缩水请求与渲染
+    document.getElementById('generate_7lc_smart_filter')?.addEventListener('click', async function() {
+        const outputDiv = document.getElementById('7lc_smart_filter_output');
+        outputDiv.innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span> 正在智能缩水七乐彩号码...</p>';
+        
+        const count = parseInt(document.getElementById('7lc_generate_count').value) || 5;
+        const minSum = parseInt(document.getElementById('7lc_min_sum').value) || 75;
+        const maxSum = parseInt(document.getElementById('7lc_max_sum').value) || 145;
+        const oe = document.getElementById('7lc_odd_even_select').value;
+        const sz = document.getElementById('7lc_size_select').value;
+        const danStr = document.getElementById('7lc_dan_balls').value;
+        const killStr = document.getElementById('7lc_kill_balls').value;
+
+        const dan = danStr ? danStr.split(/[,，\s]+/).map(Number).filter(n => n > 0 && n <= 30) : [];
+        const kill = killStr ? killStr.split(/[,，\s]+/).map(Number).filter(n => n > 0 && n <= 30) : [];
+
+        try {
+            const res = await fetch('/api/prediction/smart_filter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lottery_type: '7lc',
+                    count: count,
+                    options: {
+                        min_sum: minSum,
+                        max_sum: maxSum,
+                        allowed_odd_even: oe ? oe.split(',') : [],
+                        allowed_size: sz ? sz.split(',') : [],
+                        dan_balls: dan,
+                        kill_balls: kill
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.error) {
+                outputDiv.innerHTML = `<p class="text-danger">缩水失败: ${data.error}</p>`;
+                return;
+            }
+
+            let html = '<div class="row g-2">';
+            data.numbers.forEach((item, idx) => {
+                const balls = item.red_balls;
+                const stats = item.stats;
+                const ballsHtml = balls.map(b => `<span class="badge bg-danger p-2 rounded-circle fs-6" style="width: 32px; height: 32px; line-height: 16px; display: inline-flex; align-items: center; justify-content: center;">${String(b).padStart(2, '0')}</span>`).join(' ');
+
+                html += `
+                <div class="col-12 col-md-6">
+                    <div class="p-3 bg-light rounded border shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-info text-dark fw-bold">精选 #${idx + 1}</span>
+                            <span class="small text-muted">单注 (2元)</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mb-2">${ballsHtml}</div>
+                        <div class="d-flex flex-wrap gap-1 small text-secondary">
+                            <span class="badge bg-secondary">和值: ${stats.red_sum}</span>
+                            <span class="badge bg-secondary">奇偶比: ${stats.red_odd_even_ratio}</span>
+                            <span class="badge bg-secondary">大小比: ${stats.red_size_ratio}</span>
+                            <span class="badge bg-secondary">跨度: ${stats.red_span}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            outputDiv.innerHTML = html;
+        } catch (e) {
+            outputDiv.innerHTML = `<p class="text-danger">请求出错: ${e.message}</p>`;
+        }
+    });
+
+    // 清空按钮
+    document.getElementById('clear_kl8_smart_filter')?.addEventListener('click', () => {
+        document.getElementById('kl8_smart_filter_output').innerHTML = '<p class="text-muted small">点击【开始智能缩水】生成符合指标的快乐8号码</p>';
+    });
+    document.getElementById('clear_7xc_smart_filter')?.addEventListener('click', () => {
+        document.getElementById('7xc_smart_filter_output').innerHTML = '<p class="text-muted small">点击【开始智能缩水】生成符合指标的七星彩号码</p>';
+    });
+    document.getElementById('clear_7lc_smart_filter')?.addEventListener('click', () => {
+        document.getElementById('7lc_smart_filter_output').innerHTML = '<p class="text-muted small">点击【开始智能缩水】生成符合指标的七乐彩号码</p>';
+    });
+});
+</script>
 {% endblock %}
+

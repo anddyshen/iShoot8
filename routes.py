@@ -189,20 +189,19 @@ def statistics():
 
 @bp.route('/prediction')
 def prediction():
-    # 获取最新5期开奖号码用于显示（固定5期）
     num_latest_draws = 5
-    
-    current_app.logger.info(f"Fetching latest {num_latest_draws} SSQ draws for prediction page.")
     latest_ssq_draws = get_latest_draws(SSQDraw, num_latest_draws)
-    current_app.logger.info(f"Fetched {len(latest_ssq_draws)} SSQ draws.")
-
-    current_app.logger.info(f"Fetching latest {num_latest_draws} DLT draws for prediction page.")
     latest_dlt_draws = get_latest_draws(DLTDraw, num_latest_draws)
-    current_app.logger.info(f"Fetched {len(latest_dlt_draws)} DLT draws.")
+    latest_kl8_draws = get_latest_draws(KL8Draw, num_latest_draws)
+    latest_7xc_draws = get_latest_draws(SevenXCDraw, num_latest_draws)
+    latest_7lc_draws = get_latest_draws(SevenLCDraw, num_latest_draws)
 
     return render_template('prediction.html',
                            latest_ssq_draws=latest_ssq_draws,
                            latest_dlt_draws=latest_dlt_draws,
+                           latest_kl8_draws=latest_kl8_draws,
+                           latest_7xc_draws=latest_7xc_draws,
+                           latest_7lc_draws=latest_7lc_draws,
                            get_consecutive_groups=get_consecutive_groups, # Pass the function to the template
                            settings=CURRENT_SETTINGS, # 传递设置到模板
                            ssq_red_trend_rules=CURRENT_SETTINGS.get('ssq_red_trend_rules', {}),
@@ -1600,7 +1599,7 @@ def api_smart_filter():
     count_str = data.get('count', '5')
     options = data.get('options', {})
 
-    if not lottery_type or lottery_type not in ['ssq', 'dlt']:
+    if not lottery_type or lottery_type not in ['ssq', 'dlt', 'kl8', '7xc', '7lc']:
         return jsonify({'error': 'Invalid or missing lottery_type'}), 400
 
     try:

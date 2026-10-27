@@ -7,7 +7,7 @@ import random
 import math
 from collections import Counter
 from flask import current_app
-from models import SSQDraw, DLTDraw, db
+from models import SSQDraw, DLTDraw, KL8Draw, SevenXCDraw, SevenLCDraw, db
 from config import CURRENT_SETTINGS, PRIZE_RULES
 from utils import (
     format_lottery_numbers, get_consecutive_groups,
@@ -24,7 +24,14 @@ __version__ = "1.0.0"
 
 def get_latest_draws_for_smart(lottery_type, num_draws=50):
     """获取指定彩票类型的最新N期开奖数据"""
-    model_class = SSQDraw if lottery_type == 'ssq' else DLTDraw
+    model_map = {
+        'ssq': SSQDraw,
+        'dlt': DLTDraw,
+        'kl8': KL8Draw,
+        '7xc': SevenXCDraw,
+        '7lc': SevenLCDraw
+    }
+    model_class = model_map.get(lottery_type, SSQDraw)
     return model_class.query.order_by(model_class.issue.desc()).limit(num_draws).all()
 
 
@@ -492,6 +499,154 @@ def check_dlt_blue_size(blue_balls, target="1:1"):
 
 # ==================== 智能筛选主函数 ====================
 
+
+def generate_kl8_smart(count=5, options=None):
+    """快乐8智能缩水过滤生成"""
+    options = options or {}
+    pick_count = int(options.get('pick_count', 10))
+    min_sum = int(options.get('min_sum', 300))
+    max_sum = int(options.get('max_sum', 520))
+    allowed_odd_even = options.get('allowed_odd_even', ['5:5', '4:6', '6:4'])
+    allowed_pan = options.get('allowed_pan', ['5:5', '6:4', '4:6']) # 上下盘比
+    dan_balls = set(int(b) for b in options.get('dan_balls', []) if str(b).isdigit())
+    kill_balls = set(int(b) for b in options.get('kill_balls', []) if str(b).isdigit())
+    
+    available_pool = [b for b in range(1, 81) if b not in kill_balls and b not in dan_balls]
+    
+    results = []
+    attempts = 0
+    while len(results) < count and attempts < 15000:
+        attempts += 1
+        needed = pick_count - len(dan_balls)
+        if needed < 0 or needed > len(available_pool):
+            break
+        chosen = list(dan_balls) + random.sample(available_pool, needed)
+        chosen.sort()
+        
+        # 1. 和值过滤
+        s = sum(chosen)
+        if not (min_sum <= s <= max_sum):
+            continue
+            
+        # 2. 奇偶比过滤
+        odd_cnt = sum(1 for b in chosen if b % 2 == 1)
+        even_cnt = pick_count - odd_cnt
+        oe_str = f"{odd_cnt}:{even_cnt}"
+        if allowed_odd_even and oe_str not in allowed_odd_even:
+            continue
+            
+        # 3. 上下盘比过滤 (01-40 与 41-80)
+        top_cnt = sum(1 for b in chosen if b <= 40)
+        bot_cnt = pick_count - top_cnt
+        pan_str = f"{top_cnt}:{bot_cnt}"
+        if allowed_pan and pan_str not in allowed_pan:
+            continue
+            
+        results.append({
+            'red_balls': chosen,
+            'blue_balls': [],
+            'stats': {
+                'red_sum': s,
+                'red_odd_even_ratio': oe_str,
+                'kl8_pan_ratio': pan_str,
+                'red_span': chosen[-1] - chosen[0]
+            }
+        })
+    return results
+
+def generate_7xc_smart(count=5, options=None):
+    """七星彩智能缩水过滤生成 (6位前区+1位后区)"""
+    options = options or {}
+    min_sum = int(options.get('min_sum', 18))
+    max_sum = int(options.get('max_sum', 38))
+    allowed_odd_even = options.get('allowed_odd_even', ['3:3', '4:2', '2:4'])
+    allowed_size = options.get('allowed_size', ['3:3', '4:2', '2:4'])
+    
+    results = []
+    attempts = 0
+    while len(results) < count and attempts < 15000:
+        attempts += 1
+        front_6 = [random.randint(0, 9) for _ in range(6)]
+        back = random.randint(0, 14)
+        
+        s = sum(front_6)
+        if not (min_sum <= s <= max_sum):
+            continue
+            
+        odd_cnt = sum(1 for d in front_6 if d % 2 == 1)
+        even_cnt = 6 - odd_cnt
+        oe_str = f"{odd_cnt}:{even_cnt}"
+        if allowed_odd_even and oe_str not in allowed_odd_even:
+            continue
+            
+        small_cnt = sum(1 for d in front_6 if d <= 4)
+        large_cnt = 6 - small_cnt
+        sz_str = f"{small_cnt}:{large_cnt}"
+        if allowed_size and sz_str not in allowed_size:
+            continue
+            
+        results.append({
+            'red_balls': front_6,
+            'blue_balls': [back],
+            'stats': {
+                'front_sum': s,
+                'red_odd_even_ratio': oe_str,
+                'red_size_ratio': sz_str,
+                'back_number': back
+            }
+        })
+    return results
+
+def generate_7lc_smart(count=5, options=None):
+    """七乐彩智能缩水过滤生成 (30选7)"""
+    options = options or {}
+    min_sum = int(options.get('min_sum', 75))
+    max_sum = int(options.get('max_sum', 145))
+    allowed_odd_even = options.get('allowed_odd_even', ['4:3', '3:4', '5:2', '2:5'])
+    allowed_size = options.get('allowed_size', ['4:3', '3:4'])
+    dan_balls = set(int(b) for b in options.get('dan_balls', []) if str(b).isdigit())
+    kill_balls = set(int(b) for b in options.get('kill_balls', []) if str(b).isdigit())
+    
+    available_pool = [b for b in range(1, 31) if b not in kill_balls and b not in dan_balls]
+    
+    results = []
+    attempts = 0
+    while len(results) < count and attempts < 15000:
+        attempts += 1
+        needed = 7 - len(dan_balls)
+        if needed < 0 or needed > len(available_pool):
+            break
+        chosen = list(dan_balls) + random.sample(available_pool, needed)
+        chosen.sort()
+        
+        s = sum(chosen)
+        if not (min_sum <= s <= max_sum):
+            continue
+            
+        odd_cnt = sum(1 for b in chosen if b % 2 == 1)
+        even_cnt = 7 - odd_cnt
+        oe_str = f"{odd_cnt}:{even_cnt}"
+        if allowed_odd_even and oe_str not in allowed_odd_even:
+            continue
+            
+        small_cnt = sum(1 for b in chosen if b <= 15)
+        large_cnt = 7 - small_cnt
+        sz_str = f"{small_cnt}:{large_cnt}"
+        if allowed_size and sz_str not in allowed_size:
+            continue
+            
+        results.append({
+            'red_balls': chosen,
+            'blue_balls': [],
+            'stats': {
+                'red_sum': s,
+                'red_odd_even_ratio': oe_str,
+                'red_size_ratio': sz_str,
+                'red_span': chosen[-1] - chosen[0]
+            }
+        })
+    return results
+
 def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
     """
     智能筛选生成号码的主函数
@@ -506,6 +661,12 @@ def generate_smart_filtered_numbers(lottery_type, count=5, options=None):
     """
     if options is None:
         options = {}
+    if lottery_type == 'kl8':
+        return generate_kl8_smart(count, options)
+    elif lottery_type == '7xc':
+        return generate_7xc_smart(count, options)
+    elif lottery_type == '7lc':
+        return generate_7lc_smart(count, options)
     
     current_app.logger.info(f"Smart filter: Generating {count} {lottery_type} numbers with options: {options}")
     
