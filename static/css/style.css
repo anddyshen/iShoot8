@@ -1,156 +1,548 @@
-/* Base styles for lottery balls */
+/* ==========================================================================
+   iShoot - 现代轻科技设计系统 (Modern Tech Dashboard Design System)
+   ========================================================================== */
+
+:root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    /* 全局光影与圆角 */
+    --card-radius: 14px;
+    --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+    --card-shadow-hover: 0 10px 25px -3px rgba(15, 23, 42, 0.1), 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+    --transition-base: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* 亮色模式底色 */
+    --app-bg: #f8fafc;
+    --navbar-bg: rgba(255, 255, 255, 0.85);
+    --navbar-border: rgba(226, 232, 240, 0.8);
+    --navbar-text: #1e293b;
+    --glass-blur: blur(12px);
+
+    /* 彩票球 - 晶莹立体质感光泽 (亮色环境) */
+    --red-ball-gradient: radial-gradient(circle at 35% 30%, #ff7875 0%, #f5222d 55%, #cf1322 100%);
+    --red-ball-shadow: 0 4px 10px rgba(245, 34, 45, 0.35), inset 0 -2px 5px rgba(0, 0, 0, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+
+    --blue-ball-gradient: radial-gradient(circle at 35% 30%, #69c0ff 0%, #1677ff 55%, #0958d9 100%);
+    --blue-ball-shadow: 0 4px 10px rgba(22, 119, 255, 0.35), inset 0 -2px 5px rgba(0, 0, 0, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+}
+
+[data-bs-theme="dark"] {
+    --app-bg: #090d16;
+    --navbar-bg: rgba(15, 23, 42, 0.85);
+    --navbar-border: rgba(51, 65, 85, 0.7);
+    --navbar-text: #f1f5f9;
+
+    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+    --card-shadow-hover: 0 10px 25px -3px rgba(0, 0, 0, 0.55);
+
+    /* 暗黑模式下彩球稍增强高光反差 */
+    --red-ball-gradient: radial-gradient(circle at 35% 30%, #ffa39e 0%, #ff4d4f 55%, #cf1322 100%);
+    --red-ball-shadow: 0 4px 12px rgba(255, 77, 79, 0.45), inset 0 -2px 5px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+
+    --blue-ball-gradient: radial-gradient(circle at 35% 30%, #91caff 0%, #2f54eb 55%, #10239e 100%);
+    --blue-ball-shadow: 0 4px 12px rgba(47, 84, 235, 0.45), inset 0 -2px 5px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--app-bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    color: var(--bs-body-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   导航栏 (Glassmorphic Navbar)
+   ========================================================================== */
+
+.ishoot-navbar {
+    background-color: var(--navbar-bg) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--navbar-border);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: var(--transition-base);
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}
+
+.ishoot-brand {
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--navbar-text) !important;
+    text-decoration: none;
+}
+
+.brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #ff4d4f 0%, #1677ff 100%);
+    border-radius: 9px;
+    color: #fff;
+    font-size: 1.1rem;
+    box-shadow: 0 3px 8px rgba(245, 34, 45, 0.3);
+}
+
+.navbar-nav .nav-link {
+    color: var(--navbar-text);
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 0.85rem !important;
+    border-radius: 8px;
+    margin: 0 2px;
+    transition: var(--transition-base);
+    opacity: 0.85;
+}
+
+.navbar-nav .nav-link:hover {
+    opacity: 1;
+    background-color: rgba(148, 163, 184, 0.15);
+    color: var(--navbar-text);
+}
+
+.navbar-nav .nav-link.active {
+    opacity: 1;
+    background-color: rgba(22, 119, 255, 0.12);
+    color: #1677ff !important;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .navbar-nav .nav-link.active {
+    background-color: rgba(64, 150, 255, 0.2);
+    color: #69c0ff !important;
+}
+
+/* 状态微点 (Pulsing live indicator) */
+.live-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #52c41a;
+    box-shadow: 0 0 0 rgba(82, 196, 26, 0.6);
+    animation: pulse 2s infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(82, 196, 26, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(82, 196, 26, 0); }
+}
+
+/* 主题切换开关按钮 */
+.theme-toggle-btn {
+    border: 1px solid var(--navbar-border);
+    background: transparent;
+    color: var(--navbar-text);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-base);
+    padding: 0;
+}
+
+.theme-toggle-btn:hover {
+    background-color: rgba(148, 163, 184, 0.15);
+    transform: rotate(15deg);
+}
+
+/* ==========================================================================
+   晶莹立体彩票球 (Crystal 3D Lottery Balls)
+   ========================================================================== */
+
 .lottery-ball {
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    width: 30px; /* Adjust size as needed */
-    height: 30px; /* Adjust size as needed */
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    font-weight: bold;
-    color: #fff; /* Default text color */
-    margin: 2px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #ffffff !important;
+    margin: 3px;
     box-sizing: border-box;
-    border: 1px solid transparent; /* Default border */
-    transition: all 0.2s ease-in-out;
+    position: relative;
+    user-select: none;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    border: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.lottery-ball:hover {
+    transform: translateY(-2px) scale(1.08);
+    z-index: 5;
 }
 
 .ball-red {
-    background-color: #d11717; /* Bootstrap red */
+    background: var(--red-ball-gradient) !important;
+    box-shadow: var(--red-ball-shadow) !important;
 }
 
 .ball-blue {
-    background-color: #084bb1; /* Bootstrap blue */
+    background: var(--blue-ball-gradient) !important;
+    box-shadow: var(--blue-ball-shadow) !important;
 }
 
-/* Styles for consecutive balls - 区分红球和蓝球（大乐透后区） */
-/* ===== 红球（前区）连号 ===== */
-/* 2连号：深绿色系（更深） */
+/* 选号高亮状态 (Highlight on Click/Hover) */
+.lottery-ball.highlighted {
+    transform: translateY(-3px) scale(1.15) !important;
+    box-shadow: 0 0 0 3px #faad14, 0 8px 18px rgba(250, 173, 20, 0.6) !important;
+    z-index: 10;
+    animation: ball-pulse 1.5s infinite;
+}
+
+@keyframes ball-pulse {
+    0%, 100% { transform: translateY(-3px) scale(1.15); }
+    50% { transform: translateY(-3px) scale(1.22); }
+}
+
+/* ===== 连号样式 (保持球体晶莹微光质感并以立体渐变呈现) ===== */
+/* 红球2连号：翡翠绿渐变 */
 .ball-consecutive-red-2_0,
 .ball-consecutive-red-2 {
-    background-color: #1e8449; /* 深绿色 - 第1组2连号 */
+    background: radial-gradient(circle at 35% 30%, #52c41a 0%, #237804 60%, #135200 100%) !important;
+    box-shadow: 0 4px 10px rgba(35, 120, 4, 0.4), inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.4) !important;
 }
 .ball-consecutive-red-2_1 {
-    background-color: #145a32; /* 更深的绿色 - 第2组2连号 */
+    background: radial-gradient(circle at 35% 30%, #389e0d 0%, #135200 65%, #092b00 100%) !important;
+    box-shadow: 0 4px 10px rgba(19, 82, 0, 0.45), inset 0 -2px 4px rgba(0,0,0,0.3) !important;
 }
 .ball-consecutive-red-2_2 {
-    background-color: #0e4225; /* 最深绿色 - 第3组2连号 */
+    background: radial-gradient(circle at 35% 30%, #237804 0%, #092b00 75%, #041400 100%) !important;
 }
 
-/* 3连号：紫色系 */
+/* 红球3连号：紫水晶渐变 */
 .ball-consecutive-red-3_0,
 .ball-consecutive-red-3 {
-    background-color: #9b59b6; /* 紫色 - 第1组3连号 */
+    background: radial-gradient(circle at 35% 30%, #b37feb 0%, #722ed1 60%, #391085 100%) !important;
+    box-shadow: 0 4px 10px rgba(114, 46, 209, 0.4), inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.4) !important;
 }
 .ball-consecutive-red-3_1 {
-    background-color: #8e44ad; /* 深紫色 - 第2组3连号 */
+    background: radial-gradient(circle at 35% 30%, #9254de 0%, #531dab 65%, #22075e 100%) !important;
 }
 
-/* 4连号：金色系 */
+/* 红球4连号：鎏金渐变 */
 .ball-consecutive-red-4_0,
 .ball-consecutive-red-4 {
-    background-color: #f1c40f; /* 金色 - 第1组4连号 */
+    background: radial-gradient(circle at 35% 30%, #ffe58f 0%, #faad14 60%, #ad6800 100%) !important;
+    color: #262626 !important;
+    text-shadow: none !important;
+    box-shadow: 0 4px 10px rgba(250, 173, 20, 0.4), inset 0 -2px 4px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.6) !important;
 }
 .ball-consecutive-red-4_1 {
-    background-color: #d4ac0d; /* 深金色 - 第2组4连号 */
+    background: radial-gradient(circle at 35% 30%, #ffd666 0%, #d48806 65%, #874d00 100%) !important;
+    color: #262626 !important;
 }
 
-/* 5连号：淡绿色系 */
+/* 红球5连号：薄荷青渐变 */
 .ball-consecutive-red-5_0,
 .ball-consecutive-red-5 {
-    background-color: #58d68d; /* 淡绿色 - 第1组5连号 */
-}
-.ball-consecutive-red-5_1 {
-    background-color: #2ecc71; /* 绿色 - 第2组5连号 */
+    background: radial-gradient(circle at 35% 30%, #87e8de 0%, #13c2c2 60%, #006d75 100%) !important;
+    box-shadow: 0 4px 10px rgba(19, 194, 194, 0.4), inset 0 -2px 4px rgba(0,0,0,0.3) !important;
 }
 
-/* 6连号：淡蓝色系 */
+/* 红球6连号：冰川蓝渐变 */
 .ball-consecutive-red-6_0,
 .ball-consecutive-red-6 {
-    background-color: #85c1e9; /* 淡蓝色 - 第1组6连号 */
-}
-.ball-consecutive-red-6_1 {
-    background-color: #5dade2; /* 偏深淡蓝 - 第2组6连号 */
+    background: radial-gradient(circle at 35% 30%, #bae0ff 0%, #4096ff 60%, #0958d9 100%) !important;
+    box-shadow: 0 4px 10px rgba(64, 150, 255, 0.4), inset 0 -2px 4px rgba(0,0,0,0.3) !important;
 }
 
-/* ===== 蓝球（后区）连号 - 仅大乐透后区有2个球可能组成连号 ===== */
-/* 大乐透后区2连号：橙色系 */
+/* 蓝球（大乐透后区）2连号：暖橙金渐变 */
 .ball-consecutive-blue-2_0,
 .ball-consecutive-blue-2 {
-    background-color: #e67e22; /* 橙色 - 第1组2连号 */
+    background: radial-gradient(circle at 35% 30%, #ffbb96 0%, #fa541c 60%, #ad2102 100%) !important;
+    box-shadow: 0 4px 10px rgba(250, 84, 28, 0.4), inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.4) !important;
 }
 .ball-consecutive-blue-2_1 {
-    background-color: #d35400; /* 深橙色 - 第2组2连号 */
+    background: radial-gradient(circle at 35% 30%, #ff9c6e 0%, #d4380d 65%, #871400 100%) !important;
 }
 
-/* Styles for the prediction tab buttons */
-.lottery-section-tabs .btn {
-    border: 1px solid; /* Add a border to match the text color when unselected */
-    transition: all 0.3s ease;
+/* ==========================================================================
+   卡片与排版微调 (Modern Cards & Content Elevation)
+   ========================================================================== */
+
+.card {
+    border-radius: var(--card-radius);
+    border: 1px solid var(--navbar-border);
+    box-shadow: var(--card-shadow);
+    transition: var(--transition-base);
+    background-color: var(--bs-card-bg);
 }
 
-.lottery-section-tabs .btn-danger.active {
-    background-color: #dc3545; /* Bootstrap red */
-    color: #fff;
-    border-color: #dc3545;
+.card:hover {
+    box-shadow: var(--card-shadow-hover);
 }
 
-.lottery-section-tabs .btn-danger:not(.active) {
-    background-color: transparent;
-    color: #dc3545; /* Red text */
-    border-color: #dc3545;
+.card-header {
+    border-top-left-radius: var(--card-radius) !important;
+    border-top-right-radius: var(--card-radius) !important;
+    font-weight: 600;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--navbar-border);
 }
 
-.lottery-section-tabs .btn-primary.active {
-    background-color: #0d6efd; /* Bootstrap blue */
-    color: #fff;
-    border-color: #0d6efd;
-}
-
-.lottery-section-tabs .btn-primary:not(.active) {
-    background-color: transparent;
-    color: #0d6efd; /* Blue text */
-    border-color: #0d6efd;
-}
-
-/* Highlight class for lottery balls */
-.lottery-ball.highlighted {
-    background-color: #ffc107; /* Bootstrap yellow */
-    color: #212529; /* Dark text for contrast during highlight */
-    box-shadow: 0 0 8px rgba(255, 193, 7, 0.8);
-    transform: scale(1.1);
-    /* transition: all 0.2s ease-in-out; */ /* Transition is already on base .lottery-ball */
-}
-
-/* Smart filter stats display */
+/* 统计数据徽章 */
 .smart-filter-stats {
     display: inline-block;
     margin-left: 8px;
-    font-size: 0.8em;
+    font-size: 0.82em;
     font-weight: normal;
-    color: #6c757d;
+    color: #64748b;
     vertical-align: middle;
 }
 
 .stats-badge {
     display: inline-block;
-    padding: 2px 6px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 3px;
+    padding: 3px 8px;
+    background-color: rgba(148, 163, 184, 0.12);
+    border: 1px solid var(--navbar-border);
+    border-radius: 6px;
     font-size: 0.85em;
+    font-weight: 500;
 }
 
-.stats-rank-1 {
-    color: #dc3545;
-    font-weight: bold;
+.stats-rank-1 { color: #f5222d; font-weight: 700; }
+.stats-rank-2 { color: #fa8c16; font-weight: 700; }
+.stats-rank-3 { color: #1677ff; font-weight: 700; }
+
+/* 页面按钮与标签页美化 */
+.lottery-section-tabs .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    transition: var(--transition-base);
 }
 
-.stats-rank-2 {
-    color: #fd7e14;
-    font-weight: bold;
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: var(--transition-base);
 }
 
-.stats-rank-3 {
-    color: #0d6efd;
-    font-weight: bold;
+/* 页脚样式 (Modern Light/Dark Footer) */
+.ishoot-footer {
+    border-top: 1px solid var(--navbar-border);
+    background-color: var(--navbar-bg) !important;
+    padding: 2rem 0 1.5rem;
+    color: #64748b;
+    font-size: 0.88rem;
+    margin-top: auto;
 }
+
+[data-bs-theme="dark"] .ishoot-footer {
+    color: #94a3b8;
+}
+
+/* 自定义优雅细滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7);
+}
+
+/* ==========================================================================
+   号码筛选与预测页面 (Prediction & Smart Filter) 现代组件
+   ========================================================================== */
+
+.prediction-result-card {
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+    border: 1px solid var(--navbar-border) !important;
+    box-shadow: var(--card-shadow) !important;
+    transition: var(--transition-base) !important;
+    background-color: var(--bs-card-bg);
+}
+
+.prediction-result-card:hover {
+    box-shadow: var(--card-shadow-hover) !important;
+    transform: translateY(-2px);
+}
+
+.prediction-result-card.rule-based {
+    background: linear-gradient(135deg, rgba(250, 173, 20, 0.08) 0%, rgba(250, 140, 22, 0.03) 100%) !important;
+    border-left: 5px solid #faad14 !important;
+}
+
+.prediction-result-card.random-generated {
+    background: linear-gradient(135deg, rgba(82, 196, 26, 0.08) 0%, rgba(19, 194, 194, 0.03) 100%) !important;
+    border-left: 5px solid #52c41a !important;
+}
+
+[data-bs-theme="dark"] .prediction-result-card.rule-based {
+    background: linear-gradient(135deg, rgba(250, 173, 20, 0.14) 0%, rgba(250, 140, 22, 0.05) 100%) !important;
+    border-left: 5px solid #d48806 !important;
+}
+
+[data-bs-theme="dark"] .prediction-result-card.random-generated {
+    background: linear-gradient(135deg, rgba(82, 196, 26, 0.14) 0%, rgba(19, 194, 194, 0.05) 100%) !important;
+    border-left: 5px solid #389e0d !important;
+}
+
+.rule-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--navbar-border) !important;
+    padding: 12px !important;
+    border-radius: 10px !important;
+    background-color: var(--bs-tertiary-bg) !important;
+}
+
+.smart-filter-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px !important;
+    border: 1px solid var(--navbar-border) !important;
+    border-radius: 10px !important;
+    background: var(--bs-tertiary-bg) !important;
+}
+
+.smart-filter-checkbox-group .form-check-inline {
+    margin-right: 6px;
+    margin-bottom: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: var(--transition-base);
+}
+
+.smart-filter-checkbox-group .form-check-inline:hover {
+    background-color: rgba(148, 163, 184, 0.15);
+}
+
+.smart-filter-settings-header {
+    background: linear-gradient(135deg, rgba(22, 119, 255, 0.08) 0%, rgba(22, 119, 255, 0.02) 100%) !important;
+    color: var(--bs-body-color) !important;
+}
+
+/* ==========================================================================
+   对奖中心 (Prize Check) 交互组件与球体选择器
+   ========================================================================== */
+
+.ball-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px 4px;
+    margin-bottom: 12px;
+}
+
+.ball-selector-grid .ball {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--navbar-border);
+    background-color: var(--bs-tertiary-bg);
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+    margin: 0 auto;
+    font-size: 0.92em;
+    color: var(--bs-body-color);
+    user-select: none;
+}
+
+.ball-selector-grid .ball:hover:not(.selected-red):not(.selected-blue):not(.highlight-draw) {
+    transform: translateY(-2px) scale(1.08);
+    background-color: rgba(148, 163, 184, 0.2);
+    border-color: #1677ff;
+}
+
+.ball-selector-grid .ball.selected-red {
+    background: var(--red-ball-gradient) !important;
+    color: #ffffff !important;
+    box-shadow: var(--red-ball-shadow) !important;
+    border: none !important;
+    transform: scale(1.1);
+}
+
+.ball-selector-grid .ball.selected-blue {
+    background: var(--blue-ball-gradient) !important;
+    color: #ffffff !important;
+    box-shadow: var(--blue-ball-shadow) !important;
+    border: none !important;
+    transform: scale(1.1);
+}
+
+.ball-selector-grid .ball.highlight-draw {
+    background: radial-gradient(circle at 35% 30%, #ffd666 0%, #faad14 65%, #ad6800 100%) !important;
+    color: #262626 !important;
+    box-shadow: 0 4px 10px rgba(250, 173, 20, 0.45) !important;
+    border: none !important;
+}
+
+.ball-selector-grid .ball.highlight-next-draw {
+    background: radial-gradient(circle at 35% 30%, #ffbb96 0%, #fa541c 65%, #ad2102 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(250, 84, 28, 0.45) !important;
+    border: none !important;
+}
+
+.selected-balls-display {
+    min-height: 60px;
+    border: 2px dashed var(--navbar-border);
+    padding: 12px 16px;
+    border-radius: 12px;
+    background-color: var(--bs-tertiary-bg);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.candidate-entry {
+    border: 1px solid var(--navbar-border);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    background-color: var(--bs-card-bg);
+    box-shadow: var(--card-shadow);
+    transition: var(--transition-base);
+}
+
+.candidate-entry:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-1px);
+}
+
+.latest-draw-section {
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--navbar-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: var(--card-shadow);
+}
+

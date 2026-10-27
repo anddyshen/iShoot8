@@ -1,0 +1,28 @@
+services:
+  ishoot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ishoot-app
+    restart: unless-stopped
+    ports:
+      # 群晖等 NAS 宿主机默认 5000 端口通常被 DSM 占用，故宿主机映射推荐使用 5005 或 8080
+      - "5005:5000"
+    volumes:
+      # 持久化数据目录（SQLite数据库与系统配置）
+      - ./instance:/app/instance
+      # 持久化用户上传的文件与头像
+      - ./uploads:/app/uploads
+      # 持久化设置与数据库备份文件
+      - ./backups:/app/backups
+    environment:
+      - FLASK_SECRET_KEY=change_this_to_a_random_secure_secret_key
+      - ADMIN_PASSWORD=admin123
+      - ADMIN_ROUTE_PREFIX=admin_xyz12
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

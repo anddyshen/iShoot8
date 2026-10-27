@@ -1,118 +1,197 @@
 <!-- templates/base.html -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_name }} - {% block title %}{% endblock %}</title>
     <meta name="keywords" content="双色球预测, 大乐透预测, 彩票号码预测, 彩票分析, 历史开奖数据, 彩票统计, 智能选号, 复式投注, 中奖查询, 彩票工具，双色球开奖,超级大乐透,彩票开奖查询，福彩3D，七乐彩，快乐8，胜负彩，任九，竞彩足球,排列3,双色球缩水工具，彩票号码缩减算法，大乐透杀号选号,算法选号软件,福彩3D算法杀号,快乐8号码缩水,彩票号码筛选器,大乐透遗漏筛选,双色球热冷号筛选,投注组合筛选,竞彩篮球号码筛选,排列5组合筛选">
     <meta name="description" content="提供双色球和大乐透的智能号码科学缩号筛选、历史数据查询、统计分析和中奖核对工具，助您理性投注。">
+    
+    <!-- 优先读取本地存储的主题设定，防止刷新白闪屏 -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('ishoot_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
+
+    <!-- Bootstrap 5.3.2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- 自定义现代设计系统 CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- 引入 Bootstrap Icons CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
-     {% block head %}{% endblock %}
+    
+    {% block head %}{% endblock %}
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H4C13D1ENW"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-H4C13D1ENW');
     </script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('routes.index') }}">{{ site_name }}</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
+    <!-- 现代毛玻璃导航栏 -->
+    <nav class="navbar navbar-expand-lg ishoot-navbar sticky-top">
+        <div class="container-fluid px-lg-4">
+            <!-- 品牌 Logo -->
+            <a class="ishoot-brand" href="{{ url_for('routes.index') }}">
+                <span class="brand-icon"><i class="bi bi-bullseye"></i></span>
+                <span>i<span class="text-danger">Shoot</span></span>
+            </a>
+
+            <!-- 移动端汉堡折叠按钮 -->
+            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list fs-2"></i>
             </button>
+
+            <!-- 导航菜单 -->
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.index' %}active{% endif %}" aria-current="page" href="{{ url_for('routes.index') }}">首页</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.index' %}active{% endif %}" href="{{ url_for('routes.index') }}">
+                            <i class="bi bi-house-door me-1"></i> 首页
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.history' %}active{% endif %}" href="{{ url_for('routes.history') }}">历史数据</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.history' %}active{% endif %}" href="{{ url_for('routes.history') }}">
+                            <i class="bi bi-calendar3 me-1"></i> 历史数据
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.statistics' %}active{% endif %}" href="{{ url_for('routes.statistics') }}">统计数据</a> {# <-- 新增统计数据链接 #}
+                        <a class="nav-link {% if request.endpoint == 'routes.statistics' %}active{% endif %}" href="{{ url_for('routes.statistics') }}">
+                            <i class="bi bi-bar-chart-line me-1"></i> 统计数据
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.prediction' %}active{% endif %}" href="{{ url_for('routes.prediction') }}">号码筛选</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.prediction' %}active{% endif %}" href="{{ url_for('routes.prediction') }}">
+                            <i class="bi bi-funnel me-1"></i> 号码筛选
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.prize_check' %}active{% endif %}" href="{{ url_for('routes.prize_check') }}">对奖中心</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.prize_check' %}active{% endif %}" href="{{ url_for('routes.prize_check') }}">
+                            <i class="bi bi-award me-1"></i> 对奖中心
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'routes.intelligent_analysis' %}active{% endif %}" href="{{ url_for('routes.intelligent_analysis') }}">数据接口</a>
+                        <a class="nav-link {% if request.endpoint == 'routes.intelligent_analysis' %}active{% endif %}" href="{{ url_for('routes.intelligent_analysis') }}">
+                            <i class="bi bi-cpu me-1"></i> 数据接口
+                        </a>
                     </li>
-                    <!-- 后台管理入口，仅在开发或特定条件下显示 -->
-                    {% if session.get('logged_in_admin') %}
+                    {% if session.get('logged_in_admin') or (current_user.is_authenticated and current_user.is_admin) %}
                     <li class="nav-item">
-                        <a class="nav-link text-warning {% if request.blueprint == 'admin_routes' %}active{% endif %}" href="{{ url_for('admin_routes.admin_dashboard') }}">后台管理</a>
+                        <a class="nav-link text-warning fw-semibold {% if request.blueprint == 'admin_routes' %}active{% endif %}" href="{{ url_for('admin_routes.admin_dashboard') }}">
+                            <i class="bi bi-shield-check me-1"></i> 后台管理
+                        </a>
                     </li>
                     {% endif %}
                 </ul>
-                <ul class="navbar-nav">
+
+                <!-- 右侧实用工具栏与用户中心 -->
+                <ul class="navbar-nav align-items-center gap-2">
+                    <!-- 实时时间与调度状态微标 -->
+                    <li class="nav-item d-none d-xl-flex align-items-center text-muted small me-2">
+                        <span class="live-pulse" title="数据定时引擎运行中"></span>
+                        <span id="live-clock">{{ current_datetime }}</span>
+                    </li>
+
+                    <!-- 暗黑/白天模式一键切换 -->
+                    <li class="nav-item">
+                        <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="切换暗黑/白天模式" aria-label="切换主题">
+                            <i class="bi bi-moon-stars" id="themeIcon"></i>
+                        </button>
+                    </li>
+
                     {% if current_user.is_authenticated %}
+                    <!-- 通知下拉 -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="loadNotificationPreview()">
+                        <a class="nav-link position-relative p-2" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="loadNotificationPreview()">
                             <i class="bi bi-bell fs-5"></i>
-                            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px; {% if current_user.is_authenticated and unread_notifications > 0 %}display:block;{% else %}display:none;{% endif %}">{% if current_user.is_authenticated and unread_notifications > 0 %}{{ unread_notifications if unread_notifications <= 99 else '99+' }}{% else %}0{% endif %}</span>
+                            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px; {% if unread_notifications > 0 %}display:block;{% else %}display:none;{% endif %}">
+                                {{ unread_notifications if unread_notifications <= 99 else '99+' }}
+                            </span>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notificationDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
-                            <li><h6 class="dropdown-header">🔔 通知 <small id="notifPreviewCount" class="text-muted"></small></h6></li>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3" aria-labelledby="notificationDropdown" style="width: 340px; max-height: 400px; overflow-y: auto;">
+                            <li><h6 class="dropdown-header d-flex justify-content-between align-items-center"><span>🔔 最新通知</span> <small id="notifPreviewCount" class="text-muted"></small></h6></li>
                             <div id="notificationPreview">
                                 <li style="text-align:center;padding:20px;color:#999;"><small>加载中...</small></li>
                             </div>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-center small" href="{{ url_for('auth_routes.notification_history') }}">📋 查看全部通知</a></li>
+                            <li><a class="dropdown-item text-center small text-primary" href="{{ url_for('auth_routes.notification_history') }}">查看全部通知 <i class="bi bi-arrow-right"></i></a></li>
                         </ul>
                     </li>
+
+                    <!-- 用户头像与个人中心下拉 -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i> {{ current_user.nickname or current_user.username }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.profile') }}"><i class="bi bi-person"></i> 个人中心</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.favorites') }}"><i class="bi bi-heart"></i> 心仪号码</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.purchased') }}"><i class="bi bi-cart-check"></i> 已购号码</a></li>
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 fw-medium" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-5 {% if current_user.is_admin %}text-warning{% else %}text-primary{% endif %}"></i>
+                            <span>{{ current_user.nickname or current_user.username }}</span>
                             {% if current_user.is_admin %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('admin_routes.admin_dashboard') }}"><i class="bi bi-gear"></i> 管理页面</a></li>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small py-0">管理</span>
                             {% endif %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth_routes.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3" aria-labelledby="userDropdown" style="min-width: 230px;">
+                            <li class="px-3 py-2 border-bottom mb-1 bg-body-tertiary rounded-top-3">
+                                <div class="fw-bold text-truncate">{{ current_user.nickname or current_user.username }}</div>
+                                <div class="small text-muted d-flex align-items-center gap-1">
+                                    <i class="bi bi-shield-lock"></i>
+                                    <span>角色: {% if current_user.is_admin %}<strong class="text-warning">系统管理员</strong>{% else %}<span class="text-secondary">普通用户</span>{% endif %}</span>
+                                </div>
+                            </li>
+
+                            <!-- 普通用户与全局偏好设置 -->
+                            <li><h6 class="dropdown-header text-uppercase small text-muted"><i class="bi bi-sliders2 me-1"></i> 个人偏好设置</h6></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('auth_routes.profile') }}"><i class="bi bi-person-gear me-2 text-primary"></i> 个人资料与密码</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('auth_routes.notification_settings') }}"><i class="bi bi-bell-gear me-2 text-info"></i> 消息推送与通知设置</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('auth_routes.favorites') }}"><i class="bi bi-heart me-2 text-danger"></i> 心仪号码收藏</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('auth_routes.purchased') }}"><i class="bi bi-cart-check me-2 text-success"></i> 已购追号管理</a></li>
+
+                            <!-- 仅管理员可见的管理与全局系统设置 -->
+                            {% if current_user.is_admin %}
+                            <li><hr class="dropdown-divider my-2"></li>
+                            <li><h6 class="dropdown-header text-uppercase small text-warning"><i class="bi bi-shield-shaded me-1"></i> 网站管理与系统设置</h6></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('admin_routes.admin_settings_general') }}"><i class="bi bi-gear-wide-connected me-2 text-warning"></i> 网站综合参数设置</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('admin_routes.admin_settings_ssq') }}"><i class="bi bi-gem me-2 text-warning"></i> 双色球规则参数</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('admin_routes.admin_settings_dlt') }}"><i class="bi bi-trophy me-2 text-warning"></i> 大乐透规则参数</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('admin_routes.admin_users') }}"><i class="bi bi-people me-2 text-warning"></i> 用户与权限管理</a></li>
+                            <li><a class="dropdown-item py-1" href="{{ url_for('admin_routes.admin_dashboard') }}"><i class="bi bi-speedometer2 me-2 text-warning"></i> 管理员控制台首页</a></li>
+                            {% endif %}
+
+                            <li><hr class="dropdown-divider my-2"></li>
+                            <li><a class="dropdown-item py-1 text-danger" href="{{ url_for('auth_routes.logout') }}"><i class="bi bi-box-arrow-right me-2"></i> 退出登录</a></li>
                         </ul>
                     </li>
                     {% else %}
+                    <!-- 登录/注册按钮 -->
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth_routes.login') }}"><i class="bi bi-box-arrow-in-right"></i> 登录</a>
+                        <a class="nav-link px-3" href="{{ url_for('auth_routes.login') }}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> 登录
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth_routes.register') }}"><i class="bi bi-person-plus"></i> 注册</a>
+                        <a class="btn btn-primary btn-sm px-3 shadow-sm" href="{{ url_for('auth_routes.register') }}">
+                            <i class="bi bi-person-plus me-1"></i> 注册账号
+                        </a>
                     </li>
                     {% endif %}
                 </ul>
-                <span class="navbar-text small text-light me-3">
-                    当前时间: <span id="live-clock">{{ current_datetime }}</span>
-                </span>
             </div>
         </div>
     </nav>
 
-    <!-- Toast 通知容器 -->
+    <!-- 全局 Toast 提示容器 -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
-        <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header">
+        <div id="liveToast" class="toast border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-primary text-white">
                 <i class="bi bi-bell me-2"></i>
-                <strong class="me-auto" id="toastTitle">提示</strong>
+                <strong class="me-auto" id="toastTitle">系统提示</strong>
                 <small>刚刚</small>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
             <div class="toast-body" id="toastMessage">
                 消息内容
@@ -120,11 +199,14 @@
         </div>
     </div>
 
-    <div class="container mt-4">
+    <!-- 主要内容容器 -->
+    <main class="container my-4 flex-grow-1">
+        <!-- Flash 消息提示 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm border-0 rounded-3 mb-4" role="alert">
+                        <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' or category == 'error' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -133,26 +215,72 @@
         {% endwith %}
 
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    <!-- 现代页脚 -->
+    <footer class="ishoot-footer">
         <div class="container text-center">
-            <span class="text-muted small">
-                &copy; {{ current_datetime.split('-')[0] }} {{ site_name }}. All rights reserved.
-                <br>
-                纯个人爱好，全部代码皆由AI生成。
-                <br>
-                <strong class="text-danger">风险提示：彩票有风险，投注需谨慎。本网站仅供娱乐。</strong>
-                <br>
-                如果你对网站有兴趣，可联系我们 : admin#ishoot.cc
-                <br>
-                版本: {{ app_version }}
-            </span>
+            <div class="mb-2">
+                <span class="fw-bold text-dark-emphasis">{{ site_name }}</span> · 智能彩票数据分析与预测系统
+            </div>
+            <div class="small mb-2">
+                &copy; {{ current_datetime.split('-')[0] }} {{ site_name }}. All rights reserved. 纯个人爱好练手项目，仅供娱乐参考。
+            </div>
+            <div class="small text-danger fw-medium mb-2">
+                <i class="bi bi-shield-exclamation me-1"></i> 风险提示：彩票开奖具备随机性，理性投注，切勿沉迷。
+            </div>
+            <div class="text-muted small">
+                联系方式: admin#ishoot.cc | 版本: <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ app_version }}</span>
+            </div>
         </div>
     </footer>
 
+    <!-- Bootstrap 5.3.2 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 全局主脚本 -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    
+    <!-- 主题切换与时钟控制器 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeBtn = document.getElementById('themeToggleBtn');
+            const themeIcon = document.getElementById('themeIcon');
+            
+            function updateThemeUI(theme) {
+                if (theme === 'dark') {
+                    themeIcon.className = 'bi bi-sun-fill text-warning';
+                    themeBtn.setAttribute('title', '切换为白天模式');
+                } else {
+                    themeIcon.className = 'bi bi-moon-stars';
+                    themeBtn.setAttribute('title', '切换为暗黑模式');
+                }
+            }
+
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            updateThemeUI(currentTheme);
+
+            if (themeBtn) {
+                themeBtn.addEventListener('click', function() {
+                    const activeTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-bs-theme', activeTheme);
+                    localStorage.setItem('ishoot_theme', activeTheme);
+                    updateThemeUI(activeTheme);
+                    // 广播主题变化事件，方便图表等组件响应
+                    window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: activeTheme } }));
+                });
+            }
+
+            // 本地时间秒级微跳动
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) {
+                setInterval(function() {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    clockEl.textContent = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                }, 1000);
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

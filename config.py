@@ -1,9 +1,9 @@
-﻿# config.py
+# config.py
 import os
 import json
 
 # 项目版本号
-__version__ = "1.8.8" # 更新版本号 - 2026年新奖金规则，多用户系统
+__version__ = "2.0.0" # 2.0.0 - 现代轻科技UI、Docker群晖容器化、2026年新规则与多用户系统
 
 # 网站基本信息
 SITE_NAME = "iShoot"
@@ -21,7 +21,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE_PATH = os.path.join(BASE_DIR, 'instance', 'ishoot.db')
 # 服务器上使用 MySQL（本地连接）
 #SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://xmadmin:DPCLsDiFxnLDdHXw@localhost:3306/ishoot.cc?charset=utf8mb4'
-SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
+SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI', f'sqlite:///{DATABASE_PATH}')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # MySQL 连接池配置（解决 uWSGI 多 worker 下 Packet sequence number wrong 错误）

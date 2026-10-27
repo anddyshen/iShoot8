@@ -1,230 +1,183 @@
-# iShoot - 智能彩票数据分析与预测系统（AI自动生成）
+# iShoot - 智能彩票数据分析与预测系统
 
-✨ **版本:** 1.2.0
+<p align="center">
+  <img src="static/img/favicon.ico" alt="iShoot Logo" width="64" height="64">
+  <br>
+  <b>iShoot · 科学数据分析 · 多维智能缩水 · 投资回报核算</b>
+  <br>
+  <span>✨ 当前版本：<b>v2.0.0</b></span>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%20%7C%203.13-blue?logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/Flask-3.1.3-green?logo=flask" alt="Flask">
+  <img src="https://img.shields.io/badge/Bootstrap-5.3.2-purple?logo=bootstrap" alt="Bootstrap">
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/Synology-Supported-0080FF" alt="Synology NAS">
+  <img src="https://img.shields.io/badge/License-MIT-brightgreen" alt="License">
+</p>
+
+---
 
 ## 🚀 项目简介
 
-`iShoot` 是一个利用Gemini 免费API额度生成的测试用网站，VScode+cline+Gemini Balance 7个Key轮询开发。网站99%的代码是由AI自动生成。
-iShoot是一个基于 Flask 框架开发的智能彩票数据分析与号码筛选系统。它旨在为用户提供双色球、大乐透以及国内各类彩票的历史开奖数据查询、多维度统计分析、基于自定义规则的号码预测以及规则符合度检查功能。通过直观的图表和详细的数据展示，帮助用户更好地理解彩票趋势，辅助决策。
-本项目是利用个人爱好练手，仅供大家批评和娱乐。
-后记：此版本后因网站代码相对较多，免费额度已经无法配合生成合格的网站代码，暂时中止了开发，网站功能框架基本形成，可以生成按后台预设参数生成的筛选号码，之后可以进一步扩展到其它彩种的查询，统计，筛选，核对追号的功能，如放在公网，对网站的安全机制也需要严格升级，后续如果有机会再看情况继续升级。
+`iShoot` 是一个基于 **Flask 3 + SQLite/MySQL + Bootstrap 5.3** 构建的专业级彩票数据智能分析、走势可视化、号码科学缩水筛选与投资收益（ROI）核算系统。
 
-## ✨ 主要功能
+系统针对国内主流彩种——**双色球（SSQ）**与**超级大乐透（DLT）**，完整适配了 **2026年最新开奖规则与奖金计算机制**（双色球“福运奖”、大乐透新7级奖金结构及追加投注浮动奖机制）。系统集成了现代轻科技风格 UI，原生支持白天/暗黑模式自适应切换与立体 3D 晶莹彩票球展示，兼具极佳的可视化表现与严谨的概率算法。
 
-*   **历史开奖数据查询：**
-    *   按彩种（双色球/大乐透）切换查看历史开奖数据。
-    *   支持按日期范围筛选开奖记录。
-    *   支持自定义每页显示数量。
-    *   显示每期开奖的红球、蓝球、销售额、奖池、一等奖信息、奇偶比、和值等。
-*   **号码统计与可视化：**
-    *   **统计范围筛选：** 可选择统计最近 N 期或所有历史数据。
-    *   **红球/蓝球出现频率：** 统计每个号码在指定范围内的出现次数和频率百分比。
-    *   **红球/蓝球遗漏期数：** 统计每个号码当前的遗漏期数和历史最大遗漏期数。
-    *   **图表展示：** 使用 Chart.js 绘制柱状图，直观展示号码的出现频率和遗漏趋势。
-    *   **详细表格：** 提供可折叠的详细表格，展示所有号码的精确统计数据，并对热号/冷号进行高亮显示。
-*   **预测规则检查：**
-    *   在历史开奖页面，可点击“检查规则”按钮，验证该期开奖号码是否符合预设的预测规则。
-    *   弹窗显示该期号码符合和不符合的具体规则及说明。
-*   **智能号码预测 (TODO)：**
-    *   基于后台配置的预测规则，生成符合条件的预测号码组合。
-    *   支持单式和复式投注的号码生成。
-*   **后台管理系统：**
-    *   **网站设置：** 管理员可在线配置网站名称、URL、投注价格、分页大小、以及所有预测规则的参数（包括新添加的蓝球出现频率规则等）。
-    *   **数据更新：** 支持手动触发最新开奖数据更新，或手动添加单期开奖数据。
-    *   **新闻管理：** 发布、编辑、删除新闻公告，控制是否在首页显示和是否公开。
-    *   **设置备份与恢复：** 支持下载当前设置备份，或恢复为默认设置。
-*   **定时任务：** 后台自动定时更新最新开奖数据。
-*   **响应式设计：** 基于 Bootstrap 框架，适配不同设备屏幕。
+---
 
-## ⚙️ 技术栈
+## ✨ 核心功能特性
 
-*   **后端：** Python, Flask, Flask-SQLAlchemy, APScheduler
-*   **数据库：** SQLite (默认，可配置为其他关系型数据库)
-*   **前端：** HTML5, CSS3 (Bootstrap 5), JavaScript (Chart.js)
-*   **数据源：** 外部彩票数据接口 (通过 `data_manager.py` 实现)
+### 1. 📊 开奖数据全量管理与自动采集
+* **实时/历史开奖同步**：内置定时任务引擎（APScheduler），每天自动自外部权威接口同步最新双色球与大乐透开奖结果；支持手动补全与单期更新。
+* **数据维度完备**：覆盖期号、开奖日期、前/后区出球顺序、销售总额、奖池滚存金额、各级奖项中奖注数及单注奖金。
+* **多维条件检索**：支持按彩种、开奖年份、日期区间及自定义分页大小灵活筛选。
 
-## 📦 安装与运行
+### 2. 📈 高阶号码统计与走势可视化
+* **冷热号与出现频率分析**：多周期（最近 N 期 / 全历史）统计红蓝球出现频次、占比百分比。
+* **遗漏期数追踪**：精准计算每个号码的当前连续遗漏期数与历史最大遗漏极值。
+* **动态图表呈现**：结合 Chart.js 绘制直观的出现频率柱状图与遗漏走势图，支持热冷号智能视觉高亮。
 
-### 前提条件
+### 3. 🎯 科学智能号码缩水与过滤引擎
+* **核心过滤算法**：支持数十项自定义概率与结构过滤规则（连号形态、奇偶比、区间比、和值跨度、冷热权重、高遗漏降权阈值等）。
+* **历史回测与规则检验**：支持将任意一期真实开奖号码与预设规则进行反向交叉比对，验证规则有效性。
+* **批量模拟选号**：支持按“规则严格筛选”或“概率加权随机”快速生成投注建议，降低大复式投注成本。
 
-*   Python 3.8+
-*   pip (Python 包管理器)
+### 4. 🏆 对奖中心与投资回报率 (ROI) 精算
+* **全投注形态核验**：完美支持单式投注、复式投注以及大乐透 1 元追加投注的批量中奖核验。
+* **收益财务看板**：自动精算总投入金额、各级中奖总金额、净盈亏损益与 ROI 百分比，提供直观的盈亏视觉反馈。
+* **2026 新规专享支持**：双色球奖池 ≥15 亿元自动触发福运奖核对；大乐透奖池 >8 亿元自动联动浮动奖金测算。
 
-### 步骤
+### 5. 👥 多用户体系与追号中心
+* **分级权限与用户隔离**：支持普通会员与系统管理员，各用户独立维护个人资产。
+* **心仪号码收藏**：随时收藏看好的号码组合，一键送入筛选或对奖中心。
+* **已购彩票追号管理**：登记实际购买的彩票注单，系统开奖后自动触发中奖核算。
+* **注册与安全机制**：内置 PIL 图形验证码防刷、密码强度检测、支持开启管理员邀请码注册模式。
 
-1.  **克隆仓库：**
-    ```bash
-    git clone https://github.com/anddyshen/iShoot8.git
-    cd iShoot8
-    ```
+### 6. 🔔 多渠道主动消息通知系统
+* **站内信 (In-App)**：顶部导航栏带未读消息小铃铛徽章与即时预览下拉。
+* **SMTP 邮件推送**：支持开奖提醒、中奖战报、密码重置验证等邮件通知。
+* **群晖 Synology Chat**：支持通过 Webhook 将开奖和中奖提醒直接推送到群晖 NAS 个人或团队聊天频道。
 
-2.  **创建并激活虚拟环境：**
-    ```bash
-    python -m venv venv
-    or
-    conda create -n env_name
-    # Windows
-    .\venv\Scripts\activate
-    or
-    conda activate env_name
-    # macOS/Linux
-    source venv/bin/activate
-    ```
+### 7. 🎨 现代设计系统 (Modern Tech Dashboard)
+* **原生暗黑模式**：顶栏一键切换白天/暗黑模式，零白闪平滑过渡，夜间护眼。
+* **3D 晶莹立体号码球**：高光径向渐变、立体投影、悬停放大与连号彩色高光圈。
+* **分级设置菜单**：右上角用户头像下拉菜单清晰分离“普通用户个人偏好设置”与“管理员系统设置”。
 
-3.  **安装依赖：**
-    ```bash
-    pip install -r requirements.txt
-    ```
+---
 
-4.  **配置环境变量：**
-    在项目根目录下创建 `.env` 文件，并添加以下内容：
-    ```
-    FLASK_SECRET_KEY="your_super_secret_key_here" # 替换为随机生成的强密钥
-    ADMIN_PASSWORD="your_admin_password"          # 替换为您的管理员密码
-    # SQLALCHEMY_DATABASE_URI="sqlite:///instance/lottery.db" # 默认使用SQLite，可根据需要修改
-    ```
-    *提示：您可以使用 `python -c 'import os; print(os.urandom(24).hex())'` 生成一个随机密钥。*
+## 🛠️ 技术栈
 
-5.  **初始化数据库：**
-    ```bash
-    flask db init
-    flask db migrate -m "Initial migration."
-    flask db upgrade
-    ```
-    这将创建 `instance/lottery.db` 文件和所有必要的数据库表。
+* **后端服务**：Python 3.11 / 3.13、Flask 3.1.3、Flask-SQLAlchemy 3.1、Flask-Login、Flask-Mail、Flask-Migrate
+* **后台任务**：APScheduler 3.11（支持 Cron 定时调度与动态参数更新）
+* **生产服务器**：Gunicorn 26.2（支持单/多工作线程与健康检查）
+* **数据库**：SQLite 3（默认轻量免配置，数据存储于 `instance/ishoot.db`）/ 可扩展 MySQL
+* **前端框架**：HTML5, CSS3, Bootstrap 5.3.2, Bootstrap Icons 1.11, Chart.js
 
-6.  **运行应用：**
-    ```bash
-    python app.py
-    ```
-    应用将在 `http://127.0.0.1:5000/` 运行。
+---
 
-## 🌐 使用指南
+## 🐳 群晖 NAS (Synology Container Manager) 部署指南
 
-### 访问前端页面
+群晖 Container Manager（原 Docker 套件）支持通过项目（docker-compose）一键构建运行，步骤如下：
 
-打开浏览器访问 `http://127.0.0.1:5000/`。
+### 步骤 1：上传项目代码到群晖
+在群晖 File Station 中，打开 `docker` 共享文件夹，新建目录 `ishoot`（路径为 `/docker/ishoot`），将本项目所有代码解压上传至该文件夹中。
 
-*   **首页 (`/`)：** 显示最新开奖信息和新闻。
-*   **历史开奖 (`/history`)：**
-    *   选择彩种（双色球/大乐透）。
-    *   使用日期范围和统计范围筛选数据。
-    *   查看号码统计图表和详细表格。
-    *   点击每期旁边的“检查规则”按钮，查看该期号码是否符合预测规则。
-*   **号码预测 (`/prediction`)：** 在此页面生成筛选后的优选号码。
-*   **对奖中心 (`/prize_check`)：** 在此页面进行自定义号码兑奖和趣味游戏。
-*   **新闻详情 (`/news/<id>`)：** 查看具体新闻内容。 TODO：将来丰富信息展示和抓取
-*   **TODO：根据现有框架扩展到其他彩种
-*   **TODO：引入AI问答
-*   **TODO：个人彩票上传识别保存对奖提醒，追号建议等
-*   **TODO：开发API接口协议
-*   **TODO：基于用户的整站管理
-*   **TODO：彩民社交交流功能
-*   **TODO：整合线下流量及线上采购商城功能
-*   **TODO：增加趋势号码生成功能，利用回测实际产生的数据筛选号码。
-*   **TODO：网站数据库升级
-*   **TODO：网站安全框架升级
+### 步骤 2：在群晖 Container Manager 中创建项目
+1. 打开群晖 DSM 的 **Container Manager**；
+2. 点击左侧导航栏的 **“项目 (Project)”** -> 点击 **“新增 (Create)”**；
+3. 填写配置：
+   - **项目名称**：`ishoot`
+   - **路径**：选择刚才上传的文件夹 `/docker/ishoot`
+   - **来源**：选择 **“创建 docker-compose.yaml”** 或 **“使用现有的 docker-compose.yaml”**；
+4. 点击“下一步”并勾选“构建完成后立即启动”，系统将全自动编译镜像并拉起服务！
 
-### 访问后台管理
+### 步骤 3：访问与注意事项
+* 部署成功后，在浏览器中访问：`http://<群晖局域网IP>:5005/`
+* **重要端口提示**：
+  > ⚠️ 群晖 DSM 默认的管理端口就是 5000。因此本项目的 Docker 映射端口已预设为 **`5005:5000`**，完全避开了群晖 DSM 5000 端口冲突！如需修改宿主机端口，只需调整 compose 中的 `5005` 即可。
+* **数据安全持久化**：
+  > 数据库保存在 `/docker/ishoot/instance/ishoot.db`，所有系统设置与追号历史在容器更新或重启后均永久保留。
 
-打开浏览器访问 `http://127.0.0.1:5000/admin` (或您在 `config.py` 中设置的 `ADMIN_ROUTE_PREFIX`)。
+---
 
-*   **登录：** 使用 `.env` 文件中配置的 `ADMIN_PASSWORD` 进行登录。
-*   **仪表盘 (`/admin`)：** 后台管理首页。
-*   **网站设置 (`/admin/settings`)：**
-    *   修改网站基本信息。
-    *   调整预测规则的各项参数，例如：
-        *   `ssq_red_omit_1_weight` (双色球红球遗漏权重)
-        *   `ssq_blue_recent_occurrence_draws` (双色球蓝球最新出现频率检查期数)
-        *   `ssq_blue_recent_occurrence_threshold` (双色球蓝球出现次数阈值)
-        *   `ssq_blue_recent_occurrence_weight` (双色球蓝球提升概率)
-        *   以及对应的大乐透参数 `dlt_...`
-        *   `history_stats_range_default` 和 `history_stats_range_options` (历史统计范围)
-    *   下载设置备份或恢复默认设置。
-*   **数据更新 (`/admin/data_update`)：**
-    *   手动触发最新开奖数据抓取。
-    *   手动添加单期开奖数据。
-    *   TODO：增加信息更新源头，爬虫官方网站。
-*   **新闻管理 (`/admin/news_manage`)：** 发布、编辑、删除新闻。
+## 📦 标准 Docker / Docker Compose 部署
 
-## 📁 项目结构
+适用于任何标准的 Linux 服务器、VPS、Unraid、极空间或绿联等 NAS 设备：
 
+```bash
+# 1. 克隆代码仓库
+git clone https://github.com/anddyshen/iShoot8.git
+cd iShoot8
+
+# 2. 一键构建并启动后台容器
+docker-compose up -d --build
+
+# 3. 查看容器运行日志与状态
+docker-compose logs -f
 ```
-iShoot8/
-├── .gitattributes
-├── .gitignore
-├── admin_routes.py         # 后台管理页面的路由定义和逻辑
-├── app.py                  # Flask 应用主入口，初始化应用、数据库、定时任务等
-├── config.py               # 全局配置，包括数据库URI、网站设置、管理员密码等
-├── data_manager.py         # 负责从外部接口抓取和更新彩票数据
-├── iShoot 预测规则.txt     # 预测规则文档
-├── iShoot 预测AI规则.txt   # AI预测规则文档
-├── ishoot grok生成提示词.txt # Grok生成提示词文档
-├── LICENSE                 # 项目许可证文件
-├── models.py               # SQLAlchemy 数据库模型定义 (SSQDraw, DLTDraw, News, Settings等)
-├── news_manager.py         # 新闻管理相关逻辑
-├── prediction_engine.py    # 核心预测逻辑和规则实现
-├── README.md               # 项目说明文档
-├── requirements.txt        # 项目依赖包列表
-├── routes.py               # 前端页面路由定义
-├── utils.py                # 辅助函数，如号码格式化、奇偶和值计算、遗漏统计等
-├── VERSION                 # 版本信息文件
-├── .env                    # 环境变量配置 (敏感信息，不在版本控制中)
-├── instance/               # 实例文件夹，包含数据库文件和运行时设置
-│   ├── lottery.db          # SQLite 数据库文件 (如果使用SQLite)
-│   └── settings.json       # 运行时网站设置的持久化文件
-├── migrations/             # Flask-Migrate 数据库迁移文件
-│   └── versions/           # 迁移版本文件
-├── static/                 # 静态资源 (CSS, JS, 图片等)
-│   ├── css/
-│   │   └── style.css       # 自定义样式表
-│   ├── img/                # 图片资源
-│   └── js/
-│       └── script.js       # 自定义JavaScript脚本
-├── templates/              # HTML 模板文件
-│   ├── base.html           # 基础模板，定义了网站的整体布局
-│   ├── history.html        # 历史开奖数据及统计页面
-│   ├── index.html          # 网站首页
-│   ├── news_detail.html    # 新闻详情页面
-│   ├── prediction.html     # 号码预测页面 (TODO)
-│   ├── prize_check.html    # 兑奖中心页面 (TODO)
-│   ├── statistics.html     # 统计页面
-│   ├── admin/              # 后台管理模板
-│   │   ├── base.html       # 后台管理基础模板
-│   │   ├── dashboard.html  # 后台管理仪表盘
-│   │   ├── data_update.html# 后台数据更新页面
-│   │   ├── login.html      # 后台登录页面
-│   │   ├── news_manage.html# 后台新闻管理页面
-│   │   └── settings.html   # 后台网站设置页面
-│   └── components/         # 可重用组件模板
-│       ├── lottery_balls.html      # 彩票球显示组件
-│       └── stats_chart_and_table.html # 统计图表和表格组件
-└── uploads/                # 用户上传文件 (例如图片)
-    └── tickets/            # 票据上传目录
+访问地址：`http://<服务器IP>:5005/`
+
+---
+
+## 💻 本地开发环境安装与启动
+
+如果您需要在本地调试或开发：
+
+### 1. 准备环境
+* Python 3.11 或 3.12 / 3.13
+* Git
+
+### 2. 克隆与安装
+```bash
+git clone https://github.com/anddyshen/iShoot8.git
+cd iShoot8
+
+# 创建虚拟环境
+python -m venv .venv
+
+# 激活虚拟环境 (Windows PowerShell)
+.\.venv\Scripts\Activate.ps1
+# 或 (Linux / macOS)
+source .venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
 ```
 
-## 💡 未来增强
+### 3. 运行项目
+* **Windows 一键运行**：直接双击根目录下的 [`run.bat`](file:///d:/Projects/iShoot8/run.bat)；
+* **命令行运行**：
+  ```bash
+  python app.py
+  ```
+* **VSCode 调试**：直接打开项目，按键盘 **F5** 即可进入断点调试模式（已预置 `.vscode/settings.json` 与 `.vscode/launch.json`）。
 
-*   完善大乐透的预测规则和检查逻辑。
-*   实现号码预测页面，展示生成的预测号码。
-*   实现兑奖中心页面，支持用户输入号码进行兑奖。
-*   增加更多高级统计图表和分析维度（如大小比、质合比、012路等）。
-*   优化数据库查询性能，尤其是在处理大量历史数据时。
-*   实现用户管理和权限控制。
-*   将网站设置从 `settings.json` 迁移到数据库中进行管理。
-*   增加更多的用户互动及娱乐体验。
+---
 
-## 🤝 贡献
+## 🔑 默认初始账号与后台入口
 
-欢迎任何形式的贡献！如果您有任何建议、Bug 报告或功能请求，请随时提交 Issue 或 Pull Request。
+首次启动时，系统会自动完成数据库建表并初始化管理员账号：
 
-## 📄 许可证
+| 账号类型 | 用户名 | 默认初始密码 | 权限说明 |
+| :--- | :--- | :--- | :--- |
+| **超级管理员** | `admin` | `admin123` | 拥有全部管理权限（请登录后在个人中心立即修改密码！） |
 
-本项目采用 MIT 许可证。详情请参阅 `LICENSE` 文件。
+* **前台首页**：`http://127.0.0.1:5000/`
+* **后台管理安全混淆入口**：`http://127.0.0.1:5000/admin_xyz12/`
+  *(路由前缀可在 `.env` 或 `config.py` 中的 `ADMIN_ROUTE_PREFIX` 自行修改)*
 
-## 📧 联系方式
+---
 
-如果您有任何问题，可以通过以下方式联系我：
-*   GitHub Issue
-*   Email: anddy.shen@outlook.com
+## ⚠️ 免责声明 (Disclaimer)
 
+1. 本项目所有代码及算法仅供 Python/Flask 编程学习、数据可视化研究与数学趣味探讨。
+2. 彩票开奖结果属于完全随机事件，任何历史统计、遗漏分析及缩水过滤算法均**无法**改变概率学中奖期望。
+3. 请广大用户理性娱乐，严禁利用本项目进行任何形式的非法博彩或商业兜售活动。
+
+---
+
+## 📄 授权协议
+
+本项目基于 [MIT License](LICENSE) 开源。欢迎 Star、Fork 与提交 Pull Request！
