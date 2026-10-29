@@ -490,7 +490,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // --- 规则检查按钮逻辑（使用模态框，与号码筛选页面一致）---

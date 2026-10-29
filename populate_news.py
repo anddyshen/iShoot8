@@ -97,3 +97,4 @@ for p in db_paths:
         print(f'Successfully updated {p}, total news count: {count}')
     except Exception as e:
         print(f'Error updating {p}: {e}')
+
