@@ -53,7 +53,20 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 # 初始化 APScheduler
+# 初始化 APScheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Shanghai'))
+
+# ==================== 安全响应头加固 ====================
+@app.after_request
+def set_security_headers(response):
+    """注入现代 Web 安全响应头，防御点击劫持、MIME嗅探与跨站利用"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    return response
+# =======================================================
 
 # ==================== 邮件配置 ====================
 app.config['MAIL_SERVER'] = CURRENT_SETTINGS.get('smtp_server', '')
